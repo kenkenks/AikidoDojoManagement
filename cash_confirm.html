@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <style>
+      body {
+        font-family: sans-serif;
+        font-size: 18px;
+        padding: 16px;
+      }
+      .row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 0;
+        border-bottom: 1px solid #ddd;
+      }
+      .name {
+        flex: 1;
+        font-weight: bold;
+      }
+      .amount {
+        width: 100px;
+        text-align: right;
+      }
+      button {
+        font-size: 18px;
+        padding: 10px 16px;
+        margin-top: 16px;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>現金受け取り確認</h2>
+
+    <div id="list">読み込み中...</div>
+
+    <button onclick="approveSelected()">追加更新</button>
+
+    <script>
+      function load() {
+        google.script.run
+          .withSuccessHandler(render)
+          .withFailureHandler(err => {
+            document.getElementById("list").innerText = err.message;
+          })
+          .getPendingCashRequestsForConfirm();
+      }
+
+      function render(rows) {
+        const list = document.getElementById("list");
+
+        if (!rows || rows.length === 0) {
+          list.innerHTML = "<p>要求中の現金支払いはありません。</p>";
+          return;
+        }
+
+        list.innerHTML = rows.map(r => `
+          <div class="row">
+            <input type="checkbox" value="${r.requestId}">
+            <div class="name">${r.memberName}</div>
+            <div class="amount">${r.amount.toLocaleString()}円</div>
+          </div>
+        `).join("");
+      }
+
+      function approveSelected() {
+        const ids = Array.from(
+          document.querySelectorAll("input[type=checkbox]:checked")
+        ).map(el => el.value);
+
+        google.script.run
+          .withSuccessHandler(res => {
+            alert(res.message);
+            load();
+          })
+          .withFailureHandler(err => {
+            alert("エラー: " + err.message);
+          })
+          .approveCashRequests(ids);
+      }
+
+      load();
+    </script>
+  </body>
+</html>

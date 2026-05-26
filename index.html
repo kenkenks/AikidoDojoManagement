@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+      body {
+        font-family: sans-serif;
+        font-size: 28px;
+        padding: 24px;
+        line-height: 1.7;
+      }
+      .card {
+        font-size: 28px;
+        border: 1px solid #ddd;
+        border-radius: 12px;
+        padding: 20px;
+        max-width: 420px;
+      }
+      .amount {
+        font-size: 56px;
+        font-weight: bold;
+      }
+      button {
+        font-size: 28px;
+        padding: 12px 20px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h2>道場会費確認 T0526</h2>
+
+      <div id="content">読み込み中...</div>
+
+      <div id="action" style="margin-top:20px;"></div>
+    </div>
+
+    <script>
+      const memberId = "<?= memberId ?>";
+
+      function load() {
+        console.log("index.html <<load>>");
+        google.script.run
+          .withSuccessHandler(render)
+          .withFailureHandler(err => {
+            document.getElementById("content").innerText = err.message;
+          })
+          .getPaymentStatus(memberId);
+
+        console.log("index.html <<load>> end");
+      }
+
+      function render(data) {
+        const content = document.getElementById("content");
+        const action = document.getElementById("action");
+
+        action.innerHTML = "";
+
+        console.log("index.html <<render>>L63");
+
+        if (!data.ok) {
+          content.innerHTML = `<p>${data.message}</p>`;
+          return;
+        }
+
+        console.log("index.html <<render>>L70");
+
+        if (data.status === "未宣言") {
+          content.innerHTML = `
+            <p><strong>${data.memberName}</strong> さん</p>
+            <p>対象月：${data.targetMonth}</p>
+            <p>${data.message}</p>
+          `;
+
+          action.innerHTML = `
+            <button onclick="declarePlan('月会費')">月会費</button>
+            <br><br>
+            <button onclick="declarePlan('回数料金')">回数料金</button>
+            <br><br>
+            <button onclick="declarePlan('休会')">休会</button>
+          `;
+          return;
+        }
+
+        console.log("index.html <<render>> L87");
+
+        const billedTotal = Number(data.billedTotal || 0);
+        console.log("index.html <<render>> L90");
+
+        const paidTotal = Number(data.paidTotal || 0);
+        const unpaidAmount = Number(data.unpaidAmount || 0);
+        const monthlyCap = Number(data.monthlyCap || 0);
+
+        console.log("index.html <<render>> monthlyCap:");
+
+        content.innerHTML = `
+          <p><strong>${data.memberName}</strong> さん</p>
+          <p>対象月：${data.targetMonth}</p>
+          <p>会費タイプ：${data.planType || "-"}</p>
+          <p>--------------------------</p>
+          <p>状態：<strong>${data.status}</strong></p>
+
+          <p>請求額（月総額）：${billedTotal.toLocaleString()}円</p>
+          <p>入金済：${paidTotal.toLocaleString()}円</p>
+          <p>未払い額：${unpaidAmount.toLocaleString()}円</p>
+          <p>月額上限：${monthlyCap ? monthlyCap.toLocaleString() + "円" : "-"}</p>
+
+          <p>${data.message}</p>
+        `;
+
+        console.log("index.html <<render>>");
+
+        if (data.todayAttendanceRegistered) {
+
+          action.innerHTML += `
+            <p>✓ 本日は出席登録済みです</p>
+          `;
+        }
+
+        if (data.status === "未払い" && Number(data.unpaidAmount || 0) > 0) {
+          action.innerHTML += `
+            <p>--------------------------</p>
+            <button onclick="openPayPay()">PayPayで支払う</button>
+            <br><br>
+            <button onclick="payDemo()">デモ：支払済にする</button>
+          `;
+        }
+
+        if(data.status === "未払い" && Number(data.unpaidAmount || 0) > 0 && data.cashRequestsLen === 0) {
+          action.innerHTML += `
+            <br><br>
+            <button onclick="requestCash()">現金で支払う</button>
+          `;
+        } else {
+          action.innerHTML += `
+            <br><br>
+            <p>!!現金支払い要求済：（${data.cashRequestsLen}）件</p>
+          `;
+        }
+
+
+        if (
+          data.status !== "未宣言" &&
+          !data.todayAttendanceRegistered
+        ) {
+          action.innerHTML += `
+            <p>--------------------------</p>
+            <button onclick="registerAttendance()">本日の出席を登録(${data.lessonCount+1}回目)</button>
+          `;
+        } else {
+          action.innerHTML += `
+            <p>--------------------------</p>
+            <button onclick="registerAttendance()">本日の出席を登録(${data.lessonCount+1}回目以降)</button>
+          `;
+        }
+
+      }
+
+
+      function payDemo() {
+        console.log("**** payDemo start ****");
+
+        document.getElementById("action").innerHTML = "処理しています…";
+
+        google.script.run
+          .withSuccessHandler(res => {
+            console.log("SUCCESS:", res);
+            if (res.ok) {
+              alert(res.message);
+              document.getElementById("action").innerHTML = "支払いが完了しました";
+            } else {
+              alert("エラー: " + res.message);
+              document.getElementById("action").innerHTML = "エラーが発生しました";
+            }
+            load();
+          })
+          .withFailureHandler(err => {
+            console.log("ERROR:", err);
+            alert("システムエラー: " + err.message);
+            document.getElementById("action").innerHTML = "システムエラー";
+          })
+          .demoPay(memberId);
+      }
+
+      function declarePlan(planType) {
+        document.getElementById("action").innerHTML = "登録しています…";
+
+        google.script.run
+          .withSuccessHandler(res => {
+            alert(res.message);
+            load();
+          })
+          .withFailureHandler(err => {
+            alert("エラー: " + err.message);
+            document.getElementById("action").innerHTML = "エラーが発生しました";
+          })
+          .declareMonthlyPlan(memberId, planType);
+      }
+
+
+      //
+      //　課金系
+      //
+      // PayPay
+      function openPayPay() {
+
+          //白井由紀　送金URL（１０円）
+          const paypayUrl = "https://paypay.onelink.me/EUKm?pid=QRCode&link_key=https%3A%2F%2Fqr.paypay.ne.jp%2Fp2p01_aMoVbqi1sLCM7ct6&af_dp=paypay%3A%2F%2Fpayment&af_ios_url=https%3A%2F%2Fpaypay.ne.jp%2F&af_android_url=https%3A%2F%2Fpaypay.ne.jp%2F&af_web_dp=https%3A%2F%2Fpaypay.ne.jp%2F&af_force_deeplink=true";
+
+          window.open(paypayUrl, "_blank");
+        }  
+
+      // 現金リクエスト
+      function requestCash() {
+        document.getElementById("action").innerHTML = "処理しています…";
+
+        google.script.run
+          .withSuccessHandler(res => {
+
+            alert(res.message);
+
+            load();
+          })
+          .withFailureHandler(err => {
+
+            alert("エラー: " + err.message);
+
+          })
+          .requestCashPayment(memberId);
+      }
+
+      //出席を登録
+      function registerAttendance() {
+        document.getElementById("action").innerHTML = "出席を登録しています…";
+        
+        console.log("index.html <<registerAttendance()>> ");
+
+        google.script.run
+          .withSuccessHandler(res => {
+            alert(res.message);
+            load();
+          })
+          .withFailureHandler(err => {
+            alert("システムエラー: " + err.message);
+            document.getElementById("action").innerHTML = "システムエラー";
+          })
+          .registerAttendance(memberId);
+      }
+
+      load();
+    </script>
+  </body>
+</html>
