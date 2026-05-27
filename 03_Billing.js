@@ -10,19 +10,24 @@
 //
 function declareMonthlyPlan(memberId, planType) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const memberSheet = ss.getSheetByName("01_会員マスタ");
+
+  // 更新シート
   const monthlySheet = ss.getSheetByName("04_月次選択");
 
-  const members = readSheet(memberSheet);
+  const ctx = createSheetContext();
+
+  const members = getMembers(ctx);
   const member = members.find(m => m["member_id"] === memberId);
 
+
+  // 該当移動データなし
   if (!member) {
     return { ok: false, message: "会員が見つかりません。" };
   }
 
   const targetMonth = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
 
-  const existing = getMonthlySelection(memberId, targetMonth);
+  const existing = getMonthlySelection(memberId, targetMonth, ctx);
   if (existing) {
     return { ok: false, message: "今月の会費タイプはすでに宣言済みです。" };
   }
@@ -39,40 +44,34 @@ function declareMonthlyPlan(memberId, planType) {
     ""
   ]);
 
-  if (planType === "月会費") {
-    createOrUpdateMonthlyInvoice(memberId, targetMonth, planType);
-  }
+  const invoicePlanTypes = ["月会費", "回数料金", "休会"];
 
-  if(0) {
-    if (planType === "回数料金") {
-      createOrUpdateMonthlyInvoice(memberId, targetMonth, planType);
-    }
-  }
-
-  if (planType === "休会") {
-    createOrUpdateMonthlyInvoice(memberId, targetMonth, planType);
+  if (invoicePlanTypes.includes(planType)) {
+    createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx);
+    updateFeeStatusView(memberId, targetMonth, {
+      "会費タイプ": planType,
+      "更新日時": new Date()
+    });
   }
 
   return { ok: true, message: `${targetMonth} の会費タイプを「${planType}」で登録しました。` };
 }
 
-function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType) {
-
-  Logger.log("48:planType=" + planType);
+function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx) {
+  Logger.log("createOrUpdateMonthlyInvoice(): Start!!");
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  const memberSheet =
-    ss.getSheetByName("01_会員マスタ");
+  // 更新シート
+  const invoiceSheet = ss.getSheetByName("05_請求明細");
+ 
+  ctx = ensureSheetContext(ctx);
 
-  const feeSheet =
-    ss.getSheetByName("03_料金マスタ");
+  const members = getMembers(ctx);
+  const fees = getFees(ctx);
+  const invoices = getInvoices(ctx);
 
-  const invoiceSheet =
-    ss.getSheetByName("05_請求明細");
-
-  const members = readSheet(memberSheet);
-  const fees = readSheet(feeSheet);
+  Logger.log("createOrUpdateMonthlyInvoice(): check ctx!!");
 
   const member = members.find(m =>
     String(m["member_id"]).trim() ===
@@ -85,8 +84,6 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType) {
       message: "会員が見つかりません。"
     };
   }
-
-  Logger.log("76:planType=" + planType);
 
   const normalizedTargetMonth =
     normalizeMonth(targetMonth);
@@ -179,8 +176,8 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType) {
   Logger.log("151:planType=" + planType);
 
   // 既存請求確認
-  const invoices =
-    readSheet(invoiceSheet);
+  //const invoices =
+  //  readSheet(invoiceSheet);
 
   const exists = invoices.find(inv => {
 
@@ -223,6 +220,25 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType) {
     ""
   ]);
 
+  // シートキャッシュクリア
+  invalidateInvoices(ctx);
+
+  const invoiceViewValues = buildInvoiceViewUpdateValues({
+    amount,
+    message: amount === 0
+      ? "休会のため請求はありません。"
+      : `${invoiceName} の請求を作成しました。`
+  });
+
+  updateFeeStatusView(
+    memberId,
+    normalizedTargetMonth,
+    invoiceViewValues
+  );
+
+  // シートキャッシュクリア
+  invalidateFeeStatusView(ctx);
+
   if (planType === "月会費") {
     return {
       ok: true,
@@ -239,16 +255,24 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType) {
 
 }
 
+function getMonthlySelection(memberId, targetMonth, ctx) {
 
-function getMonthlySelection(memberId, targetMonth) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("04_月次選択");
-  const rows = readSheet(sheet);
+  Logger.log("createOrUpdateMonthlyInvoice(): Start!!");
+
+  ctx = ensureSheetContext(ctx);
+
+  const members = getMembers(ctx);
+  const fees = getFees(ctx);
+  const monthlySelections = getMonthlySelections(ctx);
+  const invoices = getInvoices(ctx);
+
+
+  Logger.log("createOrUpdateMonthlyInvoice(): check ctx!!");
 
   const normalizedTargetMonth = normalizeMonth(targetMonth);
   const normalizedMemberId = String(memberId).trim();
 
-  return rows.find(row =>
+  return monthlySelections.find(row =>
     normalizeMonth(row["target_month"]) === normalizedTargetMonth &&
     String(row["member_id"]).trim() === normalizedMemberId
   ) || null;
@@ -517,139 +541,4 @@ function upsertInvoiceAmount(memberId, billingGroupId, targetMonth, invoiceType,
   ]);
 }
 
-
-// ==============================
-// 会費状態取得
-// ==============================
-function getPaymentStatus(memberId) {
-  const t0 = Date.now();
-  
-  perfLog("START getPaymentStatus", t0);
-
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const memberSheet = ss.getSheetByName("01_会員マスタ");
-  const feeSheet = ss.getSheetByName("03_料金マスタ");
-  const invoiceSheet = ss.getSheetByName("05_請求明細");
-  const paymentSheet = ss.getSheetByName("06_入金ログ");
-  const attendanceSheet = ss.getSheetByName("07_出席ログ");
-  const cashRequestsSheet = ss.getSheetByName("09_現金支払い要求");
-
-  const members = readSheet(memberSheet);
-  const fees = readSheet(feeSheet);
-  let invoices = readSheet(invoiceSheet);
-  const payments = readSheet(paymentSheet);
-  const attendances = readSheet(attendanceSheet);
-  const cashRequests = readSheet(cashRequestsSheet);
-
-  const cashRequestsByMemberId = filterBySheet(memberId, cashRequests, "状態", "要求中");
-  const cashRequestsLen = cashRequestsByMemberId.length;
-  const targetMonth = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
-
-  const cashPayCount = filterBySheetByDate(memberId, cashRequests, "target_month", targetMonth).length;
-  const lessonCount = filterBySheetByDate(memberId, attendances, "target_month", targetMonth).length;
-
-  const selection = getMonthlySelection(memberId, targetMonth);
-  const member = members.find(m => m["member_id"] === memberId);
-  if (!member) {
-    return { ok: false, message: "会員が見つかりません。" };
-  }
-
-  if (!selection) {
-    return {
-      ok: true,
-      memberName: member["氏名"],
-      billingGroupId: member["請求グループID"],
-      targetMonth,
-      status: "未宣言",
-      amount: 0,
-      message: "今月の会費タイプを選択してください。"
-    };
-  }
-
-  if (selection["会費タイプ"] === "回数料金") {
-    updatePerVisitInvoice(members, fees, payments, attendances, memberId, targetMonth);
-
-    // 回数料金の請求明細更新後に再読込
-    invoices = readSheet(invoiceSheet);
-  }
-
-  const memberInvoices = invoices.filter(inv =>
-    normalizeMonth(inv["target_month"]) === targetMonth &&
-    inv["billing_group_id"] === member["請求グループID"]
-  );
-
-  if (memberInvoices.length === 0) {
-    return {
-      ok: true,
-      memberName: member["氏名"],
-      targetMonth,
-      status: "請求なし",
-      amount: 0,
-      message: "「※今月の請求はまだ作成されていません。」"
-    };
-  }
-
-  const total = memberInvoices.reduce((sum, inv) => sum + Number(inv["金額"] || 0), 0);
-
-  const fee = fees.find(f =>
-    String(f["区分"]).trim() === String(member["区分"]).trim() &&
-    String(f["会費タイプ"]).trim() === String(selection["会費タイプ"]).trim()
-  );
-
-  const monthlyCap = fee ? Number(fee["月額上限"] || 0) : 0;
-  const capped = monthlyCap > 0 && total >= monthlyCap;
-
-  const billedTotal = memberInvoices.reduce((sum, inv) => sum + Number(inv["金額"] || 0), 0);
-  const paidTotal = getPaidTotal(payments, targetMonth, member["請求グループID"]);
-  const unpaidAmount = Math.max(billedTotal - paidTotal, 0);
-
-  const paid = unpaidAmount === 0 && billedTotal > 0;
-
-  const today = Utilities.formatDate(
-    new Date(),
-    Session.getScriptTimeZone(),
-    "yyyy-MM-dd"
-  );
-
-  const alreadyAttendedToday =
-    attendances.some(a => {
-
-      const attendanceDate =
-        Utilities.formatDate(
-          new Date(a["日時"]),
-          Session.getScriptTimeZone(),
-          "yyyy-MM-dd"
-        );
-
-      return (
-        String(a["member_id"]).trim() ===
-          String(memberId).trim()
-
-        &&
-
-        attendanceDate === today
-      );
-    });
-
-  return {
-    ok: true,
-    memberName: member["氏名"],
-    billingGroupId: member["請求グループID"],
-    targetMonth,
-    planType: selection["会費タイプ"],
-    status: paid ? "支払済" : "未払い",
-    cashRequestsLen,
-    cashPayCount,
-    todayAttendanceRegistered: alreadyAttendedToday,
-    billedTotal,
-    paidTotal,
-    unpaidAmount,
-    monthlyCap,
-    lessonCount,
-    isCapped: monthlyCap > 0 && billedTotal >= monthlyCap,
-    message: paid
-      ? "今月分は支払い済みです。"
-      : "未払いがあります。"
-  };
-}
 
