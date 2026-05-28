@@ -58,20 +58,34 @@ function getAttendances(ctx) {
 }
 
 function getCashRequests(ctx) {
-  return getSheetRows(ctx, "09_現金支払要求");
+  return getSheetRows(ctx, "09_現金支払い要求");
 }
 
 function getFeeStatusViewRows(ctx) {
   return getSheetRows(ctx, "20_会費状態View");
 }
 
+////------------------------------------------------
 //// シート専用ラッパー関数 (invalidateXXX)
+////
 function invalidateMonthlySelections(ctx) {
   invalidateSheetRows(ctx, "04_月次選択");
 }
 
 function invalidateInvoices(ctx) {
   invalidateSheetRows(ctx, "05_請求明細");
+}
+
+function invalidatePayments(ctx) {
+  invalidateSheetRows(ctx, "06_入金ログ");
+}
+
+function invalidateAttendances(ctx) {
+  invalidateSheetRows(ctx, "07_出席ログ");
+}
+
+function invalidateCashRequests(ctx) {
+  invalidateSheetRows(ctx, "09_現金支払い要求");
 }
 
 function invalidateFeeStatusView(ctx) {

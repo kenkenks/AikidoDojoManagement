@@ -17,6 +17,22 @@ function perfLog(label, t0) {
 function debug_run() {
   memberId = "M002"
   planType = "回数料金"
+  targetMonth = "2026-05";
+
+  const ctx = createSheetContext();
+  
+  vctx = loadPaymentStatusContext(memberId, targetMonth, ctx);
+  ret = buildPaymentStatusViewRow(memberId, targetMonth, vctx);
+  result = updateFeeStatusView(memberId, targetMonth, ret);
+  
+  Logger.log(JSON.stringify(result, null, 2));
+  
+  return { ok: true, message: "処理終了" };
+}
+
+function debug_declareMonthlyPlan() {
+  memberId = "M002"
+  planType = "回数料金"
   const result = declareMonthlyPlan(memberId, planType);
   Logger.log(JSON.stringify(result, null, 2));
   
@@ -24,7 +40,7 @@ function debug_run() {
 }
 
 function debug_registerAttendance() {
-  memberId = "M002"
+  memberId = "M003"
   const result = registerAttendance(memberId);
   Logger.log(JSON.stringify(result, null, 2));
   

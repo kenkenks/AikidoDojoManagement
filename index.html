@@ -32,7 +32,7 @@
   </head>
   <body>
     <div class="card">
-      <h2>道場会費確認 T0526</h2>
+      <h2>道場会費確認 T0528</h2>
 
       <div id="content">読み込み中...</div>
 
@@ -44,9 +44,15 @@
 
       function load() {
         console.log("index.html <<load>>");
+        console.log("memberId=", memberId);
+          
         google.script.run
-          .withSuccessHandler(render)
+          .withSuccessHandler(data => {
+            console.log("getPaymentStatus result=", data);
+            render(data);
+          })
           .withFailureHandler(err => {
+            console.error("getPaymentStatus error=", err);
             document.getElementById("content").innerText = err.message;
           })
           .getPaymentStatus(memberId);
@@ -62,11 +68,15 @@
 
         console.log("index.html <<render>>L63");
 
-        if (!data.ok) {
-          content.innerHTML = `<p>${data.message}</p>`;
+        if (!data) {
+          alert("会費状態の取得結果が空です。");
           return;
         }
 
+        if (!data.ok) {
+          alert(data.message || "会費状態を取得できませんでした。");
+          return;
+        }
         console.log("index.html <<render>>L70");
 
         if (data.status === "未宣言") {
@@ -160,6 +170,20 @@
 
       }
 
+      function declarePlan(planType) {
+        document.getElementById("action").innerHTML = "登録しています…";
+
+        google.script.run
+          .withSuccessHandler(res => {
+            alert(res.message);
+            load();
+          })
+          .withFailureHandler(err => {
+            alert("エラー: " + err.message);
+            document.getElementById("action").innerHTML = "エラーが発生しました";
+          })
+          .declareMonthlyPlan(memberId, planType);
+      }
 
       function payDemo() {
         console.log("**** payDemo start ****");
@@ -186,20 +210,6 @@
           .demoPay(memberId);
       }
 
-      function declarePlan(planType) {
-        document.getElementById("action").innerHTML = "登録しています…";
-
-        google.script.run
-          .withSuccessHandler(res => {
-            alert(res.message);
-            load();
-          })
-          .withFailureHandler(err => {
-            alert("エラー: " + err.message);
-            document.getElementById("action").innerHTML = "エラーが発生しました";
-          })
-          .declareMonthlyPlan(memberId, planType);
-      }
 
 
       //

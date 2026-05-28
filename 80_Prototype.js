@@ -5,12 +5,9 @@
 //
 function demoPay(memberId) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-
-    const memberSheet = ss.getSheetByName("01_会員マスタ");
-    const paymentSheet = ss.getSheetByName("06_入金ログ");
-
-    const members = readSheet(memberSheet);
+    const ctx = createSheetContext();
+  
+    const members = getMembers(ctx);
   
     const member = members.find(m =>
       String(m["member_id"]).trim() === String(memberId).trim()
@@ -42,26 +39,27 @@ function demoPay(memberId) {
 
     const paymentId = "PAY-" + Utilities.getUuid().slice(0, 8);
 
-    paymentSheet.appendRow([
+    appendPayment(ctx, {
       paymentId,
-      new Date(),
       targetMonth,
       billingGroupId,
-      "",
-      "デモ支払い",
-      unpaidAmount,
-      "DEMO",
-      "デモ画面から支払済登録"
-    ]);
-
-    // appendRow 後に再読込する
-    const paymentsAfter = readSheet(paymentSheet);
+      memberId: "",
+      method: "デモ支払い",
+      amount: unpaidAmount,
+      paymentType: "DEMO",
+      note: "デモ画面から支払済登録"
+    });
 
     updateInvoiceStatusByPayment(
-      paymentsAfter,
       targetMonth,
-      billingGroupId
+      billingGroupId,
+      ctx
     );
+
+    const vctx = collectPaymentStatusContext(memberId, targetMonth, ctx);
+    const viewRow = buildPaymentStatusViewRow(memberId, targetMonth, vctx);
+    updateFeeStatusView(memberId, targetMonth, viewRow);
+    invalidateFeeStatusView(ctx);
 
     return {
       ok: true,
@@ -71,4 +69,25 @@ function demoPay(memberId) {
   } catch (e) {
     return { ok: false, message: e.message };
   }
+}
+
+
+function appendPayment(ctx, payment) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = ctx.ss.getSheetByName("06_入金ログ");
+
+  sheet.appendRow([
+    payment.paymentId,
+    payment.paidAt || new Date(),
+    payment.targetMonth,
+    payment.billingGroupId,
+    payment.memberId || "",
+    payment.method || "デモ支払い",
+    payment.amount,
+    payment.paymentType || "DEMO",
+    payment.note || ""
+  ]);
+
+  invalidatePayments(ctx);
 }

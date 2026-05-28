@@ -34,27 +34,47 @@ function declareMonthlyPlan(memberId, planType) {
 
   Logger.log("22:planType=" + planType);
 
-  monthlySheet.appendRow([
+  appendMonthlySelection(
+    ctx,
     targetMonth,
     memberId,
     member["請求グループID"],
+    planType
+  );
+
+  const invoicePlanTypes = ["月会費", "回数料金", "休会"];
+
+  if (invoicePlanTypes.includes(planType)) {
+    // 請求明細の書き込み
+    createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx);
+
+    // Viewに書き込む情報収集
+    const vctx = collectPaymentStatusContext(memberId, targetMonth, ctx);
+    // Viewに書き込むkey value
+    const ret = buildPaymentStatusViewRow(memberId, targetMonth, vctx);
+    // Viewに書き込む
+    updateFeeStatusView(memberId, targetMonth, ret);
+  }
+
+  return { ok: true, message: `${targetMonth} の会費タイプを「${planType}」で登録しました。` };
+}
+
+function appendMonthlySelection(ctx, targetMonth, memberId, billingGroupId, planType) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = ctx.ss.getSheetByName("04_月次選択");
+
+  sheet.appendRow([
+    targetMonth,
+    memberId,
+    billingGroupId,
     planType,
     new Date(),
     "有効",
     ""
   ]);
 
-  const invoicePlanTypes = ["月会費", "回数料金", "休会"];
-
-  if (invoicePlanTypes.includes(planType)) {
-    createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx);
-    updateFeeStatusView(memberId, targetMonth, {
-      "会費タイプ": planType,
-      "更新日時": new Date()
-    });
-  }
-
-  return { ok: true, message: `${targetMonth} の会費タイプを「${planType}」で登録しました。` };
+  invalidateMonthlySelections(ctx);
 }
 
 function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx) {
@@ -206,38 +226,19 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx) {
 
   Logger.log("187:planType=" + planType);
 
-  invoiceSheet.appendRow([
+  appendInvoice(ctx, {
     invoiceId,
-    normalizedTargetMonth,
+    targetMonth: normalizedTargetMonth,
     billingGroupId,
     memberId,
     invoiceType,
     invoiceName,
     amount,
-    amount === 0 ? "免除" : "未払い",
-    "",
-    new Date(),
-    ""
-  ]);
-
-  // シートキャッシュクリア
-  invalidateInvoices(ctx);
-
-  const invoiceViewValues = buildInvoiceViewUpdateValues({
-    amount,
-    message: amount === 0
-      ? "休会のため請求はありません。"
-      : `${invoiceName} の請求を作成しました。`
+    status: amount === 0 ? "免除" : "未払い",
+    paidAt: "",
+    createdAt: new Date(),
+    note: ""
   });
-
-  updateFeeStatusView(
-    memberId,
-    normalizedTargetMonth,
-    invoiceViewValues
-  );
-
-  // シートキャッシュクリア
-  invalidateFeeStatusView(ctx);
 
   if (planType === "月会費") {
     return {
@@ -255,9 +256,31 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx) {
 
 }
 
+function appendInvoice(ctx, invoice) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = ctx.ss.getSheetByName("05_請求明細");
+
+  sheet.appendRow([
+    invoice.invoiceId,
+    invoice.targetMonth,
+    invoice.billingGroupId,
+    invoice.memberId,
+    invoice.invoiceType,
+    invoice.invoiceName,
+    invoice.amount,
+    invoice.status,
+    invoice.paidAt || "",
+    invoice.createdAt || new Date(),
+    invoice.note || ""
+  ]);
+
+  invalidateInvoices(ctx);
+}
+
 function getMonthlySelection(memberId, targetMonth, ctx) {
 
-  Logger.log("createOrUpdateMonthlyInvoice(): Start!!");
+  Logger.log("getMonthlySelection(): Start!!");
 
   ctx = ensureSheetContext(ctx);
 
@@ -267,7 +290,7 @@ function getMonthlySelection(memberId, targetMonth, ctx) {
   const invoices = getInvoices(ctx);
 
 
-  Logger.log("createOrUpdateMonthlyInvoice(): check ctx!!");
+  Logger.log("getMonthlySelection(): check ctx!!");
 
   const normalizedTargetMonth = normalizeMonth(targetMonth);
   const normalizedMemberId = String(memberId).trim();
@@ -446,7 +469,13 @@ function writeInvoices(sheet, invoices) {
 // 回数料金
 // ==============================
 //回数料金用：請求額を増やす関数
-function updatePerVisitInvoice(members, fees, payments, attendances, memberId, targetMonth) {
+function updatePerVisitInvoice(memberId, targetMonth, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  const members = getMembers(ctx);
+  const fees = getFees(ctx);
+  const payments = getPayments(ctx);
+  const attendances = getAttendances(ctx);
 
   const member = members.find(m =>
     String(m["member_id"]).trim() === String(memberId).trim()
@@ -482,6 +511,7 @@ function updatePerVisitInvoice(members, fees, payments, attendances, memberId, t
     : count * unitPrice;
 
   upsertInvoiceAmount(
+    ctx,
     memberId,
     billingGroupId,
     target,
@@ -490,7 +520,11 @@ function updatePerVisitInvoice(members, fees, payments, attendances, memberId, t
     amount
   );
 
-  updateInvoiceStatusByPayment(payments, target, billingGroupId);
+  updateInvoiceStatusByPayment(
+    target,
+    billingGroupId,
+    ctx
+  );
 
   return {
     ok: true,
@@ -500,9 +534,18 @@ function updatePerVisitInvoice(members, fees, payments, attendances, memberId, t
 }
 
 //請求明細を作成/更新する共通関数
-function upsertInvoiceAmount(memberId, billingGroupId, targetMonth, invoiceType, invoiceName, amount) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const invoiceSheet = ss.getSheetByName("05_請求明細");
+function upsertInvoiceAmount(
+  ctx,
+  memberId,
+  billingGroupId,
+  targetMonth,
+  invoiceType,
+  invoiceName,
+  amount
+) {
+  ctx = ensureSheetContext(ctx);
+
+  const invoiceSheet = ctx.ss.getSheetByName("05_請求明細");
 
   const values = invoiceSheet.getDataRange().getValues();
   const headers = values[0];
@@ -520,6 +563,8 @@ function upsertInvoiceAmount(memberId, billingGroupId, targetMonth, invoiceType,
       invoiceSheet.getRange(r + 1, col["請求種別"] + 1).setValue(invoiceType);
       invoiceSheet.getRange(r + 1, col["表示名"] + 1).setValue(invoiceName);
       invoiceSheet.getRange(r + 1, col["金額"] + 1).setValue(amount);
+
+      invalidateInvoices(ctx);
       return;
     }
   }
@@ -539,6 +584,7 @@ function upsertInvoiceAmount(memberId, billingGroupId, targetMonth, invoiceType,
     new Date(),
     ""
   ]);
-}
 
+  invalidateInvoices(ctx);
+}
 

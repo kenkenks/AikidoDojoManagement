@@ -19,9 +19,11 @@ function getPaidTotal(payments, targetMonth, billingGroupId) {
 
 
 // 請求状態更新関数
-function updateInvoiceStatusByPayment(payments, targetMonth, billingGroupId) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const invoiceSheet = ss.getSheetByName("05_請求明細");
+function updateInvoiceStatusByPayment(targetMonth, billingGroupId, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  const payments = getPayments(ctx); // readSheet済みの配列
+  const invoiceSheet = ctx.ss.getSheetByName("05_請求明細");
 
   const values = invoiceSheet.getDataRange().getValues();
   const headers = values[0];
@@ -29,7 +31,11 @@ function updateInvoiceStatusByPayment(payments, targetMonth, billingGroupId) {
   const col = {};
   headers.forEach((h, i) => col[h] = i);
 
-  const paidTotal = getPaidTotal(payments, targetMonth, billingGroupId);
+  const paidTotal = getPaidTotal(
+    payments,
+    targetMonth,
+    billingGroupId
+  );
 
   for (let r = 1; r < values.length; r++) {
     const row = values[r];
@@ -46,6 +52,8 @@ function updateInvoiceStatusByPayment(payments, targetMonth, billingGroupId) {
         .setValue(status);
     }
   }
+
+  invalidateInvoices(ctx);
 }
 
 //
