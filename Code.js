@@ -12,24 +12,31 @@ function doGet(e) {
 }
 
 function doPost(e) {
-  console.log("===== doPost START =====");
-
-  if (e && e.postData) {
-    console.log(e.postData.contents);
-  } else {
-    console.log("postDataなし");
-  }
-
   const data = JSON.parse(e.postData.contents);
 
-  registerAttendance(
-    data.member_id,
-    data.location_id
-  );
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("09_QR実験ログ")
+    || ss.insertSheet("09_QR実験ログ");
+
+  if (sheet.getLastRow() === 0) {
+    sheet.appendRow([
+      "timestamp",
+      "member_id",
+      "location_id",
+      "source",
+      "raw"
+    ]);
+  }
+
+  sheet.appendRow([
+    new Date(),
+    data.member_id || "",
+    data.location_id || "",
+    data.source || "",
+    e.postData.contents
+  ]);
 
   return ContentService
-    .createTextOutput(
-      JSON.stringify({ ok: true })
-    )
+    .createTextOutput(JSON.stringify({ ok: true }))
     .setMimeType(ContentService.MimeType.JSON);
 }
