@@ -222,39 +222,7 @@
 
       return result;
     }
-
-    function sendToGas(memberId) {
-
-      if (!currentLocationId) {
-        addLog("送信スキップ: location_id未設定");
-        return;
-      }
-
-      const payload = {
-        member_id: memberId,
-        location_id: currentLocationId,
-        source: "github_pages_qr_test"
-      };
-
-      addLog("GAS送信: " + JSON.stringify(payload));
-
-      fetch(GAS_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: {
-          "Content-Type": "text/plain"
-        },
-        body: JSON.stringify(payload)
-      }).then(() => {
-        addLog("GAS一括送信要求完了");
-
-        memberCandidates = [];
-        renderMemberCandidates();
-      }).catch(err => {
-        addLog("GAS送信エラー: " + err);
-      });
-    }
-
+  
     function sendCandidatesToGas() {
       if (!currentTeacherId) {
         addLog("送信スキップ: teacher_id未設定");
