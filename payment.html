@@ -167,16 +167,6 @@
   </div>
 
   <script>
-    const li = document.createElement("li");
-
-    li.className = "payment-row";
-
-    li.innerHTML = `
-      <span class="payment-name">${item.memberName}</span>
-      <span class="payment-amount">${item.amount}円</span>
-      <span class="payment-type">${item.payType}</span>
-    `;
-
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
 
     let html5QrCode = null;
@@ -196,6 +186,16 @@
       "M002": { name: "川本花子", feeType: "回数料金", amount: 3000 },
       "M003": { name: "佐藤一郎", feeType: "月謝", amount: 8000 }
     };
+
+    const li = document.createElement("li");
+
+    li.className = "payment-row";
+
+    li.innerHTML = `
+      <span class="payment-name">${item.memberName}</span>
+      <span class="payment-amount">${item.amount}円</span>
+      <span class="payment-type">${item.payType}</span>
+    `;
 
     function startScan() {
       if (scanning) return;
