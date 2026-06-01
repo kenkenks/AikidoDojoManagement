@@ -246,7 +246,10 @@
         },
         body: JSON.stringify(payload)
       }).then(() => {
-        addLog("GAS送信要求完了");
+        addLog("GAS一括送信要求完了");
+
+        memberCandidates = [];
+        renderMemberCandidates();
       }).catch(err => {
         addLog("GAS送信エラー: " + err);
       });
