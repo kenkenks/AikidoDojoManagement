@@ -187,16 +187,6 @@
       "M003": { name: "佐藤一郎", feeType: "月謝", amount: 8000 }
     };
 
-    const li = document.createElement("li");
-
-    li.className = "payment-row";
-
-    li.innerHTML = `
-      <span class="payment-name">${item.memberName}</span>
-      <span class="payment-amount">${item.amount}円</span>
-      <span class="payment-type">${item.payType}</span>
-    `;
-
     function startScan() {
       if (scanning) return;
 
@@ -393,7 +383,14 @@
 
       paymentList.forEach((payment, index) => {
         const li = document.createElement("li");
-        li.textContent = `${payment.memberId}：${payment.memberName} / ${payment.feeType} / ${formatYen(payment.amount)}円 / ${payment.payType}`;
+
+        li.className = "payment-row";
+
+        li.innerHTML = `
+          <span class="payment-name">${payment.memberName}</span>
+          <span class="payment-amount">${payment.amount.toLocaleString()}円</span>
+          <span class="payment-type">${payment.payType}</span>
+        `;
 
         const deleteButton = document.createElement("button");
         deleteButton.textContent = "削除";
