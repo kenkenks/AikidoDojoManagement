@@ -256,7 +256,7 @@
       if (parsed.member_id) {
         addLog("会員QR読取: " + parsed.member_id);
         beep();
-        setCurrentPayment(parsed.member_id);
+        loadMemberForPayment(parsed.member_id);
         return;
       }
 
@@ -523,6 +523,33 @@
         navigator.vibrate(100);
       }
     }
-  </script>
+
+    function loadMemberForPayment(memberId) {
+      addLog("会員情報取得中: " + memberId);
+
+      google.script.run
+        .withSuccessHandler(result => {
+          if (!result || !result.success) {
+            addLog(result?.message || "会員情報取得エラー");
+            return;
+          }
+
+          currentPayment = {
+            memberId: result.memberId,
+            memberName: result.memberName,
+            feeType: "未取得",
+            amount: 0
+          };
+
+          renderCurrentPayment();
+          addLog("会員情報取得完了: " + result.memberName);
+        })
+        .withFailureHandler(err => {
+          addLog("会員情報取得失敗: " + err.message);
+        })
+        .getMemberInfoForPayment(memberId);
+    }    
+
+</script>
 </body>
 </html>
