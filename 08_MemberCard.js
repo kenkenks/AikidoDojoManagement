@@ -137,3 +137,32 @@ function createMemberCardTemplate() {
 
   Browser.msgBox("会員カードテンプレートを作成しました。B1に会員IDを入力するとカードが切り替わります。");
 }
+
+// 会員会費情報取得
+function getMemberInfoForPayment(memberId) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("01_会員マスタ");
+  const values = sheet.getDataRange().getValues();
+
+  const headers = values[0];
+
+  const idCol = headers.indexOf("会員ID");
+  const nameCol = headers.indexOf("氏名");
+
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i];
+
+    if (row[idCol] === memberId) {
+      return {
+        success: true,
+        memberId: row[idCol],
+        memberName: row[nameCol]
+      };
+    }
+  }
+
+  return {
+    success: false,
+    message: "会員が見つかりません: " + memberId
+  };
+}
