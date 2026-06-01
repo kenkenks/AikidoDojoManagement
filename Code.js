@@ -1,42 +1,92 @@
-function doGet(e) {
-  const mode = e.parameter.mode || "member";
+// function doGet(e) {
+//   const mode = e.parameter.mode || "member";
 
-  if (mode === "qr_test") {
-    return HtmlService
-      .createHtmlOutputFromFile("qr_test")
-      .setTitle("QR読み取り実験")
-      .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
-  }
+//   if (mode === "qr_test") {
+//     return HtmlService
+//       .createHtmlOutputFromFile("qr_test")
+//       .setTitle("QR読み取り実験")
+//       .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+//   }
 
-  return HtmlService.createHtmlOutputFromFile("index");
-}
+//   return HtmlService.createHtmlOutputFromFile("index");
+// }
+
+// function doPost(e) {
+//   const data = JSON.parse(e.postData.contents);
+
+//   const ss = SpreadsheetApp.getActiveSpreadsheet();
+//   const sheet = ss.getSheetByName("09_QR実験ログ")
+//     || ss.insertSheet("09_QR実験ログ");
+
+//   if (sheet.getLastRow() === 0) {
+//     sheet.appendRow([
+//       "timestamp",
+//       "member_id",
+//       "location_id",
+//       "source",
+//       "raw"
+//     ]);
+//   }
+
+//   sheet.appendRow([
+//     new Date(),
+//     data.member_id || "",
+//     data.location_id || "",
+//     data.source || "",
+//     e.postData.contents
+//   ]);
+
+//   return ContentService
+//     .createTextOutput(JSON.stringify({ ok: true }))
+//     .setMimeType(ContentService.MimeType.JSON);
+// }
 
 function doPost(e) {
-  const data = JSON.parse(e.postData.contents);
+  const jsonText = e.postData.contents;
+  const data = JSON.parse(jsonText);
 
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("09_QR実験ログ")
-    || ss.insertSheet("09_QR実験ログ");
-
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow([
-      "timestamp",
-      "member_id",
-      "location_id",
-      "source",
-      "raw"
-    ]);
+  if (Array.isArray(data.member_ids)) {
+    appendBatchAttendanceDemoLog(data, jsonText);
+  } else {
+    appendQrExperimentLog(data, jsonText);
   }
+
+  return ContentService
+    .createTextOutput(JSON.stringify({ ok: true }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function appendBatchAttendanceDemoLog(data, raw) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("QR_出席登録デモログ");
+
+  const now = new Date();
+
+  const rows = data.member_ids.map(memberId => [
+    now,
+    data.teacher_id || "",
+    data.location_id || "",
+    memberId,
+    data.source || "",
+    raw
+  ]);
+
+  if (rows.length > 0) {
+    sheet
+      .getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length)
+      .setValues(rows);
+  }
+}
+
+function appendQrExperimentLog(data, raw) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("QR実験ログ");
 
   sheet.appendRow([
     new Date(),
     data.member_id || "",
     data.location_id || "",
     data.source || "",
-    e.postData.contents
+    raw
   ]);
-
-  return ContentService
-    .createTextOutput(JSON.stringify({ ok: true }))
-    .setMimeType(ContentService.MimeType.JSON);
 }
