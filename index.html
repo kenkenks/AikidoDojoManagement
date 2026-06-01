@@ -290,6 +290,10 @@
         body: JSON.stringify(payload)
       }).then(() => {
         addLog("GAS一括送信要求完了");
+
+        memberCandidates = [];
+        renderMemberCandidates();
+
       }).catch(err => {
         addLog("GAS一括送信エラー: " + err);
       });
