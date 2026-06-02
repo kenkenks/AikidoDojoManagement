@@ -2,39 +2,46 @@
 // Webコントロール
 //--------------------------
 function doGet(e) {
+  const action = e.parameter.action || "";
+
+  if (action === "getMemberInfo") {
+    const memberId = e.parameter.member_id || "";
+    const callback = e.parameter.callback || "";
+    const result = getMemberInfoForPayment(memberId);
+
+    if (callback) {
+      return ContentService
+        .createTextOutput(callback + "(" + JSON.stringify(result) + ");")
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+
+    return ContentService
+      .createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 
   const mode = e.parameter.mode || "status";
   const memberId = e.parameter.member_id || "";
 
-  let fileName;
-  let title;
+  let fileName = "index";
+  let title = "道場会費確認";
 
-  switch(mode) {
-
-    case "pay":
-      fileName = "payment";
-      title = "道場会費集金";
-      break;
-
-    case "status":
-    default:
-      fileName = "index";
-      title = "道場会費確認";
-      break;
+  if (mode === "pay") {
+    fileName = "payment";
+    title = "道場会費集金";
   }
 
-  const template =
-    HtmlService.createTemplateFromFile(fileName);
-
+  const template = HtmlService.createTemplateFromFile(fileName);
   template.memberId = memberId;
   template.mode = mode;
 
   return template.evaluate()
     .setTitle(title)
-    .setXFrameOptionsMode(
-      HtmlService.XFrameOptionsMode.ALLOWALL
-    );
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
+
+
+
 
 // function doPost(e) {
 //   try {

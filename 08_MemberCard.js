@@ -138,6 +138,40 @@ function createMemberCardTemplate() {
   Browser.msgBox("会員カードテンプレートを作成しました。B1に会員IDを入力するとカードが切り替わります。");
 }
 
+// 会員情報取得中
+function loadMemberForPayment(memberId) {
+  addLog("会員情報取得中: " + memberId);
+
+  if (typeof google === "undefined" || !google.script || !google.script.run) {
+    addLog("google.script.run が使えません。GAS Webアプリ経由で開いているか確認してください。");
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(result => {
+      addLog("GAS応答: " + JSON.stringify(result));
+
+      if (!result || !result.success) {
+        addLog(result?.message || "会員情報取得エラー");
+        return;
+      }
+
+      currentPayment = {
+        memberId: result.memberId,
+        memberName: result.memberName,
+        feeType: "未取得",
+        amount: 0
+      };
+
+      renderCurrentPayment();
+      addLog("会員情報取得完了: " + result.memberName);
+    })
+    .withFailureHandler(err => {
+      addLog("会員情報取得失敗: " + JSON.stringify(err));
+    })
+    .getMemberInfoForPayment(memberId);
+}
+
 // 会員会費情報取得
 function getMemberInfoForPayment(memberId) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
