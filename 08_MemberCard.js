@@ -138,58 +138,50 @@ function createMemberCardTemplate() {
   Browser.msgBox("会員カードテンプレートを作成しました。B1に会員IDを入力するとカードが切り替わります。");
 }
 
-// 会員情報取得中
-function loadMemberForPayment(memberId) {
-  addLog("会員情報取得中: " + memberId);
-
-  if (typeof google === "undefined" || !google.script || !google.script.run) {
-    addLog("google.script.run が使えません。GAS Webアプリ経由で開いているか確認してください。");
-    return;
-  }
-
-  google.script.run
-    .withSuccessHandler(result => {
-      addLog("GAS応答: " + JSON.stringify(result));
-
-      if (!result || !result.success) {
-        addLog(result?.message || "会員情報取得エラー");
-        return;
-      }
-
-      currentPayment = {
-        memberId: result.memberId,
-        memberName: result.memberName,
-        feeType: "未取得",
-        amount: 0
-      };
-
-      renderCurrentPayment();
-      addLog("会員情報取得完了: " + result.memberName);
-    })
-    .withFailureHandler(err => {
-      addLog("会員情報取得失敗: " + JSON.stringify(err));
-    })
-    .getMemberInfoForPayment(memberId);
-}
 
 // 会員会費情報取得
 function getMemberInfoForPayment(memberId) {
+  const targetMemberId = String(memberId || "").trim();
+
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   const sheet = ss.getSheetByName("01_会員マスタ");
   const values = sheet.getDataRange().getValues();
 
-  const headers = values[0];
+  const headers = values[0].map(h => String(h).trim());
 
-  const idCol = headers.indexOf("会員ID");
+  const idCol = headers.indexOf("member_id");
   const nameCol = headers.indexOf("氏名");
+
+  if (idCol < 0) {
+    return {
+      success: false,
+      message: "会員ID列が見つかりません",
+      headers: headers
+    };
+  }
+
+  if (nameCol < 0) {
+    return {
+      success: false,
+      message: "氏名列が見つかりません",
+      headers: headers
+    };
+  }
+
+  const sampleIds = [];
 
   for (let i = 1; i < values.length; i++) {
     const row = values[i];
+    const rowMemberId = String(row[idCol] || "").trim();
 
-    if (row[idCol] === memberId) {
+    if (sampleIds.length < 5 && rowMemberId) {
+      sampleIds.push(rowMemberId);
+    }
+
+    if (rowMemberId === targetMemberId) {
       return {
         success: true,
-        memberId: row[idCol],
+        memberId: rowMemberId,
         memberName: row[nameCol]
       };
     }
@@ -197,6 +189,8 @@ function getMemberInfoForPayment(memberId) {
 
   return {
     success: false,
-    message: "会員が見つかりません: " + memberId
+    message: "会員が見つかりません: " + targetMemberId,
+    sampleIds: sampleIds,
+    headers: headers
   };
 }

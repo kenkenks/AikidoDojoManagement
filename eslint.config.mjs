@@ -11,3 +11,30 @@ export default defineConfig([
   { files: ["**/*.md"], plugins: { markdown }, language: "markdown/commonmark", extends: ["markdown/recommended"] },
   { files: ["**/*.css"], plugins: { css }, language: "css/css", extends: ["css/recommended"] },
 ]);
+
+export default [
+  {
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: "script",
+      globals: {
+        SpreadsheetApp: "readonly",
+        HtmlService: "readonly",
+        ContentService: "readonly",
+        Logger: "readonly",
+        Utilities: "readonly",
+        Session: "readonly",
+        ScriptApp: "readonly",
+        Browser: "readonly",
+        UrlFetchApp: "readonly",
+        GmailApp: "readonly",
+        DriveApp: "readonly"
+      }
+    },
+    rules: {
+      "no-redeclare": "error",
+      "no-unused-vars": "warn",
+      "no-undef": "error"
+    }
+  }
+];

@@ -4,42 +4,35 @@
 function doGet(e) {
   const action = e.parameter.action || "";
 
+  Logger.log("action=" + action);
+
   if (action === "getMemberInfo") {
     const memberId = e.parameter.member_id || "";
     const callback = e.parameter.callback || "";
+
     const result = getMemberInfoForPayment(memberId);
+    const json = JSON.stringify(result);
 
     if (callback) {
       return ContentService
-        .createTextOutput(callback + "(" + JSON.stringify(result) + ");")
+        .createTextOutput(callback + "(" + json + ");")
         .setMimeType(ContentService.MimeType.JAVASCRIPT);
     }
 
     return ContentService
-      .createTextOutput(JSON.stringify(result))
+      .createTextOutput(json)
       .setMimeType(ContentService.MimeType.JSON);
   }
 
-  const mode = e.parameter.mode || "status";
+  // 既存の会費確認画面
   const memberId = e.parameter.member_id || "";
-
-  let fileName = "index";
-  let title = "道場会費確認";
-
-  if (mode === "pay") {
-    fileName = "payment";
-    title = "道場会費集金";
-  }
-
-  const template = HtmlService.createTemplateFromFile(fileName);
+  const template = HtmlService.createTemplateFromFile("index");
   template.memberId = memberId;
-  template.mode = mode;
 
   return template.evaluate()
-    .setTitle(title)
+    .setTitle("道場会費確認")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
-
 
 
 

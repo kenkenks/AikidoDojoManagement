@@ -16,6 +16,18 @@ function perfLog(label, t0) {
 //デバック実行用
 function debug_run() {
   memberId = "M002"
+
+  const ctx = createSheetContext();
+  
+  result = getMemberInfoForPayment(memberId);
+  
+  Logger.log(JSON.stringify(result, null, 2));
+  
+  return { ok: true, message: "処理終了" };
+}
+
+function debug_updateFeeStatusView() {
+  memberId = "M002"
   planType = "回数料金"
   targetMonth = "2026-05";
 
