@@ -527,34 +527,43 @@
     function loadMemberForPayment(memberId) {
       addLog("会員情報取得中: " + memberId);
 
+      const callbackName = "onMemberInfoLoaded_" + Date.now();
+
+      window[callbackName] = function(result) {
+        addLog("GAS応答: " + JSON.stringify(result));
+
+        delete window[callbackName];
+
+        if (!result || !result.success) {
+          addLog(result?.message || "会員情報取得エラー");
+          return;
+        }
+
+        currentPayment = {
+          memberId: result.memberId,
+          memberName: result.memberName,
+          feeType: "未取得",
+          amount: 0
+        };
+
+        renderCurrentPayment();
+        addLog("会員情報取得完了: " + result.memberName);
+      };
+
       const url =
         GAS_URL
         + "&action=getMemberInfo"
-        + "&member_id=" + encodeURIComponent(memberId);
+        + "&member_id=" + encodeURIComponent(memberId)
+        + "&callback=" + encodeURIComponent(callbackName);
 
-      fetch(url)
-        .then(response => response.json())
-        .then(result => {
-          addLog("GAS応答: " + JSON.stringify(result));
+      const script = document.createElement("script");
+      script.src = url;
+      script.onerror = function() {
+        addLog("会員情報取得失敗: JSONP読込エラー");
+        delete window[callbackName];
+      };
 
-          if (!result || !result.success) {
-            addLog(result?.message || "会員情報取得エラー");
-            return;
-          }
-
-          currentPayment = {
-            memberId: result.memberId,
-            memberName: result.memberName,
-            feeType: "未取得",
-            amount: 0
-          };
-
-          renderCurrentPayment();
-          addLog("会員情報取得完了: " + result.memberName);
-        })
-        .catch(err => {
-          addLog("会員情報取得失敗: " + err);
-        });
+      document.body.appendChild(script);
     }
 
 </script>
