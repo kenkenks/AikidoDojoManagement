@@ -24,6 +24,8 @@
     button.slot.selected { color: #fff; background: #2a6fbb; border-color: #2a6fbb; }
     button.danger { color: var(--red); }
     button:disabled { opacity: .45; }
+    select { width: 100%; font-size: 16px; padding: 10px; border: 1px solid #aaa; border-radius: 8px; background: #fff; }
+    [hidden] { display: none !important; }
     .candidate { border-top: 1px solid #e1e1e1; padding: 10px 0; }
     .candidate:first-child { border-top: 0; }
     .candidate-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
@@ -43,6 +45,12 @@
     <div class="key"><span class="label">課金枠</span><span id="billingBlockId" class="warn">未設定</span></div>
     <div class="key"><span class="label">先生</span><span id="teacherId" class="warn">未設定</span></div>
     <div class="key"><span class="label">稽古日</span><span id="attendanceDate"></span></div>
+  </section>
+
+  <section id="blockChoiceCard" class="card" hidden>
+    <h2>課金枠を選択</h2>
+    <div class="warn">現在時刻から一つに絞れませんでした。</div>
+    <select id="blockChoice" onchange="selectBillingBlock(this.value)"></select>
   </section>
 
   <section class="card">
@@ -122,9 +130,10 @@
       const parsed = parseQrText(decodedText);
       if (parsed.location_id || parsed.billing_block_id) {
         if (parsed.location_id) currentLocationId = parsed.location_id;
-        if (parsed.billing_block_id) currentBillingBlockId = parsed.billing_block_id;
+        currentBillingBlockId = parsed.billing_block_id || "";
+        currentSlots = [];
         renderKeys();
-        addLog("道場・課金枠QRを読み取りました。");
+        addLog(parsed.billing_block_id ? "道場・課金枠QRを読み取りました。" : "道場QRを読み取りました。課金枠を自動判定します。");
         beep();
         loadAttendanceSessionInfo();
         return;
@@ -138,7 +147,7 @@
       }
       if (parsed.member_id) {
         if (currentSlots.length === 0) {
-          addLog("先に道場・課金枠QRを読み取ってください。", "error");
+          addLog("先に道場QRを読み取り、課金枠を確定してください。", "error");
           beep(330);
           return;
         }
@@ -169,26 +178,42 @@
     }
 
     function loadAttendanceSessionInfo() {
-      if (!currentLocationId || !currentBillingBlockId) {
+      if (!currentLocationId) {
         currentSlots = [];
         renderCandidates();
-        addLog("location_id と billing_block_id の両方が必要です。", "error");
+        addLog("location_id が必要です。", "error");
         return;
       }
 
-      jsonp(GAS_URL, {
+      const params = {
         action: "attendance_session_info",
-        location_id: currentLocationId,
-        billing_block_id: currentBillingBlockId
-      }).then(function (data) {
+        location_id: currentLocationId
+      };
+      if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
+
+      jsonp(GAS_URL, params).then(function (data) {
         if (!data.ok) throw new Error(data.message || "稽古枠を取得できませんでした。");
-        currentSlots = data.slots || [];
         document.getElementById("locationId").textContent = data.location_name + " (" + data.location_id + ")";
-        document.getElementById("billingBlockId").textContent = data.billing_block_name;
         document.getElementById("locationId").className = "ok";
+
+        if (data.requires_selection) {
+          currentBillingBlockId = "";
+          currentSlots = [];
+          clearCandidates(true);
+          setKey("billingBlockId", "");
+          updateSendButton();
+          renderBlockChoices(data.billing_block_candidates || []);
+          addLog(data.message || "課金枠を選択してください。", "warn");
+          return;
+        }
+
+        document.getElementById("blockChoiceCard").hidden = true;
+        currentBillingBlockId = data.billing_block_id;
+        currentSlots = data.slots || [];
+        document.getElementById("billingBlockId").textContent = data.billing_block_name;
         document.getElementById("billingBlockId").className = "ok";
-        clearCandidates();
-        addLog("稽古枠を " + currentSlots.length + "件読み込みました。");
+        clearCandidates(true);
+        addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
       }).catch(function (error) {
         currentSlots = [];
         renderCandidates();
@@ -196,19 +221,71 @@
       });
     }
 
+    function renderBlockChoices(candidates) {
+      const card = document.getElementById("blockChoiceCard");
+      const select = document.getElementById("blockChoice");
+      select.innerHTML = "";
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = candidates.length ? "課金枠を選んでください" : "選択できる課金枠がありません";
+      select.appendChild(emptyOption);
+      candidates.forEach(function (candidate) {
+        const option = document.createElement("option");
+        option.value = candidate.billing_block_id;
+        option.textContent = candidate.label + "（" + candidate.start_time + "–" + candidate.end_time + "）";
+        select.appendChild(option);
+      });
+      select.disabled = candidates.length === 0;
+      card.hidden = false;
+    }
+
+    function selectBillingBlock(billingBlockId) {
+      if (!billingBlockId) return;
+      currentBillingBlockId = billingBlockId;
+      renderKeys();
+      loadAttendanceSessionInfo();
+    }
+
     function addMemberCandidate(memberId) {
       if (memberCandidates.some(function (candidate) { return candidate.member_id === memberId; })) {
         addLog("二重スキャンを無視しました: " + memberId);
         return;
       }
-      memberCandidates.push({ member_id: memberId, slot_ids: [] });
+      memberCandidates.push({ member_id: memberId, slot_ids: [], loaded: false, load_error: "" });
       renderCandidates();
-      addLog("会員QR読取: " + memberId + "（枠を選択してください）");
+      addLog("会員QR読取: " + memberId + "（登録済み出席を確認中）");
+      loadMemberAttendanceState(memberId);
+    }
+
+    function loadMemberAttendanceState(memberId) {
+      jsonp(GAS_URL, {
+        action: "member_attendance_state",
+        attendance_date: localDateText(new Date()),
+        member_id: memberId,
+        location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId
+      }).then(function (data) {
+        if (!data.ok) throw new Error(data.message || "登録済み出席を取得できませんでした。");
+        const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
+        if (!candidate) return;
+        candidate.slot_ids = data.selected_slot_ids || [];
+        candidate.loaded = true;
+        candidate.load_error = "";
+        renderCandidates();
+        addLog(memberId + " の登録済み枠を復元しました（" + candidate.slot_ids.length + "枠）。");
+      }).catch(function (error) {
+        const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
+        if (!candidate) return;
+        candidate.loaded = false;
+        candidate.load_error = error.message || String(error);
+        renderCandidates();
+        addLog(memberId + " の状態取得に失敗: " + candidate.load_error, "error");
+      });
     }
 
     function toggleSlot(memberId, slotId) {
       const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
-      if (!candidate) return;
+      if (!candidate || !candidate.loaded) return;
       const index = candidate.slot_ids.indexOf(slotId);
       if (index >= 0) candidate.slot_ids.splice(index, 1);
       else candidate.slot_ids.push(slotId);
@@ -225,7 +302,7 @@
       container.innerHTML = "";
       container.className = memberCandidates.length ? "" : "empty";
       if (memberCandidates.length === 0) {
-        container.textContent = currentSlots.length ? "会員QRを読み取ってください。" : "先に道場・課金枠QRを読み取ってください。";
+        container.textContent = currentSlots.length ? "会員QRを読み取ってください。" : "先に道場QRを読み取り、課金枠を確定してください。";
         updateSendButton();
         return;
       }
@@ -246,6 +323,13 @@
         head.append(name, remove);
         row.appendChild(head);
 
+        if (!candidate.loaded) {
+          const status = document.createElement("div");
+          status.className = candidate.load_error ? "error" : "warn";
+          status.textContent = candidate.load_error || "登録済み状態を読み込み中…";
+          row.appendChild(status);
+        }
+
         const slots = document.createElement("div");
         slots.className = "slots";
         currentSlots.forEach(function (slot) {
@@ -254,6 +338,7 @@
           button.type = "button";
           button.className = "slot" + (selected ? " selected" : "");
           button.textContent = (slot.start_time && slot.end_time) ? slot.start_time + "–" + slot.end_time : slot.label;
+          button.disabled = !candidate.loaded;
           button.onclick = function () { toggleSlot(candidate.member_id, slot.slot_id); };
           slots.appendChild(button);
         });
@@ -272,9 +357,9 @@
         addLog("出席する会員がいません。", "error");
         return;
       }
-      const unselected = memberCandidates.filter(function (item) { return item.slot_ids.length === 0; });
-      if (unselected.length > 0) {
-        addLog("稽古枠が未選択の会員がいます: " + unselected.map(function (item) { return item.member_id; }).join(", "), "error");
+      const notLoaded = memberCandidates.filter(function (item) { return !item.loaded; });
+      if (notLoaded.length > 0) {
+        addLog("登録済み状態を確認できていない会員がいます。誤取消防止のため送信できません。", "error");
         return;
       }
 
@@ -299,17 +384,17 @@
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify(payload)
       }).then(function () {
-        addLog("送信要求が完了しました。管理画面で登録結果を確認してください。再送しても二重登録は防止されます。");
+        addLog("同期要求が完了しました。画面で未選択の登録済み枠は取消になります。");
       }).catch(function (error) {
         addLog("送信エラー: " + error, "error");
       }).finally(updateSendButton);
     }
 
-    function clearCandidates() {
+    function clearCandidates(silent) {
       memberCandidates = [];
       attendanceSessionId = createSessionId();
       renderCandidates();
-      addLog("会員一覧をクリアしました。");
+      if (!silent) addLog("会員一覧をクリアしました。");
     }
 
     function renderKeys() {
@@ -328,7 +413,7 @@
     function updateSendButton() {
       document.getElementById("sendButton").disabled = !(
         currentTeacherId && currentLocationId && currentBillingBlockId &&
-        memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.slot_ids.length > 0; })
+        memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.loaded; })
       );
     }
 
