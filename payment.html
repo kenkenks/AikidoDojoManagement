@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>道場会費集金 T0601_1</title>
+  <title>合気道 会費受付</title>
 
   <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -118,7 +118,7 @@
 </head>
 
 <body>
-  <h1>道場会費集金 T0602_1</h1>
+  <h1>合気道 会費受付</h1>
 
   <div class="card">
     <div>保持中の道場ID</div>
@@ -167,7 +167,7 @@
   </div>
 
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec?mode=pay";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
 
     let html5QrCode = null;
     let scanning = false;
@@ -179,13 +179,6 @@
 
     let currentPayment = null;
     let paymentList = [];
-
-    // 仮マスタ。あとでGAS側から取得する。
-    const memberMap = {
-      "M001": { name: "山田太郎", feeType: "月謝", amount: 8000 },
-      "M002": { name: "川本花子", feeType: "回数料金", amount: 3000 },
-      "M003": { name: "佐藤一郎", feeType: "月謝", amount: 8000 }
-    };
 
     function startScan() {
       if (scanning) return;
@@ -300,23 +293,6 @@
       return result;
     }
 
-    function setCurrentPayment(memberId) {
-      const member = memberMap[memberId] || {
-        name: "氏名未登録",
-        feeType: "未設定",
-        amount: 0
-      };
-
-      currentPayment = {
-        memberId: memberId,
-        memberName: member.name,
-        feeType: member.feeType,
-        amount: member.amount
-      };
-
-      renderCurrentPayment();
-    }
-
     function renderCurrentPayment() {
       const div = document.getElementById("currentPayment");
 
@@ -327,10 +303,13 @@
 
       div.innerHTML = `
         <div class="current-name">${escapeHtml(currentPayment.memberName)}</div>
-        <div>${escapeHtml(currentPayment.feeType)}</div>
+        <div>${escapeHtml(currentPayment.targetMonth)}／${escapeHtml(currentPayment.feeType)}</div>
+        <div>請求グループ: ${escapeHtml(currentPayment.billingGroupId || "未設定")}</div>
         <div class="amount">${formatYen(currentPayment.amount)}円</div>
-        <button class="primary" onclick="confirmPayment('現金')">現金受領</button>
-        <button class="primary" onclick="confirmPayment('PayPay')">PayPay受領</button>
+        ${currentPayment.amount > 0
+          ? `<button class="primary" onclick="confirmPayment('現金')">現金受領</button>
+             <button class="primary" onclick="confirmPayment('PayPay')">PayPay受領</button>`
+          : `<div class="ok">未払い金額はありません</div>`}
       `;
     }
 
@@ -340,9 +319,24 @@
         return;
       }
 
+      if (currentPayment.amount <= 0) {
+        addLog("受領スキップ: 未払い金額なし");
+        return;
+      }
+
+      const duplicate = paymentList.some(item =>
+        currentPayment.billingGroupId && item.billingGroupId === currentPayment.billingGroupId
+      );
+      if (duplicate) {
+        addLog("受領スキップ: 同じ請求グループを受付済み " + currentPayment.billingGroupId);
+        return;
+      }
+
       const payment = {
         memberId: currentPayment.memberId,
         memberName: currentPayment.memberName,
+        billingGroupId: currentPayment.billingGroupId,
+        targetMonth: currentPayment.targetMonth,
         feeType: currentPayment.feeType,
         amount: currentPayment.amount,
         payType: payType
@@ -363,6 +357,7 @@
         <div class="ok">✓ 登録完了</div>
         <div class="current-name">${escapeHtml(payment.memberName)}</div>
         <div>${escapeHtml(payment.feeType)}</div>
+        <div>請求グループ: ${escapeHtml(payment.billingGroupId || "未設定")}</div>
         <div class="amount">${formatYen(payment.amount)}円</div>
         <div>支払方法: ${escapeHtml(payment.payType)}</div>
         <button onclick="nextPayment()">次の集金</button>
@@ -387,9 +382,9 @@
         li.className = "payment-row";
 
         li.innerHTML = `
-          <span class="payment-name">${payment.memberName}</span>
-          <span class="payment-amount">${payment.amount.toLocaleString()}円</span>
-          <span class="payment-type">${payment.payType}</span>
+          <span class="payment-name">${escapeHtml(payment.memberName)}</span>
+          <span class="payment-amount">${formatYen(payment.amount)}円</span>
+          <span class="payment-type">${escapeHtml(payment.payType)}</span>
         `;
 
         const deleteButton = document.createElement("button");
@@ -447,7 +442,15 @@
         mode: "payment_batch",
         teacher_id: currentTeacherId,
         location_id: currentLocationId,
-        payments: paymentList,
+        payments: paymentList.map(payment => ({
+          member_id: payment.memberId,
+          billing_group_id: payment.billingGroupId,
+          target_month: payment.targetMonth,
+          member_name: payment.memberName,
+          fee_type: payment.feeType,
+          amount: payment.amount,
+          payment_method: payment.payType
+        })),
         count: paymentList.length,
         source: "payment_qr_test"
       };
@@ -527,43 +530,68 @@
     function loadMemberForPayment(memberId) {
       addLog("会員情報取得中: " + memberId);
 
-      const callbackName = "onMemberInfoLoaded_" + Date.now();
-
-      window[callbackName] = function(result) {
+      jsonp(GAS_URL, {
+        action: "getPaymentInfo",
+        member_id: memberId
+      }).then(function(result) {
         addLog("GAS応答: " + JSON.stringify(result));
 
-        delete window[callbackName];
-
         if (!result || !result.success) {
-          addLog(result?.message || "会員情報取得エラー");
+          addLog((result && result.message) || "会員情報取得エラー");
+          return;
+        }
+
+        const duplicate = paymentList.some(payment =>
+          result.billingGroupId && payment.billingGroupId === result.billingGroupId
+        );
+        if (duplicate) {
+          addLog("同じ請求グループを受付済みです: " + result.billingGroupId);
           return;
         }
 
         currentPayment = {
           memberId: result.memberId,
           memberName: result.memberName,
-          feeType: "未取得",
-          amount: 0
+          billingGroupId: result.billingGroupId || "",
+          targetMonth: result.targetMonth || "",
+          feeType: result.feeType || "未設定",
+          amount: Number(result.amount || 0)
         };
 
         renderCurrentPayment();
         addLog("会員情報取得完了: " + result.memberName);
-      };
+      }).catch(function(error) {
+        addLog("会員情報取得失敗: " + (error.message || String(error)));
+      });
+    }
 
-      const url =
-        GAS_URL
-        + "&action=getMemberInfo"
-        + "&member_id=" + encodeURIComponent(memberId)
-        + "&callback=" + encodeURIComponent(callbackName);
+    function jsonp(url, params) {
+      return new Promise(function(resolve, reject) {
+        const callbackName = "paymentCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+        const script = document.createElement("script");
+        const query = new URLSearchParams(Object.assign({}, params, { callback: callbackName }));
+        const timeout = window.setTimeout(function() {
+          cleanup();
+          reject(new Error("GAS応答がタイムアウトしました。"));
+        }, 15000);
 
-      const script = document.createElement("script");
-      script.src = url;
-      script.onerror = function() {
-        addLog("会員情報取得失敗: JSONP読込エラー");
-        delete window[callbackName];
-      };
+        function cleanup() {
+          window.clearTimeout(timeout);
+          delete window[callbackName];
+          script.remove();
+        }
 
-      document.body.appendChild(script);
+        window[callbackName] = function(result) {
+          cleanup();
+          resolve(result);
+        };
+        script.onerror = function() {
+          cleanup();
+          reject(new Error("JSONP読込エラー"));
+        };
+        script.src = url + "?" + query.toString();
+        document.head.appendChild(script);
+      });
     }
 
 </script>
