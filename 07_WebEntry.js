@@ -1,7 +1,9 @@
 //--------------------------
 // Webコントロール
 //--------------------------
-function doGet(e) {
+// Webアプリの入口は Code.js の doGet に統合済み。
+// 旧処理は参照用として別名で残す。
+function doGetLegacy_(e) {
   const action = e.parameter.action || "";
 
   Logger.log("action=" + action);
@@ -61,4 +63,3 @@ function doGet(e) {
 //       .setMimeType(ContentService.MimeType.JSON);
 //   }
 // }
-

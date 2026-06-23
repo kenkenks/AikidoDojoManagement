@@ -1,6 +1,20 @@
 function doGet(e) {
   const params = (e && e.parameter) || {};
 
+  if (params.action === "getMemberInfo") {
+    const result = safelyExecute_(function() {
+      return getMemberInfoForPayment(params.member_id || "");
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
+  if (params.action === "getPaymentInfo") {
+    const result = safelyExecute_(function() {
+      return getMemberPaymentInfo_(params.member_id || "");
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "attendance_session_info") {
     const result = safelyExecute_(function() {
       return getAttendanceSessionInfo(params);
@@ -15,9 +29,42 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
-  return HtmlService
-    .createHtmlOutputFromFile("index")
-    .setTitle("道場管理システム");
+  const template = HtmlService.createTemplateFromFile("index");
+  template.memberId = params.member_id || "";
+  return template.evaluate()
+    .setTitle("道場会費確認")
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+function getMemberPaymentInfo_(memberId) {
+  const member = getMemberInfoForPayment(memberId);
+  if (!member || member.success !== true) return member;
+
+  const paymentStatus = getPaymentStatus(member.memberId);
+  if (!paymentStatus || paymentStatus.ok !== true) {
+    return {
+      success: false,
+      memberId: member.memberId,
+      memberName: member.memberName,
+      message: paymentStatus && paymentStatus.message
+        ? paymentStatus.message
+        : "会費情報を取得できませんでした。"
+    };
+  }
+
+  return {
+    success: true,
+    memberId: member.memberId,
+    memberName: member.memberName,
+    billingGroupId: paymentStatus.billingGroupId || "",
+    targetMonth: paymentStatus.targetMonth || "",
+    feeType: paymentStatus.planType || "未設定",
+    billedTotal: Number(paymentStatus.billedTotal || 0),
+    paidTotal: Number(paymentStatus.paidTotal || 0),
+    amount: Number(paymentStatus.unpaidAmount || 0),
+    isPaid: paymentStatus.isPaid === true,
+    status: paymentStatus.status || ""
+  };
 }
 
 function doPost(e) {
