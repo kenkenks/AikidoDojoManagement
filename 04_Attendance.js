@@ -21,21 +21,58 @@ function getAttendanceSessionInfo(params) {
   const locationId = normalizeId_(params.location_id);
   const billingBlockId = normalizeId_(params.billing_block_id);
 
-  if (!locationId || !billingBlockId) {
-    return { ok: false, message: "location_id と billing_block_id が必要です。" };
-  }
+  if (!locationId) return { ok: false, message: "location_id が必要です。" };
 
   const location = getLocations(ctx).find(row =>
     normalizeId_(row["location_id"]) === locationId && isActiveMasterRow_(row)
   );
   if (!location) return { ok: false, message: "有効な道場が見つかりません。" };
 
-  const block = getBillingBlocks(ctx).find(row =>
-    normalizeId_(row["billing_block_id"]) === billingBlockId && isActiveMasterRow_(row)
-  );
-  if (!block || normalizeId_(block["location_id"]) !== locationId) {
-    return { ok: false, message: "道場に対応する有効な課金枠が見つかりません。" };
+  if (billingBlockId) {
+    return buildAttendanceSessionInfo_(ctx, location, billingBlockId, false);
   }
+
+  const now = parseSessionDateTime_(params.at);
+  const candidates = findBillingBlockCandidates_(ctx, locationId, now);
+  const exactCandidates = candidates.filter(candidate => candidate.is_current);
+  const nearbyCandidates = candidates.filter(candidate => candidate.is_nearby);
+
+  if (exactCandidates.length === 1) {
+    return buildAttendanceSessionInfo_(ctx, location, exactCandidates[0].billing_block_id, true);
+  }
+  if (exactCandidates.length === 0 && nearbyCandidates.length === 1) {
+    return buildAttendanceSessionInfo_(ctx, location, nearbyCandidates[0].billing_block_id, true);
+  }
+
+  const choices = exactCandidates.length > 1
+    ? exactCandidates
+    : (nearbyCandidates.length > 0 ? nearbyCandidates : candidates);
+
+  return {
+    ok: true,
+    location_id: locationId,
+    location_name: String(location["表示名"] || location["道場名"] || locationId),
+    requires_selection: true,
+    billing_block_candidates: choices.map(candidate => ({
+      billing_block_id: candidate.billing_block_id,
+      label: candidate.label,
+      start_time: candidate.start_time,
+      end_time: candidate.end_time
+    })),
+    message: choices.length > 0
+      ? "課金枠を自動判定できませんでした。候補から選択してください。"
+      : "本日の課金枠がありません。"
+  };
+}
+
+function buildAttendanceSessionInfo_(ctx, location, billingBlockId, inferred) {
+  const locationId = normalizeId_(location["location_id"]);
+  const block = getBillingBlocks(ctx).find(row =>
+    normalizeId_(row["billing_block_id"]) === billingBlockId &&
+    normalizeId_(row["location_id"]) === locationId &&
+    isActiveMasterRow_(row)
+  );
+  if (!block) return { ok: false, message: "道場に対応する有効な課金枠が見つかりません。" };
 
   const slots = getTrainingSlots(ctx)
     .filter(row =>
@@ -43,7 +80,7 @@ function getAttendanceSessionInfo(params) {
       normalizeId_(row["billing_block_id"]) === billingBlockId &&
       isActiveMasterRow_(row)
     )
-    .sort((a, b) => String(a["開始時刻"]).localeCompare(String(b["開始時刻"])))
+    .sort((a, b) => timeToMinutes_(a["開始時刻"]) - timeToMinutes_(b["開始時刻"]))
     .map(row => ({
       slot_id: normalizeId_(row["slot_id"]),
       label: String(row["表示名"] || row["slot_id"]),
@@ -51,17 +88,76 @@ function getAttendanceSessionInfo(params) {
       end_time: formatTimeValue_(row["終了時刻"]),
       duration_minutes: Number(row["稽古時間分"] || 60)
     }));
-
   if (slots.length === 0) return { ok: false, message: "稽古枠が登録されていません。" };
 
   return {
     ok: true,
+    requires_selection: false,
+    inferred: inferred === true,
     location_id: locationId,
     location_name: String(location["表示名"] || location["道場名"] || locationId),
     billing_block_id: billingBlockId,
     billing_block_name: String(block["表示名"] || billingBlockId),
     slots_per_charge: Number(block["1課金あたり枠数"] || 2),
     slots
+  };
+}
+
+function findBillingBlockCandidates_(ctx, locationId, dateTime) {
+  const weekday = getWeekdayLabel_(dateTime);
+  const currentMinutes = timeToMinutes_(Utilities.formatDate(
+    dateTime, Session.getScriptTimeZone(), "HH:mm"
+  ));
+  const slots = getTrainingSlots(ctx).filter(row =>
+    normalizeId_(row["location_id"]) === locationId && isActiveMasterRow_(row)
+  );
+
+  return getBillingBlocks(ctx).filter(block =>
+    normalizeId_(block["location_id"]) === locationId &&
+    isActiveMasterRow_(block) &&
+    weekdayMatches_(block["曜日"], weekday)
+  ).map(block => {
+    const blockId = normalizeId_(block["billing_block_id"]);
+    const blockSlots = slots.filter(slot => normalizeId_(slot["billing_block_id"]) === blockId);
+    if (blockSlots.length === 0) return null;
+    const start = Math.min.apply(null, blockSlots.map(slot => timeToMinutes_(slot["開始時刻"])));
+    const end = Math.max.apply(null, blockSlots.map(slot => timeToMinutes_(slot["終了時刻"])));
+    if (!isFinite(start) || !isFinite(end)) return null;
+    return {
+      billing_block_id: blockId,
+      label: String(block["表示名"] || blockId),
+      start_time: minutesToTimeText_(start),
+      end_time: minutesToTimeText_(end),
+      is_current: currentMinutes >= start && currentMinutes <= end,
+      is_nearby: currentMinutes >= start - 30 && currentMinutes <= end + 30
+    };
+  }).filter(Boolean).sort((a, b) => timeToMinutes_(a.start_time) - timeToMinutes_(b.start_time));
+}
+
+function getMemberAttendanceState(params) {
+  const ctx = createSheetContext();
+  const memberId = normalizeId_(params.member_id);
+  const locationId = normalizeId_(params.location_id);
+  const billingBlockId = normalizeId_(params.billing_block_id);
+  const attendanceDate = parseAttendanceDate_(params.attendance_date);
+
+  if (!memberId || !locationId || !billingBlockId) {
+    return { ok: false, message: "会員・道場・課金枠を指定してください。" };
+  }
+  const member = getMembers(ctx).find(row =>
+    normalizeId_(row["member_id"]) === memberId && isActiveMasterRow_(row)
+  );
+  if (!member) return { ok: false, message: "有効な会員が見つかりません。" };
+
+  validateAttendanceScope_(ctx, locationId, billingBlockId);
+  const rows = getActiveAttendanceRowsForScope(
+    ctx, attendanceDate, memberId, locationId, billingBlockId
+  );
+
+  return {
+    ok: true,
+    member_id: memberId,
+    selected_slot_ids: Array.from(new Set(rows.map(row => normalizeId_(row["slot_id"])).filter(Boolean)))
   };
 }
 
@@ -108,44 +204,72 @@ function registerAttendanceBatchLocked_(data) {
     ) slots[slotId] = row;
   });
 
-  const activeKeys = getActiveAttendanceKeySet(ctx, attendanceDate);
   const rows = [];
+  const rowsToCancel = [];
   const results = [];
-  const requestKeys = {};
+  const requestedMembers = {};
 
   items.forEach(item => {
     const memberId = normalizeId_(item.member_id);
-    const slotIds = Array.isArray(item.slot_ids)
+    const hasSlotArray = Array.isArray(item.slot_ids);
+    const slotIds = hasSlotArray
       ? Array.from(new Set(item.slot_ids.map(normalizeId_).filter(Boolean)))
       : [];
-    const result = { member_id: memberId, registered_slot_ids: [], duplicate_slot_ids: [], errors: [] };
+    const result = {
+      member_id: memberId,
+      registered_slot_ids: [],
+      retained_slot_ids: [],
+      cancelled_slot_ids: [],
+      errors: []
+    };
 
     if (!memberId || !members[memberId]) {
       result.errors.push("有効な会員が見つかりません。");
       results.push(result);
       return;
     }
-    if (slotIds.length === 0) {
-      result.errors.push("稽古枠が未選択です。");
+    if (requestedMembers[memberId]) {
+      result.errors.push("同じ会員が送信データ内で重複しています。");
+      results.push(result);
+      return;
+    }
+    requestedMembers[memberId] = true;
+    if (!hasSlotArray) {
+      result.errors.push("slot_ids は配列で指定してください。");
       results.push(result);
       return;
     }
 
     slotIds.forEach(slotId => {
+      if (!slots[slotId]) result.errors.push("無効な稽古枠: " + slotId);
+    });
+    // 無効な入力で既存出席を取り消さないため、この会員の同期を中止する。
+    if (result.errors.length > 0) {
+      results.push(result);
+      return;
+    }
+
+    const existingRows = getActiveAttendanceRowsForScope(
+      ctx, attendanceDate, memberId, locationId, billingBlockId
+    );
+    const existingBySlot = {};
+    existingRows.forEach(row => existingBySlot[normalizeId_(row["slot_id"])] = row);
+
+    existingRows.forEach(row => {
+      const existingSlotId = normalizeId_(row["slot_id"]);
+      if (!slotIds.includes(existingSlotId)) {
+        rowsToCancel.push(row);
+        result.cancelled_slot_ids.push(existingSlotId);
+      }
+    });
+
+    slotIds.forEach(slotId => {
+      if (existingBySlot[slotId]) {
+        result.retained_slot_ids.push(slotId);
+        return;
+      }
+
       const slot = slots[slotId];
-      if (!slot) {
-        result.errors.push("無効な稽古枠: " + slotId);
-        return;
-      }
-
-      const key = makeAttendanceKey_(formatAttendanceDate_(attendanceDate), memberId, slotId);
-      if (activeKeys[key] || requestKeys[key]) {
-        result.duplicate_slot_ids.push(slotId);
-        return;
-      }
-
-      requestKeys[key] = true;
-      result.registered_slot_ids.push(slotId);
       rows.push({
         attendance_id: "ATT-" + Utilities.getUuid(),
         "稽古日": attendanceDate,
@@ -165,20 +289,25 @@ function registerAttendanceBatchLocked_(data) {
         "取消理由": "",
         "備考": ""
       });
+      result.registered_slot_ids.push(slotId);
     });
 
     results.push(result);
   });
 
+  cancelAttendanceRows(
+    ctx, rowsToCancel, teacherId, "出席確認画面との同期による選択解除"
+  );
   appendAttendanceRows(ctx, rows);
 
   return {
     ok: true,
     attendance_session_id: sessionId,
     registered_count: rows.length,
-    duplicate_count: results.reduce((sum, result) => sum + result.duplicate_slot_ids.length, 0),
+    retained_count: results.reduce((sum, result) => sum + result.retained_slot_ids.length, 0),
+    cancelled_count: rowsToCancel.length,
     results,
-    message: rows.length + "枠を登録しました。"
+    message: "追加 " + rows.length + "枠、取消 " + rowsToCancel.length + "枠で同期しました。"
   };
 }
 
@@ -189,6 +318,10 @@ function validateAttendanceMasterData_(ctx, teacherId, locationId, billingBlockI
   if (!teacher) throw new Error("有効な先生が見つかりません。");
   if (!isTrueValue_(teacher["出席受付可"])) throw new Error("この先生は出席受付不可です。");
 
+  validateAttendanceScope_(ctx, locationId, billingBlockId);
+}
+
+function validateAttendanceScope_(ctx, locationId, billingBlockId) {
   const location = getLocations(ctx).find(row =>
     normalizeId_(row["location_id"]) === locationId && isActiveMasterRow_(row)
   );
@@ -279,6 +412,38 @@ function formatTimeValue_(value) {
     return Utilities.formatDate(value, Session.getScriptTimeZone(), "HH:mm");
   }
   return String(value == null ? "" : value).trim();
+}
+
+function timeToMinutes_(value) {
+  const text = formatTimeValue_(value);
+  const match = text.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return NaN;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function minutesToTimeText_(minutes) {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
+}
+
+function parseSessionDateTime_(value) {
+  if (!value) return new Date();
+  const date = new Date(value);
+  if (isNaN(date.getTime())) throw new Error("課金枠判定日時が不正です。");
+  return date;
+}
+
+function getWeekdayLabel_(date) {
+  const dayNumber = Number(Utilities.formatDate(
+    date, Session.getScriptTimeZone(), "u"
+  ));
+  return ["", "月", "火", "水", "木", "金", "土", "日"][dayNumber] || "";
+}
+
+function weekdayMatches_(masterValue, weekdayLabel) {
+  const value = normalizeId_(masterValue).replace(/曜日/g, "");
+  return value === weekdayLabel || value.indexOf(weekdayLabel) >= 0;
 }
 
 function makeAttendanceKey_(dateText, memberId, slotId) {

@@ -8,6 +8,13 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "member_attendance_state") {
+    const result = safelyExecute_(function() {
+      return getMemberAttendanceState(params);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   return HtmlService
     .createHtmlOutputFromFile("index")
     .setTitle("道場管理システム");

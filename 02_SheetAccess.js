@@ -71,3 +71,47 @@ function getActiveAttendanceKeySet(ctx, attendanceDate) {
 
   return keys;
 }
+
+function getActiveAttendanceRowsForScope(ctx, attendanceDate, memberId, locationId, billingBlockId) {
+  const sheet = getRequiredSheet_(ctx, "07_出席ログ");
+  assertHeaders_(sheet, [
+    "稽古日", "member_id", "location_id", "billing_block_id", "slot_id", "状態"
+  ]);
+
+  const values = sheet.getDataRange().getValues();
+  const headers = values.shift();
+  const dateText = formatAttendanceDate_(attendanceDate);
+
+  return values.map((valuesRow, index) => {
+    const row = { _rowNumber: index + 2 };
+    headers.forEach((header, column) => row[header] = valuesRow[column]);
+    return row;
+  }).filter(row =>
+    isActiveMasterRow_(row) &&
+    formatAttendanceDate_(row["稽古日"]) === dateText &&
+    normalizeId_(row["member_id"]) === normalizeId_(memberId) &&
+    normalizeId_(row["location_id"]) === normalizeId_(locationId) &&
+    normalizeId_(row["billing_block_id"]) === normalizeId_(billingBlockId)
+  );
+}
+
+function cancelAttendanceRows(ctx, attendanceRows, teacherId, reason) {
+  if (!attendanceRows || attendanceRows.length === 0) return;
+
+  const sheet = getRequiredSheet_(ctx, "07_出席ログ");
+  const headerInfo = assertHeaders_(sheet, [
+    "状態", "取消日時", "取消者teacher_id", "取消理由"
+  ]);
+  const cancelledAt = new Date();
+
+  attendanceRows.forEach(row => {
+    const rowNumber = Number(row._rowNumber);
+    if (!rowNumber || rowNumber < 2) throw new Error("取消対象の行番号が不正です。");
+    sheet.getRange(rowNumber, headerInfo.map["状態"] + 1).setValue("取消");
+    sheet.getRange(rowNumber, headerInfo.map["取消日時"] + 1).setValue(cancelledAt);
+    sheet.getRange(rowNumber, headerInfo.map["取消者teacher_id"] + 1).setValue(teacherId);
+    sheet.getRange(rowNumber, headerInfo.map["取消理由"] + 1).setValue(reason || "画面同期による選択解除");
+  });
+
+  invalidateAttendances(ctx);
+}
