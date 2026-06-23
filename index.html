@@ -90,6 +90,7 @@
     let lastText = "";
     let lastReadTime = 0;
     let attendanceSessionId = createSessionId();
+    let submitting = false;
 
     document.getElementById("attendanceDate").textContent = localDateText(new Date());
     updateSendButton();
@@ -121,6 +122,7 @@
     }
 
     function onScanSuccess(decodedText) {
+      if (submitting) return;
       const now = Date.now();
       if (decodedText === lastText && now - lastReadTime < 2000) return;
       lastText = decodedText;
@@ -247,6 +249,10 @@
     }
 
     function addMemberCandidate(memberId) {
+      if (submitting) {
+        addLog("送信確認中のため、会員追加を待ってください。", "warn");
+        return;
+      }
       if (memberCandidates.some(function (candidate) { return candidate.member_id === memberId; })) {
         addLog("二重スキャンを無視しました: " + memberId);
         return;
@@ -257,8 +263,8 @@
       loadMemberAttendanceState(memberId);
     }
 
-    function loadMemberAttendanceState(memberId) {
-      jsonp(GAS_URL, {
+    function loadMemberAttendanceState(memberId, expectedSlotIds) {
+      return jsonp(GAS_URL, {
         action: "member_attendance_state",
         attendance_date: localDateText(new Date()),
         member_id: memberId,
@@ -267,25 +273,58 @@
       }).then(function (data) {
         if (!data.ok) throw new Error(data.message || "登録済み出席を取得できませんでした。");
         const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
-        if (!candidate) return;
-        candidate.slot_ids = data.selected_slot_ids || [];
+        if (!candidate) return { ok: false, matches: false, member_id: memberId };
+        const actualSlotIds = normalizeSlotIds(data.selected_slot_ids || []);
+        candidate.slot_ids = actualSlotIds;
         candidate.loaded = true;
         candidate.load_error = "";
         renderCandidates();
+        const matches = expectedSlotIds === undefined ||
+          slotIdsEqual(actualSlotIds, normalizeSlotIds(expectedSlotIds));
         addLog(memberId + " の登録済み枠を復元しました（" + candidate.slot_ids.length + "枠）。");
+        return { ok: true, matches: matches, member_id: memberId };
       }).catch(function (error) {
         const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
-        if (!candidate) return;
+        if (!candidate) return { ok: false, matches: false, member_id: memberId };
         candidate.loaded = false;
         candidate.load_error = error.message || String(error);
         renderCandidates();
         addLog(memberId + " の状態取得に失敗: " + candidate.load_error, "error");
+        return { ok: false, matches: false, member_id: memberId };
+      });
+    }
+
+    function refreshAllMemberStates(expectedByMember) {
+      memberCandidates.forEach(function(candidate) {
+        candidate.loaded = false;
+        candidate.load_error = "";
+      });
+      renderCandidates();
+
+      return Promise.all(memberCandidates.map(function(candidate) {
+        return loadMemberAttendanceState(
+          candidate.member_id,
+          expectedByMember[candidate.member_id] || []
+        );
+      })).then(function(results) {
+        const failed = results.filter(function(result) { return !result.ok; });
+        const mismatched = results.filter(function(result) { return result.ok && !result.matches; });
+        if (failed.length > 0) {
+          addLog("登録結果を確認できない会員があります: " + failed.map(function(result) { return result.member_id; }).join(", "), "error");
+          return false;
+        }
+        if (mismatched.length > 0) {
+          addLog("画面選択と保存結果が一致しません: " + mismatched.map(function(result) { return result.member_id; }).join(", "), "error");
+          return false;
+        }
+        addLog("登録結果を再取得し、画面と出席ログの一致を確認しました。", "ok");
+        return true;
       });
     }
 
     function toggleSlot(memberId, slotId) {
       const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
-      if (!candidate || !candidate.loaded) return;
+      if (!candidate || !candidate.loaded || submitting) return;
       const index = candidate.slot_ids.indexOf(slotId);
       if (index >= 0) candidate.slot_ids.splice(index, 1);
       else candidate.slot_ids.push(slotId);
@@ -293,6 +332,7 @@
     }
 
     function removeCandidate(memberId) {
+      if (submitting) return;
       memberCandidates = memberCandidates.filter(function (item) { return item.member_id !== memberId; });
       renderCandidates();
     }
@@ -319,6 +359,7 @@
         remove.type = "button";
         remove.className = "danger";
         remove.textContent = "削除";
+        remove.disabled = submitting;
         remove.onclick = function () { removeCandidate(candidate.member_id); };
         head.append(name, remove);
         row.appendChild(head);
@@ -338,7 +379,7 @@
           button.type = "button";
           button.className = "slot" + (selected ? " selected" : "");
           button.textContent = (slot.start_time && slot.end_time) ? slot.start_time + "–" + slot.end_time : slot.label;
-          button.disabled = !candidate.loaded;
+          button.disabled = !candidate.loaded || submitting;
           button.onclick = function () { toggleSlot(candidate.member_id, slot.slot_id); };
           slots.appendChild(button);
         });
@@ -349,6 +390,7 @@
     }
 
     function sendCandidatesToGas() {
+      if (submitting) return;
       if (!currentTeacherId || !currentLocationId || !currentBillingBlockId) {
         addLog("先生・道場・課金枠をすべて設定してください。", "error");
         return;
@@ -376,7 +418,14 @@
         source: "github_pages_qr"
       };
 
-      document.getElementById("sendButton").disabled = true;
+      const expectedByMember = {};
+      payload.attendance_items.forEach(function(item) {
+        expectedByMember[item.member_id] = item.slot_ids.slice();
+      });
+
+      submitting = true;
+      renderCandidates();
+      updateSendButton();
       addLog("出席登録を送信しています。");
       fetch(GAS_URL, {
         method: "POST",
@@ -384,13 +433,19 @@
         headers: { "Content-Type": "text/plain" },
         body: JSON.stringify(payload)
       }).then(function () {
-        addLog("同期要求が完了しました。画面で未選択の登録済み枠は取消になります。");
+        addLog("同期要求が完了しました。保存結果を再確認します。");
+        return refreshAllMemberStates(expectedByMember);
       }).catch(function (error) {
         addLog("送信エラー: " + error, "error");
-      }).finally(updateSendButton);
+      }).finally(function() {
+        submitting = false;
+        renderCandidates();
+        updateSendButton();
+      });
     }
 
     function clearCandidates(silent) {
+      if (submitting) return;
       memberCandidates = [];
       attendanceSessionId = createSessionId();
       renderCandidates();
@@ -412,9 +467,22 @@
 
     function updateSendButton() {
       document.getElementById("sendButton").disabled = !(
-        currentTeacherId && currentLocationId && currentBillingBlockId &&
+        !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
         memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.loaded; })
       );
+    }
+
+    function normalizeSlotIds(slotIds) {
+      return Array.from(new Set((slotIds || []).map(function(value) {
+        return String(value || "").trim();
+      }).filter(Boolean))).sort();
+    }
+
+    function slotIdsEqual(left, right) {
+      const normalizedLeft = normalizeSlotIds(left);
+      const normalizedRight = normalizeSlotIds(right);
+      return normalizedLeft.length === normalizedRight.length &&
+        normalizedLeft.every(function(value, index) { return value === normalizedRight[index]; });
     }
 
     function jsonp(url, params) {
