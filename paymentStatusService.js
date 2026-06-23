@@ -52,7 +52,8 @@ function buildPaymentStatusViewRow(memberId, targetMonth, ctx) {
   const billingGroupId = member["請求グループID"];
   //const targetMonth = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
   const cashPayCount = filterBySheetByDate(memberId, cashRequests, "target_month", targetMonth).length;
-  const lessonCount = filterBySheetByDate(memberId, attendances, "target_month", targetMonth).length;
+  // 画面上の回数は1時間枠の行数ではなく、会費計算に使う課金回数。
+  const lessonCount = calculateAttendanceChargeCount(memberId, targetMonth, ctx).charge_count;
   const paidTotal = getPaidTotal(payments, targetMonth, member["請求グループID"]);
 
   const cashRequestsByMemberId = filterBySheet(memberId, cashRequests, "状態", "要求中");
@@ -118,12 +119,9 @@ function buildPaymentStatusViewRow(memberId, targetMonth, ctx) {
   const alreadyAttendedToday =
     attendances.some(a => {
 
-      const attendanceDate =
-        Utilities.formatDate(
-          new Date(a["日時"]),
-          Session.getScriptTimeZone(),
-          "yyyy-MM-dd"
-        );
+      if (!isActiveMasterRow_(a) || !a["稽古日"]) return false;
+
+      const attendanceDate = formatAttendanceDate_(a["稽古日"]);
 
       return (
         String(a["member_id"]).trim() ===

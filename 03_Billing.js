@@ -474,8 +474,6 @@ function updatePerVisitInvoice(memberId, targetMonth, ctx) {
 
   const members = getMembers(ctx);
   const fees = getFees(ctx);
-  const payments = getPayments(ctx);
-  const attendances = getAttendances(ctx);
 
   const member = members.find(m =>
     String(m["member_id"]).trim() === String(memberId).trim()
@@ -498,10 +496,10 @@ function updatePerVisitInvoice(memberId, targetMonth, ctx) {
     return { ok: false, message: "料金マスタに回数料金がありません。" };
   }
 
-  const count = attendances.filter(a =>
-    normalizeMonth(a["target_month"]) === target &&
-    String(a["member_id"]).trim() === String(memberId).trim()
-  ).length;
+  // 1時間の出席ログ数ではなく、同日・同課金枠をまとめた課金回数を使う。
+  // 例: 2枠までは1回、3枠なら2回。
+  const attendanceCharge = calculateAttendanceChargeCount(memberId, target, ctx);
+  const count = attendanceCharge.charge_count;
 
   const unitPrice = Number(fee["回数単価"] || 0);
   const monthlyCap = Number(fee["月額上限"] || 0);
@@ -529,7 +527,9 @@ function updatePerVisitInvoice(memberId, targetMonth, ctx) {
   return {
     ok: true,
     message: `${target} の回数料金を ${amount}円 に更新しました。`,
-    amount
+    amount,
+    chargeCount: count,
+    chargeDetails: attendanceCharge.details
   };
 }
 
@@ -587,4 +587,3 @@ function upsertInvoiceAmount(
 
   invalidateInvoices(ctx);
 }
-

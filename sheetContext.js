@@ -57,6 +57,22 @@ function getAttendances(ctx) {
   return getSheetRows(ctx, "07_出席ログ");
 }
 
+function getLocations(ctx) {
+  return getSheetRows(ctx, "10_道場マスタ");
+}
+
+function getTeachers(ctx) {
+  return getSheetRows(ctx, "11_先生マスタ");
+}
+
+function getTrainingSlots(ctx) {
+  return getSheetRows(ctx, "12_稽古枠マスタ");
+}
+
+function getBillingBlocks(ctx) {
+  return getSheetRows(ctx, "13_課金枠マスタ");
+}
+
 function getCashRequests(ctx) {
   return getSheetRows(ctx, "09_現金支払い要求");
 }
@@ -82,6 +98,14 @@ function invalidatePayments(ctx) {
 
 function invalidateAttendances(ctx) {
   invalidateSheetRows(ctx, "07_出席ログ");
+}
+
+function invalidateTrainingSlots(ctx) {
+  invalidateSheetRows(ctx, "12_稽古枠マスタ");
+}
+
+function invalidateBillingBlocks(ctx) {
+  invalidateSheetRows(ctx, "13_課金枠マスタ");
 }
 
 function invalidateCashRequests(ctx) {
