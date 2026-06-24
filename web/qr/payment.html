@@ -1,0 +1,599 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>合気道 会費受付</title>
+
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 0;
+      padding: 16px;
+      background: #f5f5f5;
+    }
+    h1 {
+      font-size: 22px;
+      margin-top: 0;
+    }
+    .card {
+      background: white;
+      padding: 12px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      border: 1px solid #ddd;
+    }
+    #reader {
+      width: 100%;
+      max-width: 420px;
+      margin: 0 auto 12px auto;
+      background: #fff;
+    }
+    button {
+      font-size: 16px;
+      padding: 10px 14px;
+      margin: 4px;
+      border-radius: 8px;
+      border: 1px solid #999;
+      background: #fff;
+    }
+    button.primary {
+      font-size: 18px;
+      font-weight: bold;
+      min-width: 140px;
+    }
+    button.danger {
+      color: #b00020;
+    }
+    .ok {
+      color: green;
+      font-weight: bold;
+    }
+    .warn {
+      color: #c47a00;
+      font-weight: bold;
+    }
+    .latest {
+      font-size: 18px;
+      font-weight: bold;
+      word-break: break-all;
+    }
+    .current-name {
+      font-size: 22px;
+      font-weight: bold;
+      margin: 8px 0;
+    }
+    .amount {
+      font-size: 26px;
+      font-weight: bold;
+      margin: 8px 0;
+    }
+    .summary {
+      font-size: 18px;
+      line-height: 1.8;
+    }
+    ul {
+      padding-left: 20px;
+    }
+    li {
+      margin-bottom: 6px;
+    }
+
+    .payment-row {
+      display: flex;
+      gap: 8px;
+
+      white-space: nowrap;
+      overflow: hidden;
+
+      padding: 4px 0;
+      border-bottom: 1px solid #eee;
+
+      font-size: 14px;
+    }
+
+    .payment-name {
+      flex: 1;
+      font-weight: bold;
+    }
+
+    .payment-amount {
+      width: 80px;
+      text-align: right;
+    }
+
+    .payment-type {
+      width: 70px;
+      text-align: center;
+    }
+
+    #paymentList {
+      max-height: 250px;
+      overflow-y: auto;
+    }    
+
+  </style>
+</head>
+
+<body>
+  <h1>合気道 会費受付</h1>
+
+  <div class="card">
+    <div>保持中の道場ID</div>
+    <div id="locationId" class="warn">未設定</div>
+  </div>
+
+  <div class="card">
+    <div>保持中の先生ID</div>
+    <div id="teacherId" class="warn">未設定</div>
+  </div>
+
+  <div class="card">
+    <div id="reader"></div>
+
+    <button onclick="startScan()">読み取り開始</button>
+    <button onclick="stopScan()">停止</button>
+    <button onclick="resetScreen()">画面クリア</button>
+  </div>
+
+  <div class="card">
+    <div>現在受付中</div>
+    <div id="currentPayment">会員QRを読んでください</div>
+  </div>
+
+  <div class="card">
+    <div>受付済</div>
+    <ul id="paymentList"></ul>
+  </div>
+
+  <div class="card summary">
+    <div>現金: <span id="cashTotal">0</span>円</div>
+    <div>PayPay: <span id="paypayTotal">0</span>円</div>
+    <div>合計: <span id="grandTotal">0</span>円</div>
+    <div>受付人数: <span id="paymentCount">0</span>名</div>
+    <button onclick="sendPaymentsToGas()">集金完了</button>
+  </div>
+
+  <div class="card">
+    <div>最新読み取りURL</div>
+    <div id="latest" class="latest">なし</div>
+  </div>
+
+  <div class="card">
+    <div>操作ログ</div>
+    <ul id="log"></ul>
+  </div>
+
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
+
+    let html5QrCode = null;
+    let scanning = false;
+
+    let currentLocationId = "";
+    let currentTeacherId = "";
+    let lastText = "";
+    let lastReadTime = 0;
+
+    let currentPayment = null;
+    let paymentList = [];
+
+    function startScan() {
+      if (scanning) return;
+
+      html5QrCode = new Html5Qrcode("reader");
+
+      const config = {
+        fps: 10,
+        qrbox: { width: 250, height: 250 }
+      };
+
+      html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        onScanSuccess,
+        onScanFailure
+      ).then(() => {
+        scanning = true;
+        addLog("カメラ起動成功");
+      }).catch(err => {
+        addLog("カメラ起動エラー: " + err);
+      });
+    }
+
+    function stopScan() {
+      if (!html5QrCode || !scanning) return;
+
+      html5QrCode.stop().then(() => {
+        scanning = false;
+        addLog("読み取り停止");
+      }).catch(err => {
+        addLog("停止エラー: " + err);
+      });
+    }
+
+    function onScanSuccess(decodedText) {
+      const now = Date.now();
+
+      if (decodedText === lastText && now - lastReadTime < 2000) {
+        return;
+      }
+
+      lastText = decodedText;
+      lastReadTime = now;
+
+      document.getElementById("latest").textContent = decodedText;
+
+      const parsed = parseQrText(decodedText);
+
+      if (parsed.location_id) {
+        currentLocationId = parsed.location_id;
+        document.getElementById("locationId").textContent = currentLocationId;
+        document.getElementById("locationId").className = "ok";
+        addLog("道場QR読取: " + currentLocationId);
+        beep();
+        return;
+      }
+
+      if (parsed.teacher_id) {
+        currentTeacherId = parsed.teacher_id;
+        document.getElementById("teacherId").textContent = currentTeacherId;
+        document.getElementById("teacherId").className = "ok";
+        addLog("先生QR読取: " + currentTeacherId);
+        beep();
+        return;
+      }
+
+      if (parsed.member_id) {
+        addLog("会員QR読取: " + parsed.member_id);
+        beep();
+        loadMemberForPayment(parsed.member_id);
+        return;
+      }
+
+      addLog("未分類QR: " + decodedText);
+      beep();
+    }
+
+    function onScanFailure(error) {
+      // 毎フレーム失敗するのでログ出力しない
+    }
+
+    function parseQrText(text) {
+      const result = {
+        location_id: "",
+        teacher_id: "",
+        member_id: ""
+      };
+
+      try {
+        const url = new URL(text);
+        result.location_id = url.searchParams.get("location_id") || "";
+        result.member_id = url.searchParams.get("member_id") || "";
+        result.teacher_id = url.searchParams.get("teacher_id") || "";
+        return result;
+      } catch (e) {
+        // URLでない場合は下へ
+      }
+
+      if (text.startsWith("teacher_id=")) {
+        result.teacher_id = text.replace("teacher_id=", "").trim();
+      }
+
+      if (text.startsWith("location_id=")) {
+        result.location_id = text.replace("location_id=", "").trim();
+      }
+
+      if (text.startsWith("member_id=")) {
+        result.member_id = text.replace("member_id=", "").trim();
+      }
+
+      return result;
+    }
+
+    function renderCurrentPayment() {
+      const div = document.getElementById("currentPayment");
+
+      if (!currentPayment) {
+        div.textContent = "会員QRを読んでください";
+        return;
+      }
+
+      div.innerHTML = `
+        <div class="current-name">${escapeHtml(currentPayment.memberName)}</div>
+        <div>${escapeHtml(currentPayment.targetMonth)}／${escapeHtml(currentPayment.feeType)}</div>
+        <div>請求グループ: ${escapeHtml(currentPayment.billingGroupId || "未設定")}</div>
+        <div class="amount">${formatYen(currentPayment.amount)}円</div>
+        ${currentPayment.amount > 0
+          ? `<button class="primary" onclick="confirmPayment('現金')">現金受領</button>
+             <button class="primary" onclick="confirmPayment('PayPay')">PayPay受領</button>`
+          : `<div class="ok">未払い金額はありません</div>`}
+      `;
+    }
+
+    function confirmPayment(payType) {
+      if (!currentPayment) {
+        addLog("受領スキップ: 現在受付中の会員なし");
+        return;
+      }
+
+      if (currentPayment.amount <= 0) {
+        addLog("受領スキップ: 未払い金額なし");
+        return;
+      }
+
+      const duplicate = paymentList.some(item =>
+        currentPayment.billingGroupId && item.billingGroupId === currentPayment.billingGroupId
+      );
+      if (duplicate) {
+        addLog("受領スキップ: 同じ請求グループを受付済み " + currentPayment.billingGroupId);
+        return;
+      }
+
+      const payment = {
+        memberId: currentPayment.memberId,
+        memberName: currentPayment.memberName,
+        billingGroupId: currentPayment.billingGroupId,
+        targetMonth: currentPayment.targetMonth,
+        feeType: currentPayment.feeType,
+        amount: currentPayment.amount,
+        payType: payType
+      };
+
+      paymentList.push(payment);
+      addLog("登録完了: " + payment.memberId + " / " + payment.amount + "円 / " + payType);
+
+      currentPayment = null;
+      renderPaymentList();
+      renderSummary();
+      renderCompletion(payment);
+    }
+
+    function renderCompletion(payment) {
+      const div = document.getElementById("currentPayment");
+      div.innerHTML = `
+        <div class="ok">✓ 登録完了</div>
+        <div class="current-name">${escapeHtml(payment.memberName)}</div>
+        <div>${escapeHtml(payment.feeType)}</div>
+        <div>請求グループ: ${escapeHtml(payment.billingGroupId || "未設定")}</div>
+        <div class="amount">${formatYen(payment.amount)}円</div>
+        <div>支払方法: ${escapeHtml(payment.payType)}</div>
+        <button onclick="nextPayment()">次の集金</button>
+      `;
+    }
+
+    function nextPayment() {
+      currentPayment = null;
+      renderCurrentPayment();
+      document.getElementById("latest").textContent = "なし";
+      lastText = "";
+      lastReadTime = 0;
+    }
+
+    function renderPaymentList() {
+      const ul = document.getElementById("paymentList");
+      ul.innerHTML = "";
+
+      paymentList.forEach((payment, index) => {
+        const li = document.createElement("li");
+
+        li.className = "payment-row";
+
+        li.innerHTML = `
+          <span class="payment-name">${escapeHtml(payment.memberName)}</span>
+          <span class="payment-amount">${formatYen(payment.amount)}円</span>
+          <span class="payment-type">${escapeHtml(payment.payType)}</span>
+        `;
+
+        const deleteButton = document.createElement("button");
+        deleteButton.textContent = "削除";
+        deleteButton.className = "danger";
+        deleteButton.onclick = () => deletePayment(index);
+
+        li.appendChild(deleteButton);
+        ul.appendChild(li);
+      });
+    }
+
+    function deletePayment(index) {
+      const removed = paymentList.splice(index, 1)[0];
+      addLog("受付削除: " + removed.memberId + " / " + removed.amount + "円 / " + removed.payType);
+      renderPaymentList();
+      renderSummary();
+    }
+
+    function renderSummary() {
+      let cashTotal = 0;
+      let paypayTotal = 0;
+
+      paymentList.forEach(payment => {
+        if (payment.payType === "現金") {
+          cashTotal += payment.amount;
+        } else if (payment.payType === "PayPay") {
+          paypayTotal += payment.amount;
+        }
+      });
+
+      document.getElementById("cashTotal").textContent = formatYen(cashTotal);
+      document.getElementById("paypayTotal").textContent = formatYen(paypayTotal);
+      document.getElementById("grandTotal").textContent = formatYen(cashTotal + paypayTotal);
+      document.getElementById("paymentCount").textContent = paymentList.length;
+    }
+
+    function sendPaymentsToGas() {
+      if (!currentTeacherId) {
+        addLog("送信スキップ: teacher_id未設定");
+        return;
+      }
+
+      if (!currentLocationId) {
+        addLog("送信スキップ: location_id未設定");
+        return;
+      }
+
+      if (paymentList.length === 0) {
+        addLog("送信スキップ: 受付済データなし");
+        return;
+      }
+
+      const payload = {
+        mode: "payment_batch",
+        teacher_id: currentTeacherId,
+        location_id: currentLocationId,
+        payments: paymentList.map(payment => ({
+          member_id: payment.memberId,
+          billing_group_id: payment.billingGroupId,
+          target_month: payment.targetMonth,
+          member_name: payment.memberName,
+          fee_type: payment.feeType,
+          amount: payment.amount,
+          payment_method: payment.payType
+        })),
+        count: paymentList.length,
+        source: "payment_qr_test"
+      };
+
+      addLog("GAS一括送信予定: " + JSON.stringify(payload));
+
+      //初版では画面動作確認を優先するため、実送信は次ステップで有効化する。
+      fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain"
+        },
+        body: JSON.stringify(payload)
+      }).then(() => {
+        addLog("GAS一括送信要求完了");
+      }).catch(err => {
+        addLog("GAS一括送信エラー: " + err);
+      });
+    }
+
+    function resetScreen() {
+      document.getElementById("log").innerHTML = "";
+      document.getElementById("latest").textContent = "なし";
+      lastText = "";
+      lastReadTime = 0;
+      currentPayment = null;
+      paymentList = [];
+      renderCurrentPayment();
+      renderPaymentList();
+      renderSummary();
+    }
+
+    function addLog(message) {
+      const li = document.createElement("li");
+      const time = new Date().toLocaleTimeString();
+      li.textContent = "[" + time + "] " + message;
+      document.getElementById("log").prepend(li);
+    }
+
+    function formatYen(value) {
+      return Number(value || 0).toLocaleString("ja-JP");
+    }
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+    }
+
+    function beep() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+
+        oscillator.frequency.value = 880;
+        gain.gain.value = 0.08;
+
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.08);
+      } catch (e) {
+        // 音が出なくても無視
+      }
+
+      if (navigator.vibrate) {
+        navigator.vibrate(100);
+      }
+    }
+
+    function loadMemberForPayment(memberId) {
+      addLog("会員情報取得中: " + memberId);
+
+      jsonp(GAS_URL, {
+        action: "getPaymentInfo",
+        member_id: memberId
+      }).then(function(result) {
+        addLog("GAS応答: " + JSON.stringify(result));
+
+        if (!result || !result.success) {
+          addLog((result && result.message) || "会員情報取得エラー");
+          return;
+        }
+
+        const duplicate = paymentList.some(payment =>
+          result.billingGroupId && payment.billingGroupId === result.billingGroupId
+        );
+        if (duplicate) {
+          addLog("同じ請求グループを受付済みです: " + result.billingGroupId);
+          return;
+        }
+
+        currentPayment = {
+          memberId: result.memberId,
+          memberName: result.memberName,
+          billingGroupId: result.billingGroupId || "",
+          targetMonth: result.targetMonth || "",
+          feeType: result.feeType || "未設定",
+          amount: Number(result.amount || 0)
+        };
+
+        renderCurrentPayment();
+        addLog("会員情報取得完了: " + result.memberName);
+      }).catch(function(error) {
+        addLog("会員情報取得失敗: " + (error.message || String(error)));
+      });
+    }
+
+    function jsonp(url, params) {
+      return new Promise(function(resolve, reject) {
+        const callbackName = "paymentCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+        const script = document.createElement("script");
+        const query = new URLSearchParams(Object.assign({}, params, { callback: callbackName }));
+        const timeout = window.setTimeout(function() {
+          cleanup();
+          reject(new Error("GAS応答がタイムアウトしました。"));
+        }, 15000);
+
+        function cleanup() {
+          window.clearTimeout(timeout);
+          delete window[callbackName];
+          script.remove();
+        }
+
+        window[callbackName] = function(result) {
+          cleanup();
+          resolve(result);
+        };
+        script.onerror = function() {
+          cleanup();
+          reject(new Error("JSONP読込エラー"));
+        };
+        script.src = url + "?" + query.toString();
+        document.head.appendChild(script);
+      });
+    }
+
+</script>
+</body>
+</html>
