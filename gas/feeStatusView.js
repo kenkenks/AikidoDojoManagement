@@ -1,4 +1,4 @@
-function updateFeeStatusView(memberId, targetMonth, updateValues) {
+/* function updateFeeStatusView(memberId, targetMonth, updateValues) {
   upsertViewRow(
     "20_会費状態View",
     ["target_month", "member_id"],
@@ -8,4 +8,4 @@ function updateFeeStatusView(memberId, targetMonth, updateValues) {
     },
     updateValues
   );
-}
+} */

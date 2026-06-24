@@ -1,3 +1,9 @@
-*.js text eol=lf
-*.html text eol=lf
-*.css text eol=lf
+/gas/*.js     text eol=lf
+/gas/**/*.js  text eol=lf
+
+/web/qr/*.html    text eol=lf
+/web/qr/**/*.html text eol=lf
+/web/qr/*.css     text eol=lf
+/web/qr/**/*.css  text eol=lf
+/web/qr/*.js      text eol=lf
+/web/qr/**/*.js   text eol=lf

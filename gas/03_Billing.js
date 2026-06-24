@@ -8,7 +8,7 @@
 //
 // 月初請求生成
 //
-function declareMonthlyPlan(memberId, planType) {
+function declareMonthlyPlan(memberId, plan_id) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
   // 更新シート
@@ -18,7 +18,7 @@ function declareMonthlyPlan(memberId, planType) {
 
   const members = getMembers(ctx);
   const member = members.find(m => m["member_id"] === memberId);
-
+  const billing_group_id = member["請求グループID"];
 
   // 該当移動データなし
   if (!member) {
@@ -27,57 +27,36 @@ function declareMonthlyPlan(memberId, planType) {
 
   const targetMonth = Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
 
-  const existing = getMonthlySelection(memberId, targetMonth, ctx);
+  const existing = getMonthlySelection(billing_group_id, targetMonth, ctx);
   if (existing) {
     return { ok: false, message: "今月の会費タイプはすでに宣言済みです。" };
   }
 
-  Logger.log("22:planType=" + planType);
+  Logger.log("appendMonthlySelection():" + plan_id);
 
+  //DAO的
   appendMonthlySelection(
     ctx,
     targetMonth,
     memberId,
-    member["請求グループID"],
-    planType
+    billing_group_id,
+    plan_id
   );
 
-  const invoicePlanTypes = ["月会費", "回数料金", "休会"];
+  // 請求明細の書き込み
+  createOrUpdateMonthlyInvoice(memberId, targetMonth, plan_id, ctx);
 
-  if (invoicePlanTypes.includes(planType)) {
-    // 請求明細の書き込み
-    createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx);
+  // Viewに書き込む情報収集
+  const vctx = PaymentStatusView_collectContext(memberId, targetMonth, ctx);
+  // Viewに書き込むkey value
+  const ret = PaymentStatusView_buildViewRow(memberId, targetMonth, vctx);
+  // Viewに書き込む
+  PaymentStatusView_update(memberId, targetMonth, ret);
 
-    // Viewに書き込む情報収集
-    const vctx = collectPaymentStatusContext(memberId, targetMonth, ctx);
-    // Viewに書き込むkey value
-    const ret = buildPaymentStatusViewRow(memberId, targetMonth, vctx);
-    // Viewに書き込む
-    updateFeeStatusView(memberId, targetMonth, ret);
-  }
-
-  return { ok: true, message: `${targetMonth} の会費タイプを「${planType}」で登録しました。` };
+  return { ok: true, message: `${targetMonth} の会費タイプを「${plan_id}」で登録しました。` };
 }
 
-function appendMonthlySelection(ctx, targetMonth, memberId, billingGroupId, planType) {
-  ctx = ensureSheetContext(ctx);
-
-  const sheet = ctx.ss.getSheetByName("04_月次選択");
-
-  sheet.appendRow([
-    targetMonth,
-    memberId,
-    billingGroupId,
-    planType,
-    new Date(),
-    "有効",
-    ""
-  ]);
-
-  invalidateMonthlySelections(ctx);
-}
-
-function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx) {
+function createOrUpdateMonthlyInvoice(memberId, targetMonth, plan_id, ctx) {
   Logger.log("createOrUpdateMonthlyInvoice(): Start!!");
 
   const ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -90,8 +69,6 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx) {
   const members = getMembers(ctx);
   const fees = getFees(ctx);
   const invoices = getInvoices(ctx);
-
-  Logger.log("createOrUpdateMonthlyInvoice(): check ctx!!");
 
   const member = members.find(m =>
     String(m["member_id"]).trim() ===
@@ -118,15 +95,15 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx) {
   Logger.log(
     JSON.stringify({
       memberType,
-      planType
+      plan_id
     })
   );
 
   fees.forEach(f => {
     Logger.log(
       JSON.stringify({
-        区分: f["区分"],
-        会費タイプ: f["会費タイプ"]
+        plan_id: f["plan_id"],
+        表示名: f["表示名"]
       })
     );
   });
@@ -134,79 +111,30 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx) {
   const fee = fees.find(f => {
 
     return (
-      String(f["区分"]).trim() ===
-        String(memberType).trim() &&
-
-      String(f["会費タイプ"]).trim() ===
-        String(planType).trim()
+      String(f["plan_id"]).trim() ===
+        String(plan_id).trim()
     );
   });
 
-  if (!fee && planType !== "休会") {
+  const planType = 
+    fee["会費タイプ"];
 
-    return {
-      ok: false,
-      message:
-        `料金マスタ未登録: 区分=${memberType} 会費タイプ=${planType}`
-    };
-  }
+  const planName = 
+    fee["表示名"];
 
-  Logger.log("105:planType=" + planType);
- 
-  let amount = 0;
+  const amount =
+    Number(fee["回数単価"] || 0);
 
-  let invoiceType = planType;
-  let invoiceName = planType;
+  let invoiceType = planType; // 請求種別
+  let invoiceName = planName; // 表示名
 
-  // 月会費
-  if (planType === "月会費") {
+  Logger.log("既存請求明細の確認=" + planType);
 
-    amount =
-      Number(fee["回数単価"] || 0);
-
-    invoiceType = "月会費";
-
-    invoiceName =
-      fee["表示名"] ||
-      `${memberType}月会費`;
-  }
-
-  // 回数料金
-  else if (planType === "回数料金") {
-
-    amount =
-      Number(fee["回数単価"] || 0);
-
-    invoiceType = "回数料金";
-
-    invoiceName =
-      fee["表示名"] ||
-      `${memberType}回数料金`;
-  }
-
-  // 休会
-  else if (planType === "休会") {
-
-    amount = 0;
-
-    invoiceType = "休会";
-
-    invoiceName = "休会";
-  }
-  Logger.log("151:planType=" + planType);
-
-  // 既存請求確認
-  //const invoices =
-  //  readSheet(invoiceSheet);
-
+  // 既存請求明細の確認
   const exists = invoices.find(inv => {
-
     return (
-      normalizeMonth(inv["target_month"]) ===
-        normalizedTargetMonth &&
-
-      String(inv["member_id"]).trim() ===
-        String(memberId).trim()
+      normalizeMonth(inv["target_month"]) === normalizedTargetMonth &&
+      String(inv["billing_group_id"]).trim() === String(billingGroupId).trim()
     );
   });
 
@@ -224,61 +152,39 @@ function createOrUpdateMonthlyInvoice(memberId, targetMonth, planType, ctx) {
     "INV-" +
     Utilities.getUuid().slice(0, 8);
 
-  Logger.log("187:planType=" + planType);
+  Logger.log("appendInvoice()=" + invoiceId);
 
+  const status = amount === 0 ? "免除" : "未払い";
+  const paidAt = "";
+  const createdAt = new Date();
+  const note = "";
+
+  //dao的
   appendInvoice(ctx, {
     invoiceId,
-    targetMonth: normalizedTargetMonth,
+    targetMonth,
     billingGroupId,
     memberId,
+    plan_id,
     invoiceType,
     invoiceName,
     amount,
-    status: amount === 0 ? "免除" : "未払い",
-    paidAt: "",
-    createdAt: new Date(),
-    note: ""
+    status,
+    paidAt,
+    createdAt,
+    note
   });
 
-  if (planType === "月会費") {
-    return {
-      ok: true,
-      message:
-        `${normalizedTargetMonth} の請求明細を作成しました。`
-    };
-  }
-  else if (planType === "回数料金") {
-    return {
-      ok: true,
-      message: "回数料金は宣言のみ登録しました。出席時に請求を作成します。"
-    };
-  }
+  return {
+    ok: true,
+    message:
+      `${normalizedTargetMonth} の請求明細を作成しました。`
+  };
 
 }
 
-function appendInvoice(ctx, invoice) {
-  ctx = ensureSheetContext(ctx);
 
-  const sheet = ctx.ss.getSheetByName("05_請求明細");
-
-  sheet.appendRow([
-    invoice.invoiceId,
-    invoice.targetMonth,
-    invoice.billingGroupId,
-    invoice.memberId,
-    invoice.invoiceType,
-    invoice.invoiceName,
-    invoice.amount,
-    invoice.status,
-    invoice.paidAt || "",
-    invoice.createdAt || new Date(),
-    invoice.note || ""
-  ]);
-
-  invalidateInvoices(ctx);
-}
-
-function getMonthlySelection(memberId, targetMonth, ctx) {
+function getMonthlySelection(billingGroupId, targetMonth, ctx) {
 
   Logger.log("getMonthlySelection(): Start!!");
 
@@ -293,11 +199,11 @@ function getMonthlySelection(memberId, targetMonth, ctx) {
   Logger.log("getMonthlySelection(): check ctx!!");
 
   const normalizedTargetMonth = normalizeMonth(targetMonth);
-  const normalizedMemberId = String(memberId).trim();
+  const normalizedBillingGroupId = String(billingGroupId).trim();
 
   return monthlySelections.find(row =>
     normalizeMonth(row["target_month"]) === normalizedTargetMonth &&
-    String(row["member_id"]).trim() === normalizedMemberId
+    String(row["billing_group_id"]).trim() === normalizedBillingGroupId
   ) || null;
 }
 
@@ -570,19 +476,71 @@ function upsertInvoiceAmount(
   }
 
   const invoiceId = "INV-" + Utilities.getUuid().slice(0, 8);
+  const status = amount === 0 ? "免除" : "未払い";
+  const paidAt = "";
+  const createdAt = new Date();
+  const note = "";
 
-  invoiceSheet.appendRow([
+  //dao的
+  appendInvoice(ctx, {
     invoiceId,
-    normalizeMonth(targetMonth),
+    targetMonth,
     billingGroupId,
     memberId,
+    plan_id,
     invoiceType,
     invoiceName,
     amount,
-    amount === 0 ? "免除" : "未払い",
-    "",
+    status,
+    paidAt,
+    createdAt,
+    note
+  });
+
+}
+
+
+// ==============================
+// DAO 系処理
+// ==============================
+
+function appendMonthlySelection(ctx, targetMonth, memberId, billingGroupId, plan_id) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = ctx.ss.getSheetByName("04_月次選択");
+
+  sheet.appendRow([
+    targetMonth,
+    memberId,
+    billingGroupId,
+    plan_id,
     new Date(),
+    "有効",
     ""
+  ]);
+
+  invalidateMonthlySelections(ctx);
+}
+
+
+function appendInvoice(ctx, invoice) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = ctx.ss.getSheetByName("05_請求明細");
+
+  sheet.appendRow([
+    invoice.invoiceId,
+    invoice.targetMonth,
+    invoice.billingGroupId,
+    invoice.memberId,
+    invoice.plan_id,
+    invoice.invoiceType,
+    invoice.invoiceName,
+    invoice.amount,
+    invoice.status,
+    invoice.paidAt || "",
+    invoice.createdAt || new Date(),
+    invoice.note || ""
   ]);
 
   invalidateInvoices(ctx);

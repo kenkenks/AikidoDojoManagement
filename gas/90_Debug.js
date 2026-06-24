@@ -33,19 +33,57 @@ function debug_updateFeeStatusView() {
 
   const ctx = createSheetContext();
   
-  vctx = loadPaymentStatusContext(memberId, targetMonth, ctx);
-  ret = buildPaymentStatusViewRow(memberId, targetMonth, vctx);
-  result = updateFeeStatusView(memberId, targetMonth, ret);
+  vctx = PaymentStatusView_collectContext(memberId, targetMonth, ctx);
+  ret = PaymentStatusView_buildViewRow(memberId, targetMonth, vctx);
+  result = PaymentStatusView_update(memberId, targetMonth, ret);
   
   Logger.log(JSON.stringify(result, null, 2));
   
   return { ok: true, message: "処理終了" };
 }
 
+function debug_declareMonthlyPlans() {
+  samples = [
+    { memberId: "M001", plan_id: "P001" },
+    { memberId: "M002", plan_id: "P002" },
+    { memberId: "M003", plan_id: "P007" },
+    { memberId: "M004", plan_id: "P010" },
+    { memberId: "M005", plan_id: "P020" },
+    { memberId: "M006", plan_id: "P021" },
+    { memberId: "M007", plan_id: "P020" },
+    { memberId: "M008", plan_id: "P021" }
+  ];
+
+  let result = null;
+  for (const sample of samples) {
+    result = declareMonthlyPlan(sample.memberId, sample.plan_id);
+    Logger.log(JSON.stringify(result, null, 2));
+  }
+
+  Logger.log(JSON.stringify(result, null, 2));
+  
+  return { ok: true, message: "処理終了" };
+}
+
+
 function debug_declareMonthlyPlan() {
   memberId = "M002"
-  planType = "回数料金"
-  const result = declareMonthlyPlan(memberId, planType);
+  plan_id = "P001"
+  const result = declareMonthlyPlan(memberId, plan_id);
+  Logger.log(JSON.stringify(result, null, 2));
+  
+  return { ok: true, message: "処理終了" };
+}
+
+function debug_createOrUpdateMonthlyInvoice() {
+  memberId = "M002"
+  plan_id = "P001"
+  targetMonth = "2026-05";
+
+  const ctx = createSheetContext();
+  
+  const result = createOrUpdateMonthlyInvoice(memberId, targetMonth, plan_id, ctx);
+ 
   Logger.log(JSON.stringify(result, null, 2));
   
   return { ok: true, message: "処理終了" };
@@ -80,7 +118,7 @@ function debug_updateFeeStatusView() {
   memberId = "M002"
   targetMonth = "2026-12"
   planType = "回数料金"
-  updateFeeStatusView(memberId, targetMonth, {
+  PaymentStatusView_update(memberId, targetMonth, {
     "会費タイプ": planType,
     "更新日時": new Date()
   });

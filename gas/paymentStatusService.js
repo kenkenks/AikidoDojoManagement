@@ -3,7 +3,7 @@
 // ==============================
 
 // Viewに書き込むkey value
-function buildPaymentStatusViewRow(memberId, targetMonth, ctx) {
+function PaymentStatusView_buildViewRow(memberId, targetMonth, ctx) {
   ctx = ctx || loadPaymentStatusContext();
 
   return {
@@ -28,7 +28,7 @@ function buildPaymentStatusViewRow(memberId, targetMonth, ctx) {
 }
 
  // Viewに書き込む情報収集
- function collectPaymentStatusContext(memberId, targetMonth, ctx) {
+ function PaymentStatusView_collectContext(memberId, targetMonth, ctx) {
   const t0 = Date.now();
   
   perfLog("START getPaymentStatus", t0);
@@ -63,7 +63,7 @@ function buildPaymentStatusViewRow(memberId, targetMonth, ctx) {
   let status = "未宣言";
   let amount = 0
   let message = "今月の会費タイプを選択してください。"
-  const selection = getMonthlySelection(memberId, targetMonth, ctx);
+  const selection = getMonthlySelection(billingGroupId, targetMonth, ctx);
   if (!selection) {
     return {
       ok: true,
@@ -75,11 +75,11 @@ function buildPaymentStatusViewRow(memberId, targetMonth, ctx) {
       message: message
     };
   }
-  const planType = selection["会費タイプ"];
+  const planType = selection["plan_id"];
 
   const fee = fees.find(f =>
     String(f["区分"]).trim() === String(member["区分"]).trim() &&
-    String(f["会費タイプ"]).trim() === String(planType).trim()
+    String(f["plan_id"]).trim() === String(planType).trim()
   );
   const monthlyCap = fee ? Number(fee["月額上限"] || 0) : 0;
 
@@ -161,6 +161,19 @@ function buildPaymentStatusViewRow(memberId, targetMonth, ctx) {
   };
 }
 
+// Viewに書き込む
+ function PaymentStatusView_update(memberId, targetMonth, updateValues) {
+  upsertViewRow(
+    "20_会費状態View",
+    ["target_month", "member_id"],
+    {
+      target_month: targetMonth,
+      member_id: memberId
+    },
+    updateValues
+  );
+}
+
 // ==============================
 // 会費状態取得
 // ==============================
@@ -189,10 +202,11 @@ function getPaymentStatus(memberId) {
     );
 
     if (!row) {
-      const vctx = collectPaymentStatusContext(memberId, targetMonth, ctx);
-      row = buildPaymentStatusViewRow(memberId, targetMonth, vctx);
+      const vctx = PaymentStatusView_collectContext(memberId, targetMonth, ctx);
+      row = PaymentStatusView_buildViewRow(memberId, targetMonth, vctx);
 
-      updateFeeStatusView(memberId, targetMonth, row);
+      PaymentStatusView_update(memberId, targetMonth, row);
+
       invalidateFeeStatusView(ctx);
     }
 
