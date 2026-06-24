@@ -6,8 +6,11 @@
 - 旧`QR_MultReadTRNS`のGit履歴は`git subtree`で保持して取り込んだ。
 - 作業前のGAS状態を`backup/pre-monorepo-20260624`ブランチに保存した。
 - claspの`rootDir`を`gas`へ変更し、QR画面がGASへ誤送信されない構成にした。
-- GitHub Pagesは`web/qr`だけを公開するWorkflowへ移行する。
-- 旧QRリポジトリは統合確認が終わるまで削除・アーカイブしない。
+- GitHub Pagesを`web/qr`だけ公開するWorkflowへ移行し、公開成功を確認した。
+- 新公開URLは `https://kenkenks.github.io/AikidoDojoManagement/`。出席・会費の両画面でHTTP 200とGAS接続先を確認した。
+- `AikidoDojoManagement`は公開前に認証情報・個人情報・実データ混入を確認したうえでpublicへ変更した。
+- 旧QRリポジトリは削除せず、GitHub上でアーカイブした。
+- モノレポ化後も`clasp push`は差分なしで、GASのデプロイ内容に影響がないことを確認した。
 
 ## 2026-06-24 GitHub・GAS公開状態確認
 

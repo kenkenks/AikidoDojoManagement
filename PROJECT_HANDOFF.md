@@ -46,7 +46,11 @@
 - `web/qr/index.html`と`payment.html`は変更済み。
 - 旧QRリポジトリの履歴を保持してGASリポジトリへ統合済み。
 - 両HTMLともCRLFが0件であることを確認済み。
-- GASリポジトリのコミット `0b19ec7` はGitHubの `main` へpush済み。
+- `AikidoDojoManagement`はpublicの正本モノレポ。GASは`gas/`、QR画面は`web/qr/`。
+- GitHub Pages公開先は `https://kenkenks.github.io/AikidoDojoManagement/`。
+- 出席画面と会費画面はいずれもHTTP 200、正しいGASデプロイID参照を確認済み。
+- 旧`QR_MultReadTRNS`リポジトリは履歴保全のため削除せずアーカイブ済み。
+- モノレポ統合コミットはGitHubの `main` へpush済み。
 - GAS側ソースはローカルと一致し、`clasp push` は差分なしでスキップされた。
 - 既存Webアプリは最新バージョン16「feat: 出席同期と会費受付画面を改善」へデプロイ済み。
 - QR画面の`GAS_URL`と既存WebアプリのデプロイIDは一致し、公開URLはHTTP 200で応答確認済み。
