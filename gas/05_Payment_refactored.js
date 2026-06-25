@@ -238,6 +238,112 @@ function payment_updateInvoiceStatus(targetMonth, billingGroupId, ctx) {
 }
 
 // ==============================
+// register batch
+// ==============================
+function registerPaymentBatch(data) {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+
+  try {
+    return registerPaymentBatchLocked_(data || {});
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function registerPaymentBatchLocked_(data) {
+  const ctx = createSheetContext();
+
+  const teacherId = normalizeId_(data.teacher_id);
+  const locationId = normalizeId_(data.location_id);
+  const billingBlockId = normalizeId_(data.billing_block_id);
+  const sessionId = normalizeId_(data.attendance_session_id) || ("ASES-" + Utilities.getUuid());
+  const attendanceDate = parseAttendanceDate_(data.attendance_date);
+  const targetMonth = Utilities.formatDate(attendanceDate, Session.getScriptTimeZone(), "yyyy-MM");
+  const items = Array.isArray(data.attendance_items) ? data.attendance_items : [];
+
+  if (!teacherId || !locationId || !billingBlockId) {
+    return { ok: false, message: "先生・道場・課金枠を指定してください。" };
+  }
+  if (items.length === 0) return { ok: false, message: "出席対象がありません。" };
+
+  validatePaymentMasterData_(ctx, teacherId, locationId, billingBlockId);
+
+  const members = {};
+  getMembers(ctx).forEach(row => {
+    if (isActiveMasterRow_(row)) members[normalizeId_(row["member_id"])] = row;
+  });
+
+  const rows = [];
+  const rowsToCancel = [];
+  const results = [];
+  const requestedMembers = {};
+
+  items.forEach(item => {
+    const memberId = normalizeId_(item.member_id);
+    const result = {
+      member_id: memberId,
+      errors: []
+    };
+
+    if (!memberId || !members[memberId]) {
+      result.errors.push("有効な会員が見つかりません。");
+      results.push(result);
+      return;
+    }
+    if (requestedMembers[memberId]) {
+      result.errors.push("同じ会員が送信データ内で重複しています。");
+      results.push(result);
+      return;
+    }
+    requestedMembers[memberId] = true;
+    if (!hasSlotArray) {
+      result.errors.push("slot_ids は配列で指定してください。");
+      results.push(result);
+      return;
+    }
+
+    try {
+      result = payment_accept(memberId, paymentMethod, paymentEvidenceId, ctx);
+    } catch (e) {
+      result.errors.push("支払い完了処理に失敗しました。");
+    }
+
+    results.push(result);
+  });
+
+  return {
+    ok: true,
+    results,
+    message: "追加 " + rows.length + "枠、取消 " + rowsToCancel.length + "枠で同期しました。"
+  };
+}
+
+function validatePaymentMasterData_(ctx, teacherId, locationId, billingBlockId) {
+  const teacher = getTeachers(ctx).find(row =>
+    normalizeId_(row["teacher_id"]) === teacherId && isActiveMasterRow_(row)
+  );
+  if (!teacher) throw new Error("有効な先生が見つかりません。");
+  if (!isTrueValue_(teacher["出席受付可"])) throw new Error("この先生は出席受付不可です。");
+
+  validatePaymentScope_(ctx, locationId, billingBlockId);
+}
+
+function validatePaymentScope_(ctx, locationId, billingBlockId) {
+  const location = getLocations(ctx).find(row =>
+    normalizeId_(row["location_id"]) === locationId && isActiveMasterRow_(row)
+  );
+  if (!location) throw new Error("有効な道場が見つかりません。");
+
+  const block = getBillingBlocks(ctx).find(row =>
+    normalizeId_(row["billing_block_id"]) === billingBlockId && isActiveMasterRow_(row)
+  );
+  if (!block || normalizeId_(block["location_id"]) !== locationId) {
+    throw new Error("道場と課金枠の組み合わせが不正です。");
+  }
+}
+
+// ==============================
 // DAO
 // ==============================
 function payment_append(ctx, payment) {

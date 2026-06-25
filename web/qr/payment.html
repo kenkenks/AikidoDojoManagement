@@ -253,6 +253,13 @@
         return;
       }
 
+      if (parsed.member_id && parsed.plan_id) {
+        addLog("会員・プランQR読取: " + parsed.member_id + "(" + parsed.plan_id + ")");
+        beep();
+        loadMemberForPayment(parsed.member_id, parsed.plan_id);
+        return;
+      }
+
       addLog("未分類QR: " + decodedText);
       beep();
     }
@@ -265,7 +272,8 @@
       const result = {
         location_id: "",
         teacher_id: "",
-        member_id: ""
+        member_id: "",
+        plan_id: ""
       };
 
       try {
@@ -273,6 +281,7 @@
         result.location_id = url.searchParams.get("location_id") || "";
         result.member_id = url.searchParams.get("member_id") || "";
         result.teacher_id = url.searchParams.get("teacher_id") || "";
+        result.plan_id = url.searchParams.get("plan_id") || "";
         return result;
       } catch (e) {
         // URLでない場合は下へ
@@ -288,6 +297,10 @@
 
       if (text.startsWith("member_id=")) {
         result.member_id = text.replace("member_id=", "").trim();
+      }
+
+      if (text.startsWith("plan_id=")) {
+        result.plan_id = text.replace("plan_id=", "").trim();
       }
 
       return result;
@@ -527,12 +540,13 @@
       }
     }
 
-    function loadMemberForPayment(memberId) {
+    function loadMemberForPayment(memberId, planId) {
       addLog("会員情報取得中: " + memberId);
 
       jsonp(GAS_URL, {
         action: "getPaymentInfo",
-        member_id: memberId
+        member_id: memberId,
+        plan_id: planId
       }).then(function(result) {
         addLog("GAS応答: " + JSON.stringify(result));
 
@@ -545,7 +559,7 @@
           result.billingGroupId && payment.billingGroupId === result.billingGroupId
         );
         if (duplicate) {
-          addLog("同じ請求グループを受付済みです: " + result.billingGroupId);
+          addLog("同じ請求グループを受付済み です: " + result.billingGroupId);
           return;
         }
 
@@ -555,7 +569,8 @@
           billingGroupId: result.billingGroupId || "",
           targetMonth: result.targetMonth || "",
           feeType: result.feeType || "未設定",
-          amount: Number(result.amount || 0)
+          amount: Number(result.amount || 0),
+          planId: result.planId || ""
         };
 
         renderCurrentPayment();

@@ -10,7 +10,7 @@ function doGet(e) {
 
   if (params.action === "getPaymentInfo") {
     const result = safelyExecute_(function() {
-      return getMemberPaymentInfo_(params.member_id || "");
+      return getMemberPaymentInfo_(params.member_id || "", params.plan_id || "");
     });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
@@ -36,9 +36,17 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function getMemberPaymentInfo_(memberId) {
+function getMemberPaymentInfo_(memberId, plan_id) {
   const member = getMemberInfoForPayment(memberId);
   if (!member || member.success !== true) return member;
+
+  const plan_id_r =  plan_id || "P002";
+  try {
+    result = billing_acceptMonthlySelection(memberId, plan_id_r);
+    Logger.log(JSON.stringify(result, null, 2));
+  } catch (e) {
+    Logger.log("Error occurred: " + e.toString());
+  }
 
   const paymentStatus = getPaymentStatus(member.memberId);
   if (!paymentStatus || paymentStatus.ok !== true) {
@@ -78,6 +86,10 @@ function doPost(e) {
 
     if (data.mode === "attendance_batch" || Array.isArray(data.attendance_items)) {
       return registerAttendanceBatch(data);
+    }
+    
+    if (data.mode === "payment_batch" || Array.isArray(data.payment_items)) {
+      return registerPaymentBatch(data);
     }
 
     // 移行期間中は旧QR実験データも受け付ける。

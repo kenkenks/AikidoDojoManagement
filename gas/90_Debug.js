@@ -111,14 +111,11 @@ function debug_approveCashRequest() {
   Logger.log(JSON.stringify(result, null, 2));
 }
 
-function debug_updateFeeStatusView() {
+function debug_getMemberPaymentInfo() {
   memberId = "M002"
-  targetMonth = "2026-12"
-  planType = "回数料金"
-  PaymentStatusView_update(memberId, targetMonth, {
-    "会費タイプ": planType,
-    "更新日時": new Date()
-  });
+  plan_id = "P001"
+  
+  getMemberPaymentInfo_(memberId);
   
   return { ok: true, message: "処理終了" };
 }
