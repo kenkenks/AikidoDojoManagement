@@ -26,72 +26,70 @@ function debug_run() {
   return { ok: true, message: "処理終了" };
 }
 
-function debug_updateFeeStatusView() {
+//使用
+function debug_paymentStatusView_refresh() {
   memberId = "M002"
   planType = "回数料金"
   targetMonth = "2026-05";
 
   const ctx = createSheetContext();
   
-  vctx = PaymentStatusView_collectContext(memberId, targetMonth, ctx);
-  ret = PaymentStatusView_buildViewRow(memberId, targetMonth, vctx);
-  result = PaymentStatusView_update(memberId, targetMonth, ret);
+  result = paymentStatusView_refresh(memberId, targetMonth, ctx);
   
   Logger.log(JSON.stringify(result, null, 2));
   
   return { ok: true, message: "処理終了" };
 }
 
-function debug_declareMonthlyPlans() {
+//使用
+function debug_billing_acceptMonthlySelections() {
   samples = [
     { memberId: "M001", plan_id: "P001" },
     { memberId: "M002", plan_id: "P002" },
     { memberId: "M003", plan_id: "P007" },
-    { memberId: "M004", plan_id: "P010" },
-    { memberId: "M005", plan_id: "P020" },
-    { memberId: "M006", plan_id: "P021" },
+    { memberId: "M004", plan_id: "P011" },
+    { memberId: "M005", plan_id: "P012" },
+    { memberId: "M006", plan_id: "P013" },
     { memberId: "M007", plan_id: "P020" },
     { memberId: "M008", plan_id: "P021" }
   ];
 
-  let result = null;
-  for (const sample of samples) {
-    result = declareMonthlyPlan(sample.memberId, sample.plan_id);
-    Logger.log(JSON.stringify(result, null, 2));
-  }
+    let result = null;
+    for (const sample of samples) {
+      try {
+        result = billing_acceptMonthlySelection(sample.memberId, sample.plan_id);
+        Logger.log(JSON.stringify(result, null, 2));
+      } catch (e) {
+        Logger.log("Error occurred: " + e.toString());
+      }
+    }
 
   Logger.log(JSON.stringify(result, null, 2));
   
   return { ok: true, message: "処理終了" };
 }
 
-
-function debug_declareMonthlyPlan() {
+//使用
+function debug_billing_acceptMonthlySelection() {
   memberId = "M002"
   plan_id = "P001"
-  const result = declareMonthlyPlan(memberId, plan_id);
+
+  const result = billing_acceptMonthlySelection(memberId, plan_id);
   Logger.log(JSON.stringify(result, null, 2));
   
   return { ok: true, message: "処理終了" };
 }
 
-function debug_createOrUpdateMonthlyInvoice() {
+function debug_payment_accept() {
   memberId = "M002"
-  plan_id = "P001"
+  paymentMethod = "現金"
+  paymentEvidenceId = "XXXXXX-2026-05"  
   targetMonth = "2026-05";
 
   const ctx = createSheetContext();
-  
-  const result = createOrUpdateMonthlyInvoice(memberId, targetMonth, plan_id, ctx);
- 
-  Logger.log(JSON.stringify(result, null, 2));
-  
-  return { ok: true, message: "処理終了" };
-}
 
-function debug_registerAttendance() {
-  memberId = "M003"
-  const result = registerAttendance(memberId);
+  result =  payment_accept(memberId, paymentMethod, paymentEvidenceId, ctx);
+ 
   Logger.log(JSON.stringify(result, null, 2));
   
   return { ok: true, message: "処理終了" };
@@ -112,7 +110,6 @@ function debug_approveCashRequest() {
   const result = approveCashRequest(request_id);
   Logger.log(JSON.stringify(result, null, 2));
 }
-
 
 function debug_updateFeeStatusView() {
   memberId = "M002"
