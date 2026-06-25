@@ -246,17 +246,17 @@
         return;
       }
 
-      if (parsed.member_id) {
-        addLog("会員QR読取: " + parsed.member_id);
-        beep();
-        loadMemberForPayment(parsed.member_id);
-        return;
-      }
-
       if (parsed.member_id && parsed.plan_id) {
         addLog("会員・プランQR読取: " + parsed.member_id + "(" + parsed.plan_id + ")");
         beep();
         loadMemberForPayment(parsed.member_id, parsed.plan_id);
+        return;
+      }
+
+      if (parsed.member_id) {
+        addLog("会員QR読取: " + parsed.member_id);
+        beep();
+        loadMemberForPayment(parsed.member_id);
         return;
       }
 
@@ -541,7 +541,7 @@
     }
 
     function loadMemberForPayment(memberId, planId) {
-      addLog("会員情報取得中: " + memberId);
+      addLog("会費情報登録中: " + memberId + " / " + planId);
 
       jsonp(GAS_URL, {
         action: "getPaymentInfo",

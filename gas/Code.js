@@ -1,6 +1,8 @@
 function doGet(e) {
   const params = (e && e.parameter) || {};
 
+  console.log("action: " + params.action + " / " + params.member_id + " / " + params.plan_id);
+
   if (params.action === "getMemberInfo") {
     const result = safelyExecute_(function() {
       return getMemberInfoForPayment(params.member_id || "");
@@ -40,12 +42,14 @@ function getMemberPaymentInfo_(memberId, plan_id) {
   const member = getMemberInfoForPayment(memberId);
   if (!member || member.success !== true) return member;
 
+  console.log("getMemberPaymentInfo_: " + memberId + " / " + plan_id);
+
   const plan_id_r =  plan_id || "P002";
   try {
     result = billing_acceptMonthlySelection(memberId, plan_id_r);
-    Logger.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(result, null, 2));
   } catch (e) {
-    Logger.log("Error occurred: " + e.toString());
+    console.log("Error occurred: " + e.toString());
   }
 
   const paymentStatus = getPaymentStatus(member.memberId);
