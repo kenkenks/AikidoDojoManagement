@@ -140,7 +140,7 @@
 
   <div class="card">
     <div>現在受付中</div>
-    <div id="currentPayment">会員QRを読んでください</div>
+    <div id="currentPayment">会員、プランQRを読んでください</div>
   </div>
 
   <div class="card">
@@ -310,7 +310,7 @@
       const div = document.getElementById("currentPayment");
 
       if (!currentPayment) {
-        div.textContent = "会員QRを読んでください";
+        div.textContent = "会員QR、プランQRを読んでください";
         return;
       }
 
@@ -350,13 +350,14 @@
         memberName: currentPayment.memberName,
         billingGroupId: currentPayment.billingGroupId,
         targetMonth: currentPayment.targetMonth,
+        planId: currentPayment.planId,
         feeType: currentPayment.feeType,
         amount: currentPayment.amount,
         payType: payType
       };
 
       paymentList.push(payment);
-      addLog("登録完了: " + payment.memberId + " / " + payment.amount + "円 / " + payType);
+      addLog("登録完了: " + payment.memberId + " / " + payment.planId + " / " + payment.amount + "円 / " + payType);
 
       currentPayment = null;
       renderPaymentList();
@@ -369,6 +370,7 @@
       div.innerHTML = `
         <div class="ok">✓ 登録完了</div>
         <div class="current-name">${escapeHtml(payment.memberName)}</div>
+        <div>${escapeHtml(payment.planId)}</div>
         <div>${escapeHtml(payment.feeType)}</div>
         <div>請求グループ: ${escapeHtml(payment.billingGroupId || "未設定")}</div>
         <div class="amount">${formatYen(payment.amount)}円</div>
@@ -398,6 +400,7 @@
           <span class="payment-name">${escapeHtml(payment.memberName)}</span>
           <span class="payment-amount">${formatYen(payment.amount)}円</span>
           <span class="payment-type">${escapeHtml(payment.payType)}</span>
+          <span class="payment-type">${escapeHtml(payment.planId)}</span>
         `;
 
         const deleteButton = document.createElement("button");
@@ -460,6 +463,7 @@
           billing_group_id: payment.billingGroupId,
           target_month: payment.targetMonth,
           member_name: payment.memberName,
+          plan_id: payment.planId,
           fee_type: payment.feeType,
           amount: payment.amount,
           payment_method: payment.payType
@@ -551,7 +555,7 @@
         addLog("GAS応答: " + JSON.stringify(result));
 
         if (!result || !result.success) {
-          addLog((result && result.message) || "会員情報取得エラー");
+          addLog((result && result.message) || "会費情報取得エラー");
           return;
         }
 
@@ -568,15 +572,16 @@
           memberName: result.memberName,
           billingGroupId: result.billingGroupId || "",
           targetMonth: result.targetMonth || "",
+          planId: result.planId || "",
           feeType: result.feeType || "未設定",
           amount: Number(result.amount || 0),
           planId: result.planId || ""
         };
 
         renderCurrentPayment();
-        addLog("会員情報取得完了: " + result.memberName);
+        addLog("会費情報取得完了: " + result.memberName);
       }).catch(function(error) {
-        addLog("会員情報取得失敗: " + (error.message || String(error)));
+        addLog("会費情報取得失敗: " + (error.message || String(error)));
       });
     }
 
