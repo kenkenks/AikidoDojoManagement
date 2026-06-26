@@ -1,32 +1,27 @@
 //
-// debug.gs
+// sup_debug.gs
 //
 
-const DEBUG_PERF = true;
-
-function perfLog(label, t0) {
-
-  if (!DEBUG_PERF) return;
-
-  Logger.log(
-    `[PERF] ${label} ms=${Date.now() - t0}`
-  );
-}
 
 //デバック実行用
 function debug_run() {
   memberId = "M002"
+  plan_id = "P001"
 
   const ctx = createSheetContext();
   
-  result = getMemberInfoForPayment(memberId);
+  result = getMemberPaymentInfo_(memberId, plan_id);
   
-  Logger.log(JSON.stringify(result, null, 2));
+  functionName = "debug_run";
+  sup_logDebug(functionName, { 
+    memberId: memberId, plan_id: plan_id, 
+    result: JSON.stringify(result, null, 2)
+  });
   
   return { ok: true, message: "処理終了" };
 }
 
-//使用
+// 支払い状況ビュー更新
 function debug_paymentStatusView_refresh() {
   memberId = "M002"
   planType = "回数料金"
@@ -35,13 +30,17 @@ function debug_paymentStatusView_refresh() {
   const ctx = createSheetContext();
   
   result = paymentStatusView_refresh(memberId, targetMonth, ctx);
-  
-  Logger.log(JSON.stringify(result, null, 2));
+
+  functionName = "debug_paymentStatusView_refresh";
+  sup_logDebug(functionName, { 
+    memberId: memberId, planType: planType, targetMonth: targetMonth,
+    result: JSON.stringify(result, null, 2)
+  });
   
   return { ok: true, message: "処理終了" };
 }
 
-//使用
+// 請求系
 function debug_billing_acceptMonthlySelections() {
   samples = [
     { memberId: "M001", plan_id: "P001" },
@@ -64,22 +63,32 @@ function debug_billing_acceptMonthlySelections() {
       }
     }
 
-  Logger.log(JSON.stringify(result, null, 2));
-  
+  functionName = "debug_billing_acceptMonthlySelections";
+  sup_logDebug(functionName, { 
+    samples: samples, 
+    result: JSON.stringify(result, null, 2)
+  });
+
   return { ok: true, message: "処理終了" };
 }
 
-//使用
+// 請求系
 function debug_billing_acceptMonthlySelection() {
   memberId = "M002"
   plan_id = "P001"
 
   const result = billing_acceptMonthlySelection(memberId, plan_id);
-  Logger.log(JSON.stringify(result, null, 2));
+
+  functionName = "debug_billing_acceptMonthlySelection";
+  sup_logDebug(functionName, { 
+    memberId: memberId, plan_id: plan_id, 
+    result: JSON.stringify(result, null, 2)
+  });
   
   return { ok: true, message: "処理終了" };
 }
 
+// 支払い系
 function debug_payment_accept() {
   memberId = "M002"
   paymentMethod = "現金"
@@ -90,32 +99,57 @@ function debug_payment_accept() {
 
   result =  payment_accept(memberId, paymentMethod, paymentEvidenceId, ctx);
  
-  Logger.log(JSON.stringify(result, null, 2));
+  functionName = "debug_payment_accept";
+  sup_logDebug(functionName, { 
+    memberId: memberId,  
+    result: JSON.stringify(result, null, 2)
+  });
   
   return { ok: true, message: "処理終了" };
 }
 
 
-//デバック実行用
+
+// 支払い情報取得
 function debug_getPaymentStatus() {
   memberId = "M002"
   const result = getPaymentStatus(memberId);
-  Logger.log(JSON.stringify(result, null, 2));
+
+  functionName = "debug_getPaymentStatus";
+  sup_logDebug(functionName, { 
+    memberId: memberId, 
+    result: JSON.stringify(result, null, 2)
+  });
   
   return { ok: true, message: "処理終了" };
 }
 
+// 現金受領承認
 function debug_approveCashRequest() {
   request_id = "CASH-d720ad35"
   const result = approveCashRequest(request_id);
-  Logger.log(JSON.stringify(result, null, 2));
+ 
+  functionName = "debug_approveCashRequest";
+  sup_logDebug(functionName, { 
+    request_id: request_id, 
+    result: JSON.stringify(result, null, 2)
+  });
 }
 
+// Cotroller系 請求作成＋会費情報取得
 function debug_getMemberPaymentInfo() {
   memberId = "M002"
   plan_id = "P001"
+
+  const ctx = createSheetContext();
   
-  getMemberPaymentInfo_(memberId);
+  result = getMemberPaymentInfo_(memberId, plan_id);
+  
+  functionName = "getMemberPaymentInfo_run";
+  sup_logDebug(functionName, { 
+    memberId: memberId, plan_id: plan_id, 
+    result: JSON.stringify(result, null, 2)
+  });
   
   return { ok: true, message: "処理終了" };
 }
@@ -133,7 +167,11 @@ function debug_filterBySheet() {
   const rows = readSheet(sheet);
 
   const result = filterBySheet(memberId, rows, boolCol, boolValue);
-  Logger.log(JSON.stringify(result, null, 2));
+  functionName = "debug_filterBySheet";
+  sup_logDebug(functionName, { 
+    memberId: memberId, sheetName: sheetName, boolCol: boolCol, boolValue: boolValue,
+    result: JSON.stringify(result, null, 2)
+  });
 }
 
 
