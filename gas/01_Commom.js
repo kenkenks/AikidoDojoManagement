@@ -56,3 +56,14 @@ function readSheet(sheet) {
       return obj;
     });
 }
+
+function sheetLog(label, value) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sh = ss.getSheetByName('debug_log') || ss.insertSheet('debug_log');
+
+  sh.appendRow([
+    new Date(),
+    label,
+    typeof value === 'object' ? JSON.stringify(value) : value
+  ]);
+}

@@ -1,7 +1,8 @@
 function doGet(e) {
   const params = (e && e.parameter) || {};
 
-  console.log("action: " + params.action + " / " + params.member_id + " / " + params.plan_id);
+  Logger.log("action: " + params.action + " / " + params.member_id + " / " + params.plan_id);
+  sheetLog("doGet", { action: params.action, member_id: params.member_id, plan_id: params.plan_id });
 
   if (params.action === "getMemberInfo") {
     const result = safelyExecute_(function() {
@@ -42,14 +43,15 @@ function getMemberPaymentInfo_(memberId, plan_id) {
   const member = getMemberInfoForPayment(memberId);
   if (!member || member.success !== true) return member;
 
-  console.log("getMemberPaymentInfo_: " + memberId + " / " + plan_id);
+  Logger.log("getMemberPaymentInfo_: " + memberId + " / " + plan_id);
+  sheetLog("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id });
 
   const plan_id_r =  plan_id || "P002";
   try {
     result = billing_acceptMonthlySelection(memberId, plan_id_r);
-    console.log(JSON.stringify(result, null, 2));
+    Logger.log(JSON.stringify(result, null, 2));
   } catch (e) {
-    console.log("Error occurred: " + e.toString());
+    Logger.log("Error occurred: " + e.toString());
   }
 
   const paymentStatus = getPaymentStatus(member.memberId);
@@ -115,7 +117,7 @@ function safelyExecute_(callback) {
   try {
     return callback();
   } catch (error) {
-    console.error(error && error.stack ? error.stack : error);
+    Logger.error(error && error.stack ? error.stack : error);
     return {
       ok: false,
       message: error && error.message ? error.message : String(error)

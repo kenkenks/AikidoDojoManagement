@@ -318,6 +318,7 @@
         <div class="current-name">${escapeHtml(currentPayment.memberName)}</div>
         <div>${escapeHtml(currentPayment.targetMonth)}／${escapeHtml(currentPayment.feeType)}</div>
         <div>請求グループ: ${escapeHtml(currentPayment.billingGroupId || "未設定")}</div>
+        <div>プランID: ${escapeHtml(currentPayment.planId || "未設定")}</div>
         <div class="amount">${formatYen(currentPayment.amount)}円</div>
         ${currentPayment.amount > 0
           ? `<button class="primary" onclick="confirmPayment('現金')">現金受領</button>
@@ -373,7 +374,8 @@
         <div>${escapeHtml(payment.planId)}</div>
         <div>${escapeHtml(payment.feeType)}</div>
         <div>請求グループ: ${escapeHtml(payment.billingGroupId || "未設定")}</div>
-        <div class="amount">${formatYen(payment.amount)}円</div>
+        <div>プランID: ${escapeHtml(payment.planId || "未設定")}</div>
+         <div class="amount">${formatYen(payment.amount)}円</div>
         <div>支払方法: ${escapeHtml(payment.payType)}</div>
         <button onclick="nextPayment()">次の集金</button>
       `;
