@@ -93,15 +93,8 @@ function doPost(e) {
     }
     
     if (data.mode === "payment_batch" || Array.isArray(data.payment_items)) {
-      return registerPaymentBatch(data);
+      return paymentEvidence_acceptBatch(data);
     }
-
-    // 移行期間中は旧QR実験データも受け付ける。
-    if (Array.isArray(data.member_ids)) {
-      appendBatchAttendanceDemoLog(data, jsonText);
-      return { ok: true, legacy: true, message: "旧形式のデモログへ保存しました。" };
-    }
-
     appendQrExperimentLog(data, jsonText);
     return { ok: true, legacy: true, message: "QR実験ログへ保存しました。" };
   });

@@ -8,33 +8,32 @@
 function billing_acceptMonthlySelection(memberId, plan_id, ctx) {
   ctx = ensureSheetContext(ctx || createSheetContext());
 
-  // ① 入力・関連情報を集める
+  let billingContext;
+  let invoice;
+  let viewUpdate;
+
   try {
-    const billingContext =
+    billingContext =
       billing_collectMonthlySelectionContext(memberId, plan_id, ctx);
 
-    // ② 04_月次選択へ登録する
     billing_registerMonthlySelection(billingContext, ctx);
 
-    // ③ 請求明細用データを作る
-    const invoice =
+    invoice =
       billing_makeInvoice(billingContext);
 
-    // ④ 05_請求明細へ登録する
     billing_appendInvoice(ctx, invoice);
 
-    
-    // ⑤ Viewを更新する
-    const viewUpdate =
+    viewUpdate =
       paymentStatusView_refresh(
         billingContext.memberId,
         billingContext.targetMonth,
         ctx
       );
+
   } catch (e) {
     return { ok: false, message: e.message };
   }
-    
+
   return {
     ok: true,
     message: `${billingContext.targetMonth} の会費タイプを「${plan_id}」で登録しました。`,

@@ -157,7 +157,7 @@ function showCashConfirmDialog() {
 function getPendingCashRequestsForConfirm() {
   const ctx = createSheetContext();
 
-  const requests = getCashRequests(ctx);
+  const requests = getPaymentEvidences(ctx);
   const members = getMembers(ctx);
 
   return requests

@@ -49,6 +49,12 @@ function getInvoices(ctx) {
   return getSheetRows(ctx, "05_請求明細");
 }
 
+function getInvoice(invoice_id, ctx) {
+  return getInvoices(ctx).find(row =>
+    normalizeId_(row["invoice_id"]) === normalizeId_(invoice_id)
+  );
+}
+
 function getPayments(ctx) {
   return getSheetRows(ctx, "06_入金ログ");
 }
@@ -73,8 +79,8 @@ function getBillingBlocks(ctx) {
   return getSheetRows(ctx, "13_課金枠マスタ");
 }
 
-function getCashRequests(ctx) {
-  return getSheetRows(ctx, "09_現金支払い要求");
+function getPaymentEvidences(ctx) {
+  return getSheetRows(ctx, "09_決済エビデンス");
 }
 
 function getFeeStatusViewRows(ctx) {
@@ -108,8 +114,8 @@ function invalidateBillingBlocks(ctx) {
   invalidateSheetRows(ctx, "13_課金枠マスタ");
 }
 
-function invalidateCashRequests(ctx) {
-  invalidateSheetRows(ctx, "09_現金支払い要求");
+function invalidatePaymentEvidences(ctx) {
+  invalidateSheetRows(ctx, "09_決済エビデンス");
 }
 
 function invalidateFeeStatusView(ctx) {

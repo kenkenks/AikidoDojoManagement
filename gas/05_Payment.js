@@ -2,7 +2,29 @@
 //   入金を受け付ける
 //   入金ログを書く
 //   請求の支払状態を更新する
-
+/**
+ * TODO:
+ * payment_accept() は旧受付フローの入口。
+ *
+ * 旧:
+ *   payment_accept()
+ *     ↓
+ *   06_入金ログ
+ *
+ * 新:
+ *   createPaymentEvidenceRequestBatch()
+ *     ↓
+ *   09_決済エビデンス
+ *     ↓
+ *   recordPaymentEvidence()
+ *     ↓
+ *   postPaymentEvidence()
+ *     ↓
+ *   06_入金ログ
+ *
+ * 現在は互換性維持のため残置。
+ * payment.html の移行完了後に削除予定。
+ */
 // ==============================
 // 入金受付（メイン）
 // ==============================

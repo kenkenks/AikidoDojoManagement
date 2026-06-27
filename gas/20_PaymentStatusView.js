@@ -39,7 +39,7 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   const invoices = getInvoices(ctx);
   const payments = getPayments(ctx);
   const attendances = getAttendances(ctx);
-  const cashRequests = getCashRequests(ctx);
+  const cashRequests = getPaymentEvidences(ctx);
 
   const member = members.find(m =>
     String(m["member_id"]).trim() === String(memberId).trim()
