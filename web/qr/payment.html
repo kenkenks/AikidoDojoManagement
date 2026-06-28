@@ -546,128 +546,136 @@
       }
     }
 
-    function loadMemberForPayment(memberId, planId) {
-      addLog("会費情報登録中(fetch getPaymentInfo): " + memberId + " / " + planId);
-
-      const query = new URLSearchParams({
-        action: "getPaymentInfo",
-        member_id: memberId,
-        plan_id: planId,
-        _ts: Date.now()
-      });
-
-      const fullUrl = GAS_URL + "?" + query.toString();
-      addLog("FETCH URL: " + fullUrl);
-
-      fetch(fullUrl, {
-        method: "GET",
-        cache: "no-store"
-      })
-        .then(function(response) {
-          addLog("fetch status: " + response.status + " / ok=" + response.ok);
-          return response.text();
-        })
-        .then(function(text) {
-          addLog("fetch raw: " + text.substring(0, 300));
-
-          const result = JSON.parse(text);
-          addLog("GAS応答(fetch): " + JSON.stringify(result));
-
-          if (!result || !result.success) {
-            addLog((result && result.message) || "会費情報取得エラー");
-            return;
-          }
-
-          const duplicate = paymentList.some(function(payment) {
-            return result.billingGroupId && payment.billingGroupId === result.billingGroupId;
-          });
-
-          if (duplicate) {
-            addLog("同じ請求グループを受付済みです: " + result.billingGroupId);
-            return;
-          }
-
-          currentPayment = {
-            memberId: result.memberId,
-            memberName: result.memberName,
-            billingGroupId: result.billingGroupId || "",
-            targetMonth: result.targetMonth || "",
-            planId: result.planId || "",
-            feeType: result.feeType || "未設定",
-            amount: Number(result.amount || 0)
-          };
-
-          renderCurrentPayment();
-          addLog("会費情報取得完了(fetch): " + result.memberName);
-        })
-        .catch(function(error) {
-          addLog("fetch 会費情報取得失敗: " + (error.message || String(error)));
-        });
-    }
-
     // function loadMemberForPayment(memberId, planId) {
-    //   addLog("会費情報登録中(getPaymentInfo): " + memberId + " / " + planId);
+    //   addLog("会費情報登録中(fetch getPaymentInfo): " + memberId + " / " + planId);
 
-    //   jsonp(GAS_URL, {
+    //   const query = new URLSearchParams({
     //     action: "getPaymentInfo",
     //     member_id: memberId,
-    //     plan_id: planId
-    //   }).then(function(result) {
-
-    //     addLog("GAS応答: " + JSON.stringify(result));
-        
-    //     window[callbackName] = function(result) {
-    //       addLog("JSONP callback受信: " + JSON.stringify(result));
-    //       resolve(result);
-    //     };
-        
-    //     if (!result || !result.success) {
-    //       addLog((result && result.message) || "会費情報取得エラー");
-    //       return;
-    //     }
-        
-    //     const duplicate = paymentList.some(payment =>
-    //     result.billingGroupId && payment.billingGroupId === result.billingGroupId
-    //   );
-    //   if (duplicate) {
-    //     addLog("同じ請求グループを受付済み です: " + result.billingGroupId);
-    //     return;
-    //   }
-      
-    //   currentPayment = {
-    //     memberId: result.memberId,
-    //     memberName: result.memberName,
-    //     billingGroupId: result.billingGroupId || "",
-    //     targetMonth: result.targetMonth || "",
-    //     planId: result.planId || "",
-    //     feeType: result.feeType || "未設定",
-    //     amount: Number(result.amount || 0),
-    //     planId: result.planId || ""
-    //   };
-      
-    //   renderCurrentPayment();
-    //   addLog("会費情報取得完了: " + result.memberName);
-    // }).catch(function(error) {
-
-    //     const url = GAS_URL;
-    //     const query = new URLSearchParams({
-    //       action: "getPaymentInfo",
-    //       member_id: memberId,
-    //       plan_id: planId
-    //     });
-    //     const fullUrl = url + "?" + query.toString();
-    //     addLog("JSONP URL: " + fullUrl);
-    //     // script.src = fullUrl;
-
-    //     // script.onerror = function() {
-    //     //   addLog("JSONP script error: " + fullUrl);
-    //     //   reject(new Error("JSONP読み込み失敗"));
-    //     // };
- 
-    //     addLog("会費情報取得失敗: " + (error.message || String(error)));
+    //     plan_id: planId,
+    //     _ts: Date.now()
     //   });
+
+    //   const fullUrl = GAS_URL + "?" + query.toString();
+    //   addLog("FETCH URL: " + fullUrl);
+
+    //   fetch(fullUrl, {
+    //     method: "GET",
+    //     cache: "no-store"
+    //   })
+    //     .then(function(response) {
+    //       addLog("fetch status: " + response.status + " / ok=" + response.ok);
+    //       return response.text();
+    //     })
+    //     .then(function(text) {
+    //       addLog("fetch raw: " + text.substring(0, 300));
+
+    //       const result = JSON.parse(text);
+    //       addLog("GAS応答(fetch): " + JSON.stringify(result));
+
+    //       if (!result || !result.success) {
+    //         addLog((result && result.message) || "会費情報取得エラー");
+    //         return;
+    //       }
+
+    //       const duplicate = paymentList.some(function(payment) {
+    //         return result.billingGroupId && payment.billingGroupId === result.billingGroupId;
+    //       });
+
+    //       if (duplicate) {
+    //         addLog("同じ請求グループを受付済みです: " + result.billingGroupId);
+    //         return;
+    //       }
+
+    //       currentPayment = {
+    //         memberId: result.memberId,
+    //         memberName: result.memberName,
+    //         billingGroupId: result.billingGroupId || "",
+    //         targetMonth: result.targetMonth || "",
+    //         planId: result.planId || "",
+    //         feeType: result.feeType || "未設定",
+    //         amount: Number(result.amount || 0)
+    //       };
+
+    //       renderCurrentPayment();
+    //       addLog("会費情報取得完了(fetch): " + result.memberName);
+    //     })
+    //     .catch(function(error) {
+    //       addLog("fetch 会費情報取得失敗: " + (error.message || String(error)));
+    //     });
     // }
 
+function loadMemberForPayment(memberId, planId) {
+  addLog("会費情報登録開始: member_id=" + memberId + " / plan_id=" + planId);
+
+  if (!memberId) {
+    addLog("会費情報取得中止: member_id が空です。");
+    return;
+  }
+
+  if (!planId) {
+    addLog("会費情報取得中止: plan_id が空です。");
+    return;
+  }
+
+  jsonp(GAS_URL, {
+    action: "getPaymentInfo",
+    member_id: memberId,
+    plan_id: planId
+  }).then(function(result) {
+
+    addLog("GAS応答(getPaymentInfo): " + JSON.stringify(result));
+
+    if (!result) {
+      addLog("会費情報取得エラー: GAS応答が空です。");
+      return;
+    }
+
+    if (result.success !== true) {
+      addLog("会費情報取得エラー: " + (result.message || "success=false"));
+      return;
+    }
+
+    addLog(
+      "会費情報解析: " +
+      "memberId=" + result.memberId +
+      " / memberName=" + result.memberName +
+      " / billingGroupId=" + (result.billingGroupId || "") +
+      " / targetMonth=" + (result.targetMonth || "") +
+      " / feeType=" + (result.feeType || "") +
+      " / amount=" + Number(result.amount || 0)
+    );
+
+    const duplicate = paymentList.some(function(payment) {
+      return result.billingGroupId &&
+        payment.billingGroupId === result.billingGroupId;
+    });
+
+    if (duplicate) {
+      addLog("受付中止: 同じ請求グループを受付済みです: " + result.billingGroupId);
+      return;
+    }
+
+    currentPayment = {
+      memberId: result.memberId,
+      memberName: result.memberName,
+      billingGroupId: result.billingGroupId || "",
+      targetMonth: result.targetMonth || "",
+      planId: result.planId || "",
+      feeType: result.feeType || "未設定",
+      amount: Number(result.amount || 0)
+    };
+
+    addLog("currentPayment作成: " + JSON.stringify(currentPayment));
+
+    renderCurrentPayment();
+
+    addLog("会費情報取得完了: " + result.memberName);
+
+  }).catch(function(error) {
+    addLog("会費情報取得失敗: " + (error.message || String(error)));
+  });
+}
     // function jsonp(url, params) {
     //   return new Promise(function(resolve, reject) {
     //     const callbackName = "paymentCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
