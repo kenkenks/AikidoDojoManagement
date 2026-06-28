@@ -5,7 +5,7 @@ function doGet(e) {
 
   if (params.action === "getMemberInfo") {
     const result = safelyExecute_(function() {
-      return getMemberInfoForPayment(params.member_id || "");
+      return getPaymentStatus(params.member_id || "");
     });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
@@ -39,7 +39,7 @@ function doGet(e) {
 }
 
 function getMemberPaymentInfo_(memberId, plan_id) {
-  const member = getMemberInfoForPayment(memberId);
+  const member = getPaymentStatus(memberId);
   if (!member || member.success !== true) return member;
 
   sup_logDebug("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id });

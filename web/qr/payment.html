@@ -547,7 +547,7 @@
     }
 
     function loadMemberForPayment(memberId, planId) {
-      addLog("会費情報登録中: " + memberId + " / " + planId);
+      addLog("会費情報登録中(getPaymentInfo): " + memberId + " / " + planId);
 
       jsonp(GAS_URL, {
         action: "getPaymentInfo",
