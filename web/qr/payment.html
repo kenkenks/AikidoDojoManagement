@@ -705,61 +705,68 @@ function loadMemberForPayment(memberId, planId) {
     //   });
     // }
 
-    function jsonp(url, params) {
-      return new Promise(function(resolve, reject) {
-        const callbackName =
-          "paymentCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+  function jsonp(url, params) {
+    return new Promise(function(resolve, reject) {
+      const callbackName =
+        "paymentCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
 
-        const script = document.createElement("script");
-        const query = new URLSearchParams(
-          Object.assign({}, params, { callback: callbackName })
-        );
+      const script = document.createElement("script");
 
-        const fullUrl = url + "?" + query.toString();
-        addLog("JSONP URL: " + fullUrl);
+      const query = new URLSearchParams(
+        Object.assign({}, params, { callback: callbackName })
+      );
 
-        let finished = false;
+      const fullUrl = url + "?" + query.toString();
 
-        const timeout = window.setTimeout(function() {
-          cleanup();
-          reject(new Error("GAS応答がタイムアウトしました。"));
-        }, 15000);
+      addLog("JSONP URL: " + fullUrl);
 
-        function cleanup() {
-          if (finished) return;
-          finished = true;
+      let finished = false;
 
-          window.clearTimeout(timeout);
+      const timeout = window.setTimeout(function() {
+        cleanup();
+        reject(new Error("GAS応答がタイムアウトしました。"));
+      }, 15000);
 
-          try {
-            delete window[callbackName];
-          } catch (e) {
-            window[callbackName] = undefined;
-          }
+      function cleanup() {
+        if (finished) return;
+        finished = true;
 
-          if (script.parentNode) {
-            script.parentNode.removeChild(script);
-          }
+        window.clearTimeout(timeout);
+
+        try {
+          delete window[callbackName];
+        } catch (e) {
+          window[callbackName] = undefined;
         }
 
-        window[callbackName] = function(result) {
-          addLog("JSONP callback受信: " + JSON.stringify(result));
-          cleanup();
-          resolve(result);
-        };
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+      }
 
-        script.onerror = function() {
-          addLog("JSONP script error: " + fullUrl);
-          cleanup();
-          reject(new Error("JSONP読込エラー"));
-        };
+      window[callbackName] = function(result) {
+        addLog("JSONP callback受信: " + JSON.stringify(result));
+        cleanup();
+        resolve(result);
+      };
 
-        script.async = true;
-        script.src = fullUrl;
-        document.head.appendChild(script);
-      });
-    }
+      script.onerror = function() {
+        addLog("JSONP script error発生。ただしtimeoutまで待機: " + fullUrl);
+        // ここでは cleanup / reject しない
+        // iPhone Safariで script error が先に発生しても、
+        // callback が後から来る可能性を見るため。
+      };
 
+      script.onload = function() {
+        addLog("JSONP script load完了: " + fullUrl);
+      };
+
+      script.async = true;
+      script.src = fullUrl;
+
+      document.head.appendChild(script);
+    });
+  }
 </script>
 </body>
 </html>
