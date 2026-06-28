@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>合気道 出席受付</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    :root { color-scheme: light; --green: #176b45; --amber: #9b6100; --red: #b3261e; }
+    * { box-sizing: border-box; }
+    body { font-family: sans-serif; margin: 0; padding: 16px; background: #f4f5f2; color: #222; }
+    h1 { font-size: 22px; margin: 0 0 12px; }
+    h2 { font-size: 17px; margin: 0 0 10px; }
+    .card { background: #fff; padding: 14px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 10px; }
+    .key-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .key { padding: 9px; background: #f7f7f7; border-radius: 8px; }
+    .label { display: block; color: #666; font-size: 12px; margin-bottom: 3px; }
+    .ok { color: var(--green); font-weight: bold; }
+    .warn { color: var(--amber); font-weight: bold; }
+    .error { color: var(--red); font-weight: bold; }
+    #reader { width: 100%; max-width: 420px; margin: 0 auto 10px; }
+    button { font-size: 15px; padding: 9px 12px; margin: 3px; border: 1px solid #aaa; border-radius: 8px; background: #fff; }
+    button.primary { color: #fff; background: var(--green); border-color: var(--green); }
+    button.slot.selected { color: #fff; background: #2a6fbb; border-color: #2a6fbb; }
+    button.danger { color: var(--red); }
+    button:disabled { opacity: .45; }
+    select { width: 100%; font-size: 16px; padding: 10px; border: 1px solid #aaa; border-radius: 8px; background: #fff; }
+    [hidden] { display: none !important; }
+    .candidate { border-top: 1px solid #e1e1e1; padding: 10px 0; }
+    .candidate:first-child { border-top: 0; }
+    .candidate-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+    .candidate-name { font-weight: bold; }
+    .slots { margin-top: 7px; }
+    .empty { color: #777; }
+    .latest { font-size: 13px; word-break: break-all; }
+    #log { padding-left: 20px; margin-bottom: 0; }
+    @media (max-width: 420px) { .key-grid { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <h1>合気道 出席受付</h1>
+
+  <section class="card key-grid">
+    <div class="key"><span class="label">道場</span><span id="locationId" class="warn">未設定</span></div>
+    <div class="key"><span class="label">課金枠</span><span id="billingBlockId" class="warn">未設定</span></div>
+    <div class="key"><span class="label">先生</span><span id="teacherId" class="warn">未設定</span></div>
+    <div class="key"><span class="label">稽古日</span><span id="attendanceDate"></span></div>
+  </section>
+
+  <section id="blockChoiceCard" class="card" hidden>
+    <h2>課金枠を選択</h2>
+    <div class="warn">現在時刻から一つに絞れませんでした。</div>
+    <select id="blockChoice" onchange="selectBillingBlock(this.value)"></select>
+  </section>
+
+  <section class="card">
+    <div id="reader"></div>
+    <button type="button" onclick="startScan()">読み取り開始</button>
+    <button type="button" onclick="stopScan()">停止</button>
+  </section>
+
+  <section class="card">
+    <h2>出席する会員と稽古枠</h2>
+    <div id="memberCandidates" class="empty">会員QRを読み取ってください。</div>
+    <button id="sendButton" class="primary" type="button" onclick="sendCandidatesToGas()">選択した出席を登録</button>
+    <button type="button" onclick="clearCandidates()">会員一覧をクリア</button>
+  </section>
+
+  <section class="card">
+    <span class="label">最新読み取り</span>
+    <div id="latest" class="latest">なし</div>
+  </section>
+
+  <section class="card">
+    <h2>操作ログ</h2>
+    <ul id="log"></ul>
+  </section>
+
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
+    const memberNameMap = { M001: "山田太郎", M002: "川本花子", M003: "佐藤一郎" };
+
+    let html5QrCode = null;
+    let scanning = false;
+    let currentLocationId = "";
+    let currentBillingBlockId = "";
+    let currentTeacherId = "";
+    let currentSlots = [];
+    let memberCandidates = [];
+    let lastText = "";
+    let lastReadTime = 0;
+    let attendanceSessionId = createSessionId();
+    let submitting = false;
+
+    document.getElementById("attendanceDate").textContent = localDateText(new Date());
+    updateSendButton();
+
+    function startScan() {
+      if (scanning) return;
+      html5QrCode = html5QrCode || new Html5Qrcode("reader");
+      html5QrCode.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        onScanSuccess,
+        function () {}
+      ).then(function () {
+        scanning = true;
+        addLog("カメラを起動しました。");
+      }).catch(function (error) {
+        addLog("カメラ起動エラー: " + error, "error");
+      });
+    }
+
+    function stopScan() {
+      if (!html5QrCode || !scanning) return;
+      html5QrCode.stop().then(function () {
+        scanning = false;
+        addLog("読み取りを停止しました。");
+      }).catch(function (error) {
+        addLog("停止エラー: " + error, "error");
+      });
+    }
+
+    function onScanSuccess(decodedText) {
+      if (submitting) return;
+      const now = Date.now();
+      if (decodedText === lastText && now - lastReadTime < 2000) return;
+      lastText = decodedText;
+      lastReadTime = now;
+      document.getElementById("latest").textContent = decodedText;
+
+      const parsed = parseQrText(decodedText);
+      if (parsed.location_id || parsed.billing_block_id) {
+        if (parsed.location_id) currentLocationId = parsed.location_id;
+        currentBillingBlockId = parsed.billing_block_id || "";
+        currentSlots = [];
+        renderKeys();
+        addLog(parsed.billing_block_id ? "道場・課金枠QRを読み取りました。" : "道場QRを読み取りました。課金枠を自動判定します。");
+        beep();
+        loadAttendanceSessionInfo();
+        return;
+      }
+      if (parsed.teacher_id) {
+        currentTeacherId = parsed.teacher_id;
+        renderKeys();
+        addLog("先生QR読取: " + currentTeacherId);
+        beep();
+        return;
+      }
+      if (parsed.member_id) {
+        if (currentSlots.length === 0) {
+          addLog("先に道場QRを読み取り、課金枠を確定してください。", "error");
+          beep(330);
+          return;
+        }
+        addMemberCandidate(parsed.member_id);
+        beep();
+        return;
+      }
+      addLog("未分類QR: " + decodedText, "error");
+      beep(330);
+    }
+
+    function parseQrText(text) {
+      const result = { location_id: "", billing_block_id: "", teacher_id: "", member_id: "" };
+      try {
+        const url = new URL(text);
+        Object.keys(result).forEach(function (key) { result[key] = url.searchParams.get(key) || ""; });
+        return result;
+      } catch (error) {
+        String(text).split(/[&\n]/).forEach(function (part) {
+          const separator = part.indexOf("=");
+          if (separator < 1) return;
+          const key = part.slice(0, separator).trim();
+          const value = part.slice(separator + 1).trim();
+          if (Object.prototype.hasOwnProperty.call(result, key)) result[key] = value;
+        });
+        return result;
+      }
+    }
+
+    function loadAttendanceSessionInfo() {
+      if (!currentLocationId) {
+        currentSlots = [];
+        renderCandidates();
+        addLog("location_id が必要です。", "error");
+        return;
+      }
+
+      const params = {
+        action: "attendance_session_info",
+        location_id: currentLocationId
+      };
+      if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
+
+      jsonp(GAS_URL, params).then(function (data) {
+        if (!data.ok) throw new Error(data.message || "稽古枠を取得できませんでした。");
+        document.getElementById("locationId").textContent = data.location_name + " (" + data.location_id + ")";
+        document.getElementById("locationId").className = "ok";
+
+        if (data.requires_selection) {
+          currentBillingBlockId = "";
+          currentSlots = [];
+          clearCandidates(true);
+          setKey("billingBlockId", "");
+          updateSendButton();
+          renderBlockChoices(data.billing_block_candidates || []);
+          addLog(data.message || "課金枠を選択してください。", "warn");
+          return;
+        }
+
+        document.getElementById("blockChoiceCard").hidden = true;
+        currentBillingBlockId = data.billing_block_id;
+        currentSlots = data.slots || [];
+        document.getElementById("billingBlockId").textContent = data.billing_block_name;
+        document.getElementById("billingBlockId").className = "ok";
+        clearCandidates(true);
+        addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
+      }).catch(function (error) {
+        currentSlots = [];
+        renderCandidates();
+        addLog(error.message || String(error), "error");
+      });
+    }
+
+    function renderBlockChoices(candidates) {
+      const card = document.getElementById("blockChoiceCard");
+      const select = document.getElementById("blockChoice");
+      select.innerHTML = "";
+      const emptyOption = document.createElement("option");
+      emptyOption.value = "";
+      emptyOption.textContent = candidates.length ? "課金枠を選んでください" : "選択できる課金枠がありません";
+      select.appendChild(emptyOption);
+      candidates.forEach(function (candidate) {
+        const option = document.createElement("option");
+        option.value = candidate.billing_block_id;
+        option.textContent = candidate.label + "（" + candidate.start_time + "–" + candidate.end_time + "）";
+        select.appendChild(option);
+      });
+      select.disabled = candidates.length === 0;
+      card.hidden = false;
+    }
+
+    function selectBillingBlock(billingBlockId) {
+      if (!billingBlockId) return;
+      currentBillingBlockId = billingBlockId;
+      renderKeys();
+      loadAttendanceSessionInfo();
+    }
+
+    function addMemberCandidate(memberId) {
+      if (submitting) {
+        addLog("送信確認中のため、会員追加を待ってください。", "warn");
+        return;
+      }
+      if (memberCandidates.some(function (candidate) { return candidate.member_id === memberId; })) {
+        addLog("二重スキャンを無視しました: " + memberId);
+        return;
+      }
+      memberCandidates.push({ member_id: memberId, slot_ids: [], loaded: false, load_error: "" });
+      renderCandidates();
+      addLog("会員QR読取: " + memberId + "（登録済み出席を確認中）");
+      loadMemberAttendanceState(memberId);
+    }
+
+    function loadMemberAttendanceState(memberId, expectedSlotIds) {
+      return jsonp(GAS_URL, {
+        action: "member_attendance_state",
+        attendance_date: localDateText(new Date()),
+        member_id: memberId,
+        location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId
+      }).then(function (data) {
+        if (!data.ok) throw new Error(data.message || "登録済み出席を取得できませんでした。");
+        const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
+        if (!candidate) return { ok: false, matches: false, member_id: memberId };
+        const actualSlotIds = normalizeSlotIds(data.selected_slot_ids || []);
+        candidate.slot_ids = actualSlotIds;
+        candidate.loaded = true;
+        candidate.load_error = "";
+        renderCandidates();
+        const matches = expectedSlotIds === undefined ||
+          slotIdsEqual(actualSlotIds, normalizeSlotIds(expectedSlotIds));
+        addLog(memberId + " の登録済み枠を復元しました（" + candidate.slot_ids.length + "枠）。");
+        return { ok: true, matches: matches, member_id: memberId };
+      }).catch(function (error) {
+        const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
+        if (!candidate) return { ok: false, matches: false, member_id: memberId };
+        candidate.loaded = false;
+        candidate.load_error = error.message || String(error);
+        renderCandidates();
+        addLog(memberId + " の状態取得に失敗: " + candidate.load_error, "error");
+        return { ok: false, matches: false, member_id: memberId };
+      });
+    }
+
+    function refreshAllMemberStates(expectedByMember) {
+      memberCandidates.forEach(function(candidate) {
+        candidate.loaded = false;
+        candidate.load_error = "";
+      });
+      renderCandidates();
+
+      return Promise.all(memberCandidates.map(function(candidate) {
+        return loadMemberAttendanceState(
+          candidate.member_id,
+          expectedByMember[candidate.member_id] || []
+        );
+      })).then(function(results) {
+        const failed = results.filter(function(result) { return !result.ok; });
+        const mismatched = results.filter(function(result) { return result.ok && !result.matches; });
+        if (failed.length > 0) {
+          addLog("登録結果を確認できない会員があります: " + failed.map(function(result) { return result.member_id; }).join(", "), "error");
+          return false;
+        }
+        if (mismatched.length > 0) {
+          addLog("画面選択と保存結果が一致しません: " + mismatched.map(function(result) { return result.member_id; }).join(", "), "error");
+          return false;
+        }
+        addLog("登録結果を再取得し、画面と出席ログの一致を確認しました。", "ok");
+        return true;
+      });
+    }
+
+    function toggleSlot(memberId, slotId) {
+      const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
+      if (!candidate || !candidate.loaded || submitting) return;
+      const index = candidate.slot_ids.indexOf(slotId);
+      if (index >= 0) candidate.slot_ids.splice(index, 1);
+      else candidate.slot_ids.push(slotId);
+      renderCandidates();
+    }
+
+    function removeCandidate(memberId) {
+      if (submitting) return;
+      memberCandidates = memberCandidates.filter(function (item) { return item.member_id !== memberId; });
+      renderCandidates();
+    }
+
+    function renderCandidates() {
+      const container = document.getElementById("memberCandidates");
+      container.innerHTML = "";
+      container.className = memberCandidates.length ? "" : "empty";
+      if (memberCandidates.length === 0) {
+        container.textContent = currentSlots.length ? "会員QRを読み取ってください。" : "先に道場QRを読み取り、課金枠を確定してください。";
+        updateSendButton();
+        return;
+      }
+
+      memberCandidates.forEach(function (candidate) {
+        const row = document.createElement("div");
+        row.className = "candidate";
+        const head = document.createElement("div");
+        head.className = "candidate-head";
+        const name = document.createElement("span");
+        name.className = "candidate-name";
+        name.textContent = candidate.member_id + "：" + (memberNameMap[candidate.member_id] || "氏名は管理側で確認");
+        const remove = document.createElement("button");
+        remove.type = "button";
+        remove.className = "danger";
+        remove.textContent = "削除";
+        remove.disabled = submitting;
+        remove.onclick = function () { removeCandidate(candidate.member_id); };
+        head.append(name, remove);
+        row.appendChild(head);
+
+        if (!candidate.loaded) {
+          const status = document.createElement("div");
+          status.className = candidate.load_error ? "error" : "warn";
+          status.textContent = candidate.load_error || "登録済み状態を読み込み中…";
+          row.appendChild(status);
+        }
+
+        const slots = document.createElement("div");
+        slots.className = "slots";
+        currentSlots.forEach(function (slot) {
+          const button = document.createElement("button");
+          const selected = candidate.slot_ids.includes(slot.slot_id);
+          button.type = "button";
+          button.className = "slot" + (selected ? " selected" : "");
+          button.textContent = (slot.start_time && slot.end_time) ? slot.start_time + "–" + slot.end_time : slot.label;
+          button.disabled = !candidate.loaded || submitting;
+          button.onclick = function () { toggleSlot(candidate.member_id, slot.slot_id); };
+          slots.appendChild(button);
+        });
+        row.appendChild(slots);
+        container.appendChild(row);
+      });
+      updateSendButton();
+    }
+
+    function sendCandidatesToGas() {
+      if (submitting) return;
+      if (!currentTeacherId || !currentLocationId || !currentBillingBlockId) {
+        addLog("先生・道場・課金枠をすべて設定してください。", "error");
+        return;
+      }
+      if (memberCandidates.length === 0) {
+        addLog("出席する会員がいません。", "error");
+        return;
+      }
+      const notLoaded = memberCandidates.filter(function (item) { return !item.loaded; });
+      if (notLoaded.length > 0) {
+        addLog("登録済み状態を確認できていない会員がいます。誤取消防止のため送信できません。", "error");
+        return;
+      }
+
+      const payload = {
+        mode: "attendance_batch",
+        attendance_session_id: attendanceSessionId,
+        attendance_date: localDateText(new Date()),
+        teacher_id: currentTeacherId,
+        location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId,
+        attendance_items: memberCandidates.map(function (item) {
+          return { member_id: item.member_id, slot_ids: item.slot_ids.slice() };
+        }),
+        source: "github_pages_qr"
+      };
+
+      const expectedByMember = {};
+      payload.attendance_items.forEach(function(item) {
+        expectedByMember[item.member_id] = item.slot_ids.slice();
+      });
+
+      submitting = true;
+      renderCandidates();
+      updateSendButton();
+      addLog("出席登録を送信しています。");
+      fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: { "Content-Type": "text/plain" },
+        body: JSON.stringify(payload)
+      }).then(function () {
+        addLog("同期要求が完了しました。保存結果を再確認します。");
+        return refreshAllMemberStates(expectedByMember);
+      }).catch(function (error) {
+        addLog("送信エラー: " + error, "error");
+      }).finally(function() {
+        submitting = false;
+        renderCandidates();
+        updateSendButton();
+      });
+    }
+
+    function clearCandidates(silent) {
+      if (submitting) return;
+      memberCandidates = [];
+      attendanceSessionId = createSessionId();
+      renderCandidates();
+      if (!silent) addLog("会員一覧をクリアしました。");
+    }
+
+    function renderKeys() {
+      setKey("locationId", currentLocationId);
+      setKey("billingBlockId", currentBillingBlockId);
+      setKey("teacherId", currentTeacherId);
+      updateSendButton();
+    }
+
+    function setKey(id, value) {
+      const element = document.getElementById(id);
+      element.textContent = value || "未設定";
+      element.className = value ? "ok" : "warn";
+    }
+
+    function updateSendButton() {
+      document.getElementById("sendButton").disabled = !(
+        !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
+        memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.loaded; })
+      );
+    }
+
+    function normalizeSlotIds(slotIds) {
+      return Array.from(new Set((slotIds || []).map(function(value) {
+        return String(value || "").trim();
+      }).filter(Boolean))).sort();
+    }
+
+    function slotIdsEqual(left, right) {
+      const normalizedLeft = normalizeSlotIds(left);
+      const normalizedRight = normalizeSlotIds(right);
+      return normalizedLeft.length === normalizedRight.length &&
+        normalizedLeft.every(function(value, index) { return value === normalizedRight[index]; });
+    }
+
+    function jsonp(url, params) {
+      return new Promise(function (resolve, reject) {
+        const callbackName = "attendanceCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+        const script = document.createElement("script");
+        const query = new URLSearchParams(Object.assign({}, params, { callback: callbackName }));
+        const timeout = window.setTimeout(function () { cleanup(); reject(new Error("稽古枠の取得がタイムアウトしました。")); }, 15000);
+        function cleanup() {
+          window.clearTimeout(timeout);
+          delete window[callbackName];
+          script.remove();
+        }
+        window[callbackName] = function (data) { cleanup(); resolve(data); };
+        script.onerror = function () { cleanup(); reject(new Error("GASへ接続できませんでした。")); };
+        script.src = url + "?" + query.toString();
+        document.head.appendChild(script);
+      });
+    }
+
+    function localDateText(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return year + "-" + month + "-" + day;
+    }
+
+    function createSessionId() {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") return "ASES-" + window.crypto.randomUUID();
+      return "ASES-" + Date.now() + "-" + Math.random().toString(16).slice(2);
+    }
+
+    function addLog(message, className) {
+      const li = document.createElement("li");
+      li.textContent = "[" + new Date().toLocaleTimeString() + "] " + message;
+      if (className) li.className = className;
+      document.getElementById("log").prepend(li);
+    }
+
+    function beep(frequency) {
+      try {
+        const context = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = context.createOscillator();
+        const gain = context.createGain();
+        oscillator.connect(gain); gain.connect(context.destination);
+        oscillator.frequency.value = frequency || 880; gain.gain.value = 0.08;
+        oscillator.start(); oscillator.stop(context.currentTime + 0.08);
+      } catch (error) {}
+      if (navigator.vibrate) navigator.vibrate(100);
+    }
+  </script>
+</body>
+</html>
