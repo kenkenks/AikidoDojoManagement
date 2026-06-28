@@ -11,6 +11,8 @@ function doGet(e) {
   }
 
   if (params.action === "getPaymentInfo") {
+    sup_logDebug("doGet", { action: params.action, member_id: params.member_id, plan_id: params.plan_id });
+
     const result = safelyExecute_(function() {
       return getMemberPaymentInfo_(params.member_id || "", params.plan_id || "");
     });
