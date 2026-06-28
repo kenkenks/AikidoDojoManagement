@@ -668,31 +668,86 @@
     //   });
     // }
 
+    // function jsonp(url, params) {
+    //   return new Promise(function(resolve, reject) {
+    //     const callbackName = "paymentCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+    //     const script = document.createElement("script");
+    //     const query = new URLSearchParams(Object.assign({}, params, { callback: callbackName }));
+    //     const timeout = window.setTimeout(function() {
+    //       cleanup();
+    //       reject(new Error("GAS応答がタイムアウトしました。"));
+    //     }, 15000);
+
+    //     function cleanup() {
+    //       window.clearTimeout(timeout);
+    //       delete window[callbackName];
+    //       script.remove();
+    //     }
+
+    //     window[callbackName] = function(result) {
+    //       cleanup();
+    //       resolve(result);
+    //     };
+    //     script.onerror = function() {
+    //       cleanup();
+    //       reject(new Error("JSONP読込エラー"));
+    //     };
+    //     script.src = url + "?" + query.toString();
+    //     document.head.appendChild(script);
+    //   });
+    // }
+
     function jsonp(url, params) {
       return new Promise(function(resolve, reject) {
-        const callbackName = "paymentCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+        const callbackName =
+          "paymentCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+
         const script = document.createElement("script");
-        const query = new URLSearchParams(Object.assign({}, params, { callback: callbackName }));
+        const query = new URLSearchParams(
+          Object.assign({}, params, { callback: callbackName })
+        );
+
+        const fullUrl = url + "?" + query.toString();
+        addLog("JSONP URL: " + fullUrl);
+
+        let finished = false;
+
         const timeout = window.setTimeout(function() {
           cleanup();
           reject(new Error("GAS応答がタイムアウトしました。"));
         }, 15000);
 
         function cleanup() {
+          if (finished) return;
+          finished = true;
+
           window.clearTimeout(timeout);
-          delete window[callbackName];
-          script.remove();
+
+          try {
+            delete window[callbackName];
+          } catch (e) {
+            window[callbackName] = undefined;
+          }
+
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
         }
 
         window[callbackName] = function(result) {
+          addLog("JSONP callback受信: " + JSON.stringify(result));
           cleanup();
           resolve(result);
         };
+
         script.onerror = function() {
+          addLog("JSONP script error: " + fullUrl);
           cleanup();
           reject(new Error("JSONP読込エラー"));
         };
-        script.src = url + "?" + query.toString();
+
+        script.async = true;
+        script.src = fullUrl;
         document.head.appendChild(script);
       });
     }
