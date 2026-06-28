@@ -586,6 +586,12 @@
       addLog("会費情報取得完了: " + result.memberName);
     }).catch(function(error) {
 
+        const url = GAS_URL;
+        const query = new URLSearchParams({
+          action: "getPaymentInfo",
+          member_id: memberId,
+          plan_id: planId
+        });
         const fullUrl = url + "?" + query.toString();
         addLog("JSONP URL: " + fullUrl);
         script.src = fullUrl;
