@@ -600,10 +600,10 @@
         addLog("JSONP URL: " + fullUrl);
         script.src = fullUrl;
 
-        script.onerror = function() {
-          addLog("JSONP script error: " + fullUrl);
-          reject(new Error("JSONP読み込み失敗"));
-        };
+        // script.onerror = function() {
+        //   addLog("JSONP script error: " + fullUrl);
+        //   reject(new Error("JSONP読み込み失敗"));
+        // };
  
         addLog("会費情報取得失敗: " + (error.message || String(error)));
       });
