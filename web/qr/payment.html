@@ -554,6 +554,11 @@
         member_id: memberId,
         plan_id: planId
       }).then(function(result) {
+        
+        const fullUrl = url + "?" + query.toString();
+        addLog("JSONP URL: " + fullUrl);
+        script.src = fullUrl;
+
         addLog("GAS応答: " + JSON.stringify(result));
 
         if (!result || !result.success) {
