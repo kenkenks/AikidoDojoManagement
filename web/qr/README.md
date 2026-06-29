@@ -9,10 +9,10 @@
 - 管理画面: オレンジ系背景（将来用）
 
 ## ファイル
-- home.html: 入口
+- index.html: 入口
 - member_home.html: 会員ホーム
 - teacher_home.html: 先生ホーム
-- index.html: 出席登録（元 index.html）
+- attendance.html: 出席登録（元 index.html）
 - payment.html: 会費受付（元 payment.html）
 - paypay_code.html: PayPay決済コード登録（仮画面）
 - common.css: ホーム系共通スタイル
