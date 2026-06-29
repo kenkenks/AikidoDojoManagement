@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>合気道 会費受付</title>
+  <title>合気道 先生ページ - 会費受付</title>
 
   <script src="https://unpkg.com/html5-qrcode"></script>
 
@@ -12,7 +12,7 @@
       font-family: sans-serif;
       margin: 0;
       padding: 16px;
-      background: #f5f5f5;
+      background: #e3f2fd;
     }
     h1 {
       font-size: 22px;
@@ -114,11 +114,36 @@
       overflow-y: auto;
     }    
 
+    .role-badge {
+      display:inline-block;
+      padding:4px 8px;
+      border-radius:999px;
+      background:#d8ecff;
+      color:#0b5cad;
+      font-size:12px;
+      font-weight:bold;
+      margin-bottom:8px;
+    }
+    .top-nav { margin:0 0 12px; }
+    .top-nav a {
+      display:inline-block;
+      margin:0 6px 6px 0;
+      padding:7px 10px;
+      border-radius:8px;
+      border:1px solid #b5d4f0;
+      background:#fff;
+      color:#0b5cad;
+      text-decoration:none;
+      font-size:14px;
+    }
+
   </style>
 </head>
 
 <body>
+  <div class="role-badge">先生画面</div>
   <h1>合気道 会費受付</h1>
+  <nav class="top-nav"><a href="teacher_home.html">先生ホーム</a><a href="home.html">入口</a></nav>
 
   <div class="card">
     <div>保持中の道場ID</div>
@@ -320,11 +345,27 @@
         <div>請求グループ: ${escapeHtml(currentPayment.billingGroupId || "未設定")}</div>
         <div>プランID: ${escapeHtml(currentPayment.planId || "未設定")}</div>
         <div class="amount">${formatYen(currentPayment.amount)}円</div>
-        ${currentPayment.amount > 0
-          ? `<button class="primary" onclick="confirmPayment('現金')">現金受領</button>
-             <button class="primary" onclick="confirmPayment('PayPay')">PayPay受領</button>`
-          : `<div class="ok">未払い金額はありません</div>`}
-      `;
+         ${currentPayment.amount > 0
+            ? `
+              <!--
+                現金受付
+                ・先生がその場で受付する運用
+              -->
+              <button class="primary" onclick="confirmPayment('現金')">
+                現金受領
+              </button>
+
+              <!--
+                PayPay受付
+                ・現在は動作確認のため先生画面でも受付可能
+                ・将来は会員画面（Googleフォーム/Firebase）へ移行予定
+              -->
+              <button class="primary" onclick="confirmPayment('PayPay')">
+                PayPay受領
+              </button>
+            `
+            : `<div class="ok">未払い金額はありません</div>`}
+        `;
     }
 
     function confirmPayment(payType) {
@@ -371,8 +412,6 @@
       div.innerHTML = `
         <div class="ok">✓ 登録完了</div>
         <div class="current-name">${escapeHtml(payment.memberName)}</div>
-        <div>${escapeHtml(payment.planId)}</div>
-        <div>${escapeHtml(payment.feeType)}</div>
         <div>請求グループ: ${escapeHtml(payment.billingGroupId || "未設定")}</div>
         <div>プランID: ${escapeHtml(payment.planId || "未設定")}</div>
          <div class="amount">${formatYen(payment.amount)}円</div>

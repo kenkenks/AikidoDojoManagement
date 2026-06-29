@@ -3,12 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>合気道 出席受付</title>
+  <title>合気道 会員ページ - 出席受付</title>
   <script src="https://unpkg.com/html5-qrcode"></script>
   <style>
     :root { color-scheme: light; --green: #176b45; --amber: #9b6100; --red: #b3261e; }
     * { box-sizing: border-box; }
-    body { font-family: sans-serif; margin: 0; padding: 16px; background: #f4f5f2; color: #222; }
+    body { font-family: sans-serif; margin: 0; padding: 16px; background: #e8f5e9; color: #222; }
+    .role-badge { display:inline-block; padding:4px 8px; border-radius:999px; background:#d7efe0; color:#176b45; font-size:12px; font-weight:bold; margin-bottom:8px; }
+    .top-nav { margin:0 0 12px; }
+    .top-nav a { display:inline-block; margin:0 6px 6px 0; padding:7px 10px; border-radius:8px; border:1px solid #b7d8c4; background:#fff; color:#176b45; text-decoration:none; font-size:14px; }
     h1 { font-size: 22px; margin: 0 0 12px; }
     h2 { font-size: 17px; margin: 0 0 10px; }
     .card { background: #fff; padding: 14px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 10px; }
@@ -38,7 +41,9 @@
   </style>
 </head>
 <body>
+  <div class="role-badge">会員画面</div>
   <h1>合気道 出席受付</h1>
+  <nav class="top-nav"><a href="member_home.html">会員ホーム</a><a href="paypay_code.html">PayPay決済コード登録</a><a href="home.html">入口</a></nav>
 
   <section class="card key-grid">
     <div class="key"><span class="label">道場</span><span id="locationId" class="warn">未設定</span></div>

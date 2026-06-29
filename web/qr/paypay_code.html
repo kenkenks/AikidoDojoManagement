@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>PayPay決済コード登録</title><link rel="stylesheet" href="common.css"></head>
+<body class="member">
+  <h1>📲 PayPay決済コード登録</h1>
+  <section class="card">
+    <h2>決済コード</h2>
+    <p class="note">現時点では会員画面で支払いは行わず、PayPay支払い後の決済コードを登録する画面として定義します。送信処理は次ステップでGAS仕様に合わせて接続します。</p>
+    <label>会員ID</label>
+    <input id="memberId" placeholder="例：M001">
+    <label>決済コード</label>
+    <input id="paypayCode" placeholder="PayPayの決済コード">
+    <button class="primary member" onclick="showPending()">登録（仮）</button>
+    <div id="result" class="note"></div>
+  </section>
+  <p class="note"><a href="member_home.html">会員ホームへ戻る</a></p>
+  <script>
+    function showPending() {
+      document.getElementById('result').textContent = '仮登録画面です。GAS連携は次ステップで実装します。';
+    }
+  </script>
+</body></html>
