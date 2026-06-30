@@ -46,16 +46,16 @@ function debug_paymentEvidence_acceptBatch() {
     });
 
   const input = {
-    mode: "paymentEvidence_acceptBatch",
+    mode: "payment_batch",
     teacher_id: teacher_id,
     payments: payment_items,
     count: 1,
     source: "payment_teacher.html"
   };
   
-  sup_logDebug("debug_paymentEvidence_acceptBatch input", {
-        result: JSON.stringify(result, null, 2)
-  });
+  // sup_logDebug("debug_paymentEvidence_acceptBatch input", {
+  //       result: JSON.stringify(result, null, 2)
+  // });
   
 
   //============ テスト対象
