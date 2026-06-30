@@ -31,6 +31,18 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "payment_evidence_list") {
+    const result = safelyExecute_(function() {
+      return paymentEvidenceQuery_list({
+        target_month: params.target_month || "",
+        status: params.status || "CONFIRMED",
+        statuses: params.statuses || params.status || "CONFIRMED",
+        payment_method: params.payment_method || ""
+      });
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "attendance_session_info") {
     const result = safelyExecute_(function() {
       return getAttendanceSessionInfo(params);
@@ -120,6 +132,10 @@ function doPost(e) {
     
     if (data.mode === "paypay_code_record") {
       return paypayCode_record(data);
+    }
+
+    if (data.mode === "payment_evidence_post_selected") {
+      return paymentEvidence_postSelectedBatch(data, createSheetContext());
     }
 
     if (data.mode === "payment_evidence_post_batch") {
