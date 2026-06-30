@@ -5,7 +5,7 @@
 
 //デバック実行用
 function debug_run() {
-  memberId = "M002"
+  memberId = "M001"
   plan_id = "P001"
 
   const ctx = createSheetContext();

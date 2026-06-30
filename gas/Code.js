@@ -42,7 +42,7 @@ function doGet(e) {
 
 function getMemberPaymentInfo_(memberId, plan_id) {
   const member = getPaymentStatus(memberId);
-  if (!member || member.success !== true) return member;
+  if (!member || member.ok !== true) return member;
 
   sup_logDebug("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id });
 
@@ -54,7 +54,7 @@ function getMemberPaymentInfo_(memberId, plan_id) {
     Logger.log("Error occurred: " + e.toString());
   }
 
-  const paymentStatus = getPaymentStatus(member.memberId);
+  const paymentStatus = getPaymentStatus(memberId);
   if (!paymentStatus || paymentStatus.ok !== true) {
     return {
       success: false,

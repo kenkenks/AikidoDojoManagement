@@ -111,6 +111,10 @@
 function paymentEvidence_acceptBatch(data, ctx) {
   ctx = ensureSheetContext(ctx);
 
+  sup_logDebug("paymentEvidence_recordBatch start", {
+    result: JSON.stringify(data, null, 2)
+  });
+
   const requestResult = paymentEvidence_requestBatch(data, ctx);
 
   const records = requestResult.records || requestResult.created || [];

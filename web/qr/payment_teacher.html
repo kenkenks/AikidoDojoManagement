@@ -496,7 +496,7 @@
       }
 
       const payload = {
-        mode: "payment_batch",
+        mode: "paymentEvidence_acceptBatch",
         teacher_id: currentTeacherId,
         location_id: currentLocationId,
         payments: paymentList.map(payment => ({
@@ -505,12 +505,11 @@
           target_month: payment.targetMonth,
           member_name: payment.memberName,
           plan_id: payment.planId,
-          fee_type: payment.feeType,
           amount: payment.amount,
           payment_method: payment.payType
         })),
         count: paymentList.length,
-        source: "payment_qr_test"
+        source: "payment_teacher.html"
       };
 
       addLog("GAS一括送信予定: " + JSON.stringify(payload));
