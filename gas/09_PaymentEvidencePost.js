@@ -175,7 +175,7 @@ function paymentEvidencePost_make(context, ctx) {
 
   return {
     payment_id: "PAY-" + Utilities.getUuid().slice(0, 8),
-    日時: evidence["confirmed_at"] || new Date(),
+    日時: evidence["confirmed_at"] || sup_now(ctx),
     target_month: normalizeMonth(invoice["target_month"]),
     billing_group_id: normalizeId_(invoice["billing_group_id"]),
     invoice_id: normalizeId_(invoice["invoice_id"]),
@@ -207,7 +207,7 @@ function paymentEvidencePost_updatePosted(input, ctx) {
 
   paymentEvidence_updateColumns_(ctx, target.rowNumber, {
     status: "POSTED",
-    posted_at: new Date(),
+    posted_at: sup_now(ctx),
     payment_log_id: input.payment_log_id
   });
 

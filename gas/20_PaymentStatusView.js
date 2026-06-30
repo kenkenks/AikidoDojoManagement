@@ -253,7 +253,7 @@ function paymentStatusView_buildRow(memberId, targetMonth, ctx) {
     本日出席済み: !!ctx.todayAttendanceRegistered,
     現金支払要求未完了数: Number(ctx.cashRequestsLen || 0),
     メッセージ: ctx.message || "",
-    更新日時: new Date()
+    更新日時: sup_now(ctx)
   };
 }
 
@@ -317,11 +317,7 @@ function paymentStatusView_get(memberId) {
     }
 
     const ctx = createSheetContext();
-    const targetMonth = Utilities.formatDate(
-      new Date(),
-      Session.getScriptTimeZone(),
-      "yyyy-MM"
-    );
+    const targetMonth = sup_targetMonth(ctx);
 
     const rows = getFeeStatusViewRows(ctx);
     let row = rows.find(r =>
@@ -400,11 +396,7 @@ function paymentStatusView_parseInvoiceItems_(value) {
 // Calc
 // ==============================
 function paymentStatusView_isAttendedToday(memberId, attendances) {
-  const today = Utilities.formatDate(
-    new Date(),
-    Session.getScriptTimeZone(),
-    "yyyy-MM-dd"
-  );
+  const today = sup_formatDate_(sup_today(ctx), "yyyy-MM-dd");
 
   return attendances.some(a => {
     if (!isActiveMasterRow_(a) || !a["稽古日"]) return false;

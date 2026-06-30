@@ -70,11 +70,7 @@ function billing_collectMonthlySelectionContext(memberId, plan_id, ctx) {
     throw new Error("請求グループIDがありません。");
   }
 
-  const targetMonth = Utilities.formatDate(
-    new Date(),
-    Session.getScriptTimeZone(),
-    "yyyy-MM"
-  );
+  const targetMonth = sup_targetMonth(ctx);
 
   const existing = billing_getMonthlySelection(billingGroupId, targetMonth, ctx);
   if (existing) {
@@ -134,7 +130,7 @@ function billing_makeInvoice(billingContext) {
 }
 
 function makeInvoice(targetMonth, billingGroupId, memberId, planId, type, name, quantity, unitPrice, monthlyCap) {
-  const now = new Date();
+  const now = sup_now(ctx);
   const invoiceId = `INV-${targetMonth}-${billingGroupId}-${memberId || "GROUP"}-${Utilities.getUuid().slice(0, 8)}`;
 
   quantity = quantity === undefined || quantity === null || quantity === ""
@@ -187,7 +183,7 @@ function billing_registerMonthlySelection(billingContext, ctx) {
     member_id: billingContext.memberId,
     billing_group_id: billingContext.billingGroupId,
     plan_id: billingContext.plan_id,
-    宣言日: new Date(),
+    宣言日: sup_now(ctx),
     状態: "有効",
     備考: ""
   });
@@ -206,7 +202,7 @@ function billing_appendMonthlySelection(ctx, selection) {
     member_id: selection.member_id,
     billing_group_id: selection.billing_group_id,
     plan_id: selection.plan_id,
-    宣言日: selection.宣言日 || new Date(),
+    宣言日: selection.宣言日 || sup_now(ctx),
     状態: selection.状態 || "有効",
     備考: selection.備考 || ""
   }]);
@@ -235,7 +231,7 @@ function billing_appendInvoice(ctx, invoice) {
     金額: invoice.金額,
     支払状態: invoice.支払状態,
     支払期限: invoice.支払期限 || "",
-    作成日: invoice.作成日 || new Date(),
+    作成日: invoice.作成日 || sup_now(ctx),
     備考: invoice.備考 || ""
   }]);
 

@@ -1,54 +1,131 @@
 //
 // sup_timeTravel.gs
+// タイムトリップ共通
 //
-// -----------------------------------------------------------------------------
-// テスト用タイムトリップ機構
-// -----------------------------------------------------------------------------
-//
-// 【目的】
-// 月次請求・出席・支払い状態など、日付に依存する処理を
-// 任意の日付でテストできるようにする。
-//
-// 【注意】
-// 本機構は DEV / TEST 専用。
-// PROD では必ず実日時を使用する。
-//
-// -----------------------------------------------------------------------------
 
 const SUP_TIME_TRAVEL = {
+
+  // デフォルト（本番は false）
   enabled: false,
-  now: "2026-07-01T10:00:00+09:00"
+
+  // デフォルト日時
+  now: "",
+
+  // 強制対象月（通常は空）
+  targetMonth: "",
+
+  // デバッグログ
+  debug: false
 };
 
-function sup_now() {
-  if (
-    typeof SUP_ENV !== "undefined" &&
-    SUP_ENV !== "PROD" &&
-    SUP_TIME_TRAVEL &&
-    SUP_TIME_TRAVEL.enabled === true
-  ) {
-    return new Date(SUP_TIME_TRAVEL.now);
+/**
+ * 現在日時取得
+ */
+function sup_now(ctx) {
+
+  const setting = sup_getTimeTravelSetting_(ctx);
+
+  if (setting.enabled && setting.now) {
+    return new Date(setting.now);
   }
 
   return new Date();
 }
 
-function sup_today() {
-  const now = sup_now();
+/**
+ * 今日
+ */
+function sup_today(ctx) {
 
-  return new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
+  return Utilities.formatDate(
+    sup_now(ctx),
+    Session.getScriptTimeZone(),
+    "yyyy-MM-dd"
   );
 }
 
-function sup_targetMonth() {
-  const now = sup_now();
+/**
+ * 対象月
+ */
+function sup_targetMonth(ctx) {
 
-  return Utilities.formatString(
-    "%04d-%02d",
-    now.getFullYear(),
-    now.getMonth() + 1
+  const setting = sup_getTimeTravelSetting_(ctx);
+
+  if (setting.targetMonth) {
+    return setting.targetMonth;
+  }
+
+  return Utilities.formatDate(
+    sup_now(ctx),
+    Session.getScriptTimeZone(),
+    "yyyy-MM"
   );
 }
+
+/**
+ * タイムトリップ設定取得
+ *
+ * 優先順位
+ * ① ctx.settings
+ * ② SUP_TIME_TRAVEL
+ */
+function sup_getTimeTravelSetting_(ctx) {
+
+  const result = {
+    enabled: SUP_TIME_TRAVEL.enabled,
+    now: SUP_TIME_TRAVEL.now,
+    targetMonth: SUP_TIME_TRAVEL.targetMonth,
+    debug: SUP_TIME_TRAVEL.debug
+  };
+
+  if (!ctx || !ctx.settings) {
+    return result;
+  }
+
+  const s = ctx.settings;
+
+  if (s.TIME_TRAVEL_ENABLED !== undefined) {
+    result.enabled =
+      String(s.TIME_TRAVEL_ENABLED).toUpperCase() === "TRUE";
+  }
+
+  if (s.DEBUG_DATE) {
+    result.now = s.DEBUG_DATE;
+  }
+
+  if (s.DEBUG_TARGET_MONTH) {
+    result.targetMonth = s.DEBUG_TARGET_MONTH;
+  }
+
+  if (s.DEBUG !== undefined) {
+    result.debug =
+      String(s.DEBUG).toUpperCase() === "TRUE";
+  }
+
+  return result;
+}
+
+
+// この設計で一番気に入っている点
+// 
+// sup_timeTravel.gs は 99_設定シートを知りません。
+// つまり、
+// 
+// 99_設定
+//         ↓
+// sup_loadSettings()
+//         ↓
+// ctx.settings
+        ↓
+// sup_now(ctx)
+
+// という流れになります。
+
+// 役割がきれいに分離されます。
+
+// sup_timeTravel.gs … 「設定を使って日時を返す」
+// sup_config.gs（または設定読込） … 「99_設定を読む」
+// createSheetContext() … 「ctx.settings を持つ」
+
+// この構成なら、将来シートから PropertiesService やデータベースに設定の保存先を変えても、sup_timeTravel.gs は一切変更しなくて済みます。
+// 私は、この「設定の取得元を知らない共通ライブラリ」という形が、長く保守するには最もきれいな設計だと思います。

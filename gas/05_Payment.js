@@ -86,11 +86,7 @@ function payment_collectContext(memberId, paymentMethod, paymentEvidenceId, ctx)
     throw new Error("決済ID（入金確認済エビデンス）がありません。");
   }
 
-  const targetMonth = Utilities.formatDate(
-    new Date(),
-    Session.getScriptTimeZone(),
-    "yyyy-MM"
-  );
+  const targetMonth = sup_targetMonth(ctx);
 
   const members = getMembers(ctx);
   const member = members.find(m =>
@@ -141,7 +137,7 @@ function payment_make(paymentContext) {
 
   return {
     payment_id: "PAY-" + Utilities.getUuid().slice(0, 8),
-    日時: new Date(),
+    日時: sup_now(ctx),
     target_month: normalizeMonth(paymentContext.targetMonth),
     billing_group_id: paymentContext.billingGroupId,
     invoice_id: paymentContext.invoiceId || "",
@@ -281,7 +277,7 @@ function registerPaymentBatchLocked_(data) {
   const billingBlockId = normalizeId_(data.billing_block_id);
   const sessionId = normalizeId_(data.attendance_session_id) || ("ASES-" + Utilities.getUuid());
   const attendanceDate = parseAttendanceDate_(data.attendance_date);
-  const targetMonth = Utilities.formatDate(attendanceDate, Session.getScriptTimeZone(), "yyyy-MM");
+  const targetMonth = sup_formatTargetMonth_(attendanceDate);
   const items = Array.isArray(data.attendance_items) ? data.attendance_items : [];
 
   if (!teacherId || !locationId || !billingBlockId) {

@@ -102,7 +102,7 @@ function cancelAttendanceRows(ctx, attendanceRows, teacherId, reason) {
   const headerInfo = assertHeaders_(sheet, [
     "状態", "取消日時", "取消者teacher_id", "取消理由"
   ]);
-  const cancelledAt = new Date();
+  const cancelledAt = sup_now(ctx);
 
   attendanceRows.forEach(row => {
     const rowNumber = Number(row._rowNumber);

@@ -161,7 +161,7 @@ function paymentEvidenceQuery_parseStatuses_(value) {
 }
 
 function paymentEvidenceQuery_currentMonth_() {
-  return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "yyyy-MM");
+  return sup_targetMonth(ctx);
 }
 
 function paymentEvidenceQuery_formatDateTime_(value) {

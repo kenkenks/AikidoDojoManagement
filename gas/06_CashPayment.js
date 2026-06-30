@@ -33,7 +33,7 @@ function requestCashPayment(memberId) {
 
     appendCashRequest(ctx, {
       requestId,
-      requestedAt: new Date(),
+      requestedAt: sup_now(ctx),
       memberId,
       billingGroupId: status.billingGroupId,
       targetMonth: normalizeMonth(status.targetMonth),
@@ -81,7 +81,7 @@ function appendCashRequest(ctx, request) {
 
   sheet.appendRow([
     request.requestId,
-    request.requestedAt || new Date(),
+    request.requestedAt || sup_now(ctx),
     request.memberId,
     request.billingGroupId,
     request.targetMonth,
@@ -220,7 +220,7 @@ function approveCashRequest(requestId, ctx) {
 
   appendPayment(ctx, {
     paymentId: "PAY-" + Utilities.getUuid().slice(0, 8),
-    paidAt: new Date(),
+    paidAt: sup_now(ctx),
     targetMonth: req.targetMonth,
     billingGroupId: req.billingGroupId,
     memberId: "",

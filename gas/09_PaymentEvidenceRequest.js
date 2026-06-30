@@ -160,7 +160,7 @@ function paymentEvidenceRequest_make(context) {
     amount: Number(context.amount || 0),
     status: "REQUESTED",
     evidence_code: "",
-    requested_at: new Date(),
+    requested_at: sup_now(ctx),
     confirmed_at: "",
     confirmed_by: "",
     posted_at: "",
@@ -282,11 +282,7 @@ function paymentEvidence_findInvoiceById_(invoiceId, ctx) {
 }
 
 function paymentEvidence_findUnpaidInvoiceIdByMember_(memberId, ctx) {
-  const targetMonth = Utilities.formatDate(
-    new Date(),
-    Session.getScriptTimeZone(),
-    "yyyy-MM"
-  );
+  const targetMonth = sup_targetMonth(ctx);
 
   const members = getMembers(ctx);
   const member = members.find(row =>

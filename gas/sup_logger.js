@@ -92,7 +92,7 @@ function sup_appendLogSheet_(level, message, data) {
   if (!sheet) return;
 
   sheet.appendRow([
-    new Date(),
+    sup_now(ctx),
     level,
     message,
     JSON.stringify(data)

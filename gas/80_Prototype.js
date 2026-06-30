@@ -17,11 +17,7 @@ function demoPay(memberId) {
       return { ok: false, message: "会員が見つかりません" };
     }
 
-    const targetMonth = Utilities.formatDate(
-      new Date(),
-      Session.getScriptTimeZone(),
-      "yyyy-MM"
-    );
+    const targetMonth = sup_targetMonth(ctx);
 
     const billingGroupId = member["請求グループID"];
 
@@ -79,7 +75,7 @@ function appendPayment(ctx, payment) {
 
   sheet.appendRow([
     payment.paymentId,
-    payment.paidAt || new Date(),
+    payment.paidAt || sup_now(ctx),
     payment.targetMonth,
     payment.billingGroupId,
     payment.memberId || "",

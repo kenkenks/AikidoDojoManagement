@@ -137,7 +137,7 @@ function paymentEvidenceRecord_make(context) {
     evidence_id: context.evidence_id,
     status: "CONFIRMED",
     evidence_code: context.evidence_code,
-    confirmed_at: new Date(),
+    confirmed_at: sup_now(ctx),
     confirmed_by: context.confirmed_by,
     remarks: context.remarks || ""
   };

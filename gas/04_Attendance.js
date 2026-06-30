@@ -179,7 +179,7 @@ function registerAttendanceBatchLocked_(data) {
   const billingBlockId = normalizeId_(data.billing_block_id);
   const sessionId = normalizeId_(data.attendance_session_id) || ("ASES-" + Utilities.getUuid());
   const attendanceDate = parseAttendanceDate_(data.attendance_date);
-  const targetMonth = Utilities.formatDate(attendanceDate, Session.getScriptTimeZone(), "yyyy-MM");
+  const targetMonth = sup_formatTargetMonth_(attendanceDate);
   const items = Array.isArray(data.attendance_items) ? data.attendance_items : [];
 
   if (!teacherId || !locationId || !billingBlockId) {
@@ -273,7 +273,7 @@ function registerAttendanceBatchLocked_(data) {
       rows.push({
         attendance_id: "ATT-" + Utilities.getUuid(),
         "稽古日": attendanceDate,
-        "登録日時": new Date(),
+        "登録日時": sup_now(ctx),
         member_id: memberId,
         target_month: targetMonth,
         location_id: locationId,
@@ -387,7 +387,7 @@ function isTrueValue_(value) {
 }
 
 function parseAttendanceDate_(value) {
-  if (!value) return new Date();
+  if (!value) return sup_today(ctx);
   if (value instanceof Date && !isNaN(value.getTime())) return value;
   const match = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) throw new Error("稽古日は yyyy-MM-dd 形式で指定してください。");
@@ -428,7 +428,7 @@ function minutesToTimeText_(minutes) {
 }
 
 function parseSessionDateTime_(value) {
-  if (!value) return new Date();
+  if (!value) return sup_today(ctx);
   const date = new Date(value);
   if (isNaN(date.getTime())) throw new Error("課金枠判定日時が不正です。");
   return date;

@@ -191,7 +191,7 @@ function appendBatchAttendanceDemoLog(data, raw) {
   const sheet = ss.getSheetByName("QR_出席登録デモログ");
   if (!sheet) throw new Error("QR_出席登録デモログ シートが見つかりません。");
 
-  const now = new Date();
+  const now = sup_now(ctx);
   const rows = data.member_ids.map(memberId => [
     now,
     data.teacher_id || "",
@@ -212,7 +212,7 @@ function appendQrExperimentLog(data, raw) {
   if (!sheet) throw new Error("QR実験ログ シートが見つかりません。");
 
   sheet.appendRow([
-    new Date(),
+    sup_now(ctx),
     data.member_id || "",
     data.location_id || "",
     data.source || "",
