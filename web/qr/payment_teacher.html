@@ -344,8 +344,6 @@
         <div>${escapeHtml(currentPayment.targetMonth)}／${escapeHtml(currentPayment.feeType)}</div>
         <div>請求グループ: ${escapeHtml(currentPayment.billingGroupId || "未設定")}</div>
         <div>プランID: ${escapeHtml(currentPayment.planId || "未設定")}</div>
-        <div>請求明細: ${escapeHtml(currentPayment.invoiceSummary || "未設定")}</div>
-        <div>請求件数: ${Number(currentPayment.invoiceItems ? currentPayment.invoiceItems.length : 0)}件</div>
         <div class="amount">${formatYen(currentPayment.amount)}円</div>
          ${currentPayment.amount > 0
             ? `
@@ -397,9 +395,11 @@
         planId: currentPayment.planId,
         feeType: currentPayment.feeType,
         amount: currentPayment.amount,
+        payType: payType,
         invoiceItems: currentPayment.invoiceItems || [],
-        invoiceSummary: currentPayment.invoiceSummary || "",
-        payType: payType
+        invoiceIds: currentPayment.invoiceIds || [],
+        invoiceCount: currentPayment.invoiceCount || 0,
+        invoiceSummary: currentPayment.invoiceSummary || ""
       };
 
       paymentList.push(payment);
@@ -418,8 +418,6 @@
         <div class="current-name">${escapeHtml(payment.memberName)}</div>
         <div>請求グループ: ${escapeHtml(payment.billingGroupId || "未設定")}</div>
         <div>プランID: ${escapeHtml(payment.planId || "未設定")}</div>
-        <div>請求明細: ${escapeHtml(payment.invoiceSummary || "未設定")}</div>
-        <div>請求件数: ${Number(payment.invoiceItems ? payment.invoiceItems.length : 0)}件</div>
          <div class="amount">${formatYen(payment.amount)}円</div>
         <div>支払方法: ${escapeHtml(payment.payType)}</div>
         <button onclick="nextPayment()">次の集金</button>
@@ -501,35 +499,18 @@
         return;
       }
 
-      const paymentItems = [];
-
-      paymentList.forEach(function(payment) {
-        const invoiceItems = Array.isArray(payment.invoiceItems) ? payment.invoiceItems : [];
-
-        if (invoiceItems.length === 0) {
-          addLog("送信スキップ対象: invoiceItemsなし " + payment.memberId + " / " + payment.memberName);
-          return;
-        }
-
-        invoiceItems.forEach(function(invoice) {
-          paymentItems.push({
-            invoice_id: invoice.invoice_id || "",
-            member_id: payment.memberId,
-            billing_group_id: payment.billingGroupId,
-            target_month: payment.targetMonth,
-            member_name: payment.memberName,
-            plan_id: invoice.plan_id || payment.planId,
-            amount: Number(invoice.amount || 0),
-            payment_method: payment.payType,
-            remarks: "payment_teacher.html"
-          });
-        });
-      });
-
-      if (paymentItems.length === 0) {
-        addLog("送信スキップ: 送信可能な請求明細がありません。");
-        return;
-      }
+      const paymentItems = paymentList.flatMap(payment =>
+        (payment.invoiceItems || []).map(invoice => ({
+          invoice_id: invoice.invoice_id,
+          member_id: invoice.member_id || payment.memberId,
+          billing_group_id: invoice.billing_group_id || payment.billingGroupId,
+          target_month: invoice.target_month || payment.targetMonth,
+          member_name: payment.memberName,
+          plan_id: invoice.plan_id || payment.planId,
+          amount: Number(invoice.amount || 0),
+          payment_method: payment.payType
+        }))
+      );
 
       const payload = {
         mode: "payment_batch",
@@ -542,6 +523,7 @@
 
       addLog("GAS一括送信予定: " + JSON.stringify(payload));
 
+      //初版では画面動作確認を優先するため、実送信は次ステップで有効化する。
       fetch(GAS_URL, {
         method: "POST",
         mode: "no-cors",
@@ -641,10 +623,6 @@
         return;
       }
 
-      const invoiceItems = Array.isArray(result.invoiceItems)
-        ? result.invoiceItems
-        : [];
-
       const normalized = {
         memberId: result.memberId || result.member_id || memberId,
         memberName: result.memberName || result.member_name || "",
@@ -657,14 +635,12 @@
             ? result.amount
             : (result.unpaidAmount != null ? result.unpaidAmount : 0)
         ),
-        invoiceItems: invoiceItems,
-        invoiceSummary: result.invoiceSummary || result.invoice_summary || ""
-      };
 
-      if (normalized.amount > 0 && normalized.invoiceItems.length === 0) {
-        addLog("会費情報取得エラー: invoiceItems が空です。請求明細を確認してください。");
-        return;
-      }
+        invoiceItems: Array.isArray(result.invoiceItems) ? result.invoiceItems : [],
+        invoiceIds: Array.isArray(result.invoiceIds) ? result.invoiceIds : [],
+        invoiceCount: Number(result.invoiceCount || 0),
+        invoiceSummary: result.invoiceSummary || ""
+      };
 
       addLog("会費情報正規化: " + JSON.stringify(normalized));
 
