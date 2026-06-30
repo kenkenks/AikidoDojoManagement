@@ -19,6 +19,18 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+
+  if (params.action === "paypay_code_start") {
+    const result = safelyExecute_(function() {
+      return paypayCode_start({
+        member_id: params.member_id || "",
+        plan_id: params.plan_id || "",
+        teacher_id: params.teacher_id || "PAYPAY_MEMBER"
+      });
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "attendance_session_info") {
     const result = safelyExecute_(function() {
       return getAttendanceSessionInfo(params);
@@ -106,6 +118,14 @@ function doPost(e) {
       return registerAttendanceBatch(data);
     }
     
+    if (data.mode === "paypay_code_record") {
+      return paypayCode_record(data);
+    }
+
+    if (data.mode === "payment_evidence_post_batch") {
+      return paymentEvidence_postBatch(createSheetContext());
+    }
+
     if (
       data.mode === "payment_batch" ||
       data.mode === "paymentEvidence_acceptBatch" ||

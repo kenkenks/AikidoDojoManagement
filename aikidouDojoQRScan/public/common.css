@@ -1,0 +1,20 @@
+
+:root { color-scheme: light; --member:#176b45; --teacher:#0b5cad; --admin:#b65f00; }
+* { box-sizing: border-box; }
+body { font-family: sans-serif; margin:0; padding:16px; color:#222; }
+body.portal { background:#f4f5f2; }
+body.member { background:#e8f5e9; }
+body.teacher { background:#e3f2fd; }
+body.admin { background:#fff3e0; }
+h1 { font-size:22px; margin:0 0 12px; }
+h2 { font-size:17px; margin:0 0 10px; }
+.card { background:#fff; padding:14px; margin-bottom:12px; border:1px solid #ddd; border-radius:10px; }
+.grid { display:grid; gap:10px; }
+a.button { display:block; padding:14px; border-radius:10px; text-decoration:none; font-weight:bold; background:#fff; border:1px solid #ddd; color:#222; }
+.member-link { border-color:#b7d8c4 !important; color:var(--member) !important; }
+.teacher-link { border-color:#b5d4f0 !important; color:var(--teacher) !important; }
+.admin-link { border-color:#f0c58f !important; color:var(--admin) !important; }
+.note { color:#666; font-size:14px; line-height:1.6; }
+input { width:100%; font-size:18px; padding:12px; border:1px solid #aaa; border-radius:8px; }
+button { font-size:16px; padding:10px 14px; margin-top:10px; border-radius:8px; border:1px solid #999; background:#fff; }
+button.primary.member { color:#fff; background:var(--member); border-color:var(--member); }

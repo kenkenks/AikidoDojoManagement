@@ -179,6 +179,7 @@
     <div>合計: <span id="grandTotal">0</span>円</div>
     <div>受付人数: <span id="paymentCount">0</span>名</div>
     <button onclick="sendPaymentsToGas()">集金完了</button>
+    <button onclick="postConfirmedPayments()">決済更新</button>
   </div>
 
   <div class="card">
@@ -535,6 +536,35 @@
         addLog("GAS一括送信要求完了");
       }).catch(err => {
         addLog("GAS一括送信エラー: " + err);
+      });
+    }
+
+    function postConfirmedPayments() {
+      if (!currentTeacherId) {
+        addLog("決済更新スキップ: teacher_id未設定");
+        return;
+      }
+
+      const payload = {
+        mode: "payment_evidence_post_batch",
+        teacher_id: currentTeacherId,
+        location_id: currentLocationId,
+        source: "payment_teacher.html"
+      };
+
+      addLog("決済更新送信予定: " + JSON.stringify(payload));
+
+      fetch(GAS_URL, {
+        method: "POST",
+        mode: "no-cors",
+        headers: {
+          "Content-Type": "text/plain"
+        },
+        body: JSON.stringify(payload)
+      }).then(() => {
+        addLog("決済更新要求完了");
+      }).catch(err => {
+        addLog("決済更新エラー: " + err);
       });
     }
 
