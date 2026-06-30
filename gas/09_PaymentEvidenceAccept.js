@@ -132,10 +132,10 @@ function paymentEvidence_acceptBatch(data, ctx) {
     const data_payment_item = data_payment_items[i] || {};
     if (record.ok === true) {
       evidence_items.push({
-        evidence_id: record.evidence_id || "",                  // by paymentEvidence_requestBatch();
-        evidence_code: data_payment_item.evidence_code  || "",  //外部パラメータ 
-        confirmed_by: data_payment_item.teacher_id || "",       //外部パラメータ
-        remarks: data_payment_item.remarks || ""                //外部パラメータ
+        evidence_id: record.evidence_id || "",                              // by paymentEvidence_requestBatch()
+        evidence_code: data_payment_item.evidence_code || record.evidence_id + "-OK",
+        confirmed_by: data_payment_item.teacher_id || data.teacher_id || "",
+        remarks: data_payment_item.remarks || ""
       });
     } else {
       sup_logDebug("debug_paymentEvidence_recordBatch_before", {

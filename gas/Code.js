@@ -46,10 +46,10 @@ function getMemberPaymentInfo_(memberId, plan_id) {
 
   sup_logDebug("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id });
 
-  const plan_id_r =  plan_id || "P002";
+  const plan_id_r = plan_id || "P002";
   try {
-    result = billing_acceptMonthlySelection(memberId, plan_id_r);
-    Logger.log(JSON.stringify(result, null, 2));
+    const billingResult = billing_acceptMonthlySelection(memberId, plan_id_r);
+    Logger.log(JSON.stringify(billingResult, null, 2));
   } catch (e) {
     Logger.log("Error occurred: " + e.toString());
   }
@@ -58,26 +58,38 @@ function getMemberPaymentInfo_(memberId, plan_id) {
   if (!paymentStatus || paymentStatus.ok !== true) {
     return {
       success: false,
-      memberId: member.memberId,
-      memberName: member.memberName,
+      ok: false,
+      memberId: memberId,
+      memberName: member.memberName || "",
       message: paymentStatus && paymentStatus.message
         ? paymentStatus.message
         : "会費情報を取得できませんでした。"
     };
   }
 
+  const invoiceItems = Array.isArray(paymentStatus.invoiceItems)
+    ? paymentStatus.invoiceItems
+    : [];
+
   return {
     success: true,
-    memberId: member.memberId,
-    memberName: member.memberName,
+    ok: true,
+    memberId: paymentStatus.memberId || memberId,
+    memberName: paymentStatus.memberName || member.memberName || "",
     billingGroupId: paymentStatus.billingGroupId || "",
+    invoiceIds: paymentStatus.invoiceIds || invoiceItems.map(function(item) { return item.invoice_id; }),
+    invoiceCount: Number(paymentStatus.invoiceCount || invoiceItems.length || 0),
+    invoiceSummary: paymentStatus.invoiceSummary || "",
+    invoiceItems: invoiceItems,
     targetMonth: paymentStatus.targetMonth || "",
-    feeType: paymentStatus.planType || "未設定",
+    planId: plan_id_r,
+    feeType: paymentStatus.planType || plan_id_r || "未設定",
     billedTotal: Number(paymentStatus.billedTotal || 0),
     paidTotal: Number(paymentStatus.paidTotal || 0),
     amount: Number(paymentStatus.unpaidAmount || 0),
     isPaid: paymentStatus.isPaid === true,
-    status: paymentStatus.status || ""
+    status: paymentStatus.status || "",
+    message: paymentStatus.message || ""
   };
 }
 
@@ -94,7 +106,12 @@ function doPost(e) {
       return registerAttendanceBatch(data);
     }
     
-    if (data.mode === "payment_batch" || Array.isArray(data.payment_items)) {
+    if (
+      data.mode === "payment_batch" ||
+      data.mode === "paymentEvidence_acceptBatch" ||
+      Array.isArray(data.payment_items) ||
+      Array.isArray(data.payments)
+    ) {
       return paymentEvidence_acceptBatch(data);
     }
     appendQrExperimentLog(data, jsonText);

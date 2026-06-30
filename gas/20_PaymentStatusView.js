@@ -82,8 +82,13 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   if (!selection) {
     return {
       ok: true,
+      memberId,
       memberName,
       billingGroupId,
+      invoiceIds: [],
+      invoiceCount: 0,
+      invoiceSummary: "",
+      invoiceItems: [],
       targetMonth: normalizedTargetMonth,
       planType: "",
       status: "未宣言",
@@ -111,15 +116,20 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   if (memberInvoices.length === 0) {
     return {
       ok: true,
+      memberId,
       memberName,
       billingGroupId,
+      invoiceIds: [],
+      invoiceCount: 0,
+      invoiceSummary: "",
+      invoiceItems: [],
       targetMonth: normalizedTargetMonth,
       planType: planId,
       status: "請求なし",
       billedTotal: 0,
       paidTotal,
       unpaidAmount: 0,
-      monthlyCap,
+      monthlyCap: 0,
       lessonCount,
       isPaid: false,
       isCapped: false,
@@ -129,6 +139,17 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
       message: "※今月の請求はまだ作成されていません。"
     };
   }
+
+  const invoiceItems = paymentStatusView_makeInvoiceItems_(memberInvoices);
+  const invoiceIds = invoiceItems.map(function(item) {
+    return item.invoice_id;
+  }).filter(function(id) {
+    return !!id;
+  });
+
+  const invoiceSummary = invoiceItems.map(function(item) {
+    return item.label + " " + item.amount + "円";
+  }).join(" / ");
 
   const billedTotal = memberInvoices.reduce(
     (sum, inv) => sum + Number(inv["請求予定額"] || inv["金額"] || 0),
@@ -160,8 +181,13 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
 
   return {
     ok: true,
+    memberId,
     memberName,
     billingGroupId,
+    invoiceIds,
+    invoiceCount: invoiceIds.length,
+    invoiceSummary,
+    invoiceItems,
     targetMonth: normalizedTargetMonth,
     planType: planId,
     status,
@@ -179,6 +205,27 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   };
 }
 
+function paymentStatusView_makeInvoiceItems_(invoices) {
+  return (invoices || []).map(function(inv) {
+    const amount = Number(inv["請求予定額"] || inv["金額"] || 0);
+    const label = String(inv["表示名"] || inv["請求種別"] || inv["plan_id"] || "請求明細");
+
+    return {
+      invoice_id: normalizeId_(inv["invoice_id"]),
+      target_month: normalizeMonth(inv["target_month"]),
+      billing_group_id: normalizeId_(inv["billing_group_id"]),
+      member_id: normalizeId_(inv["member_id"]),
+      plan_id: normalizeId_(inv["plan_id"]),
+      billing_type: String(inv["請求種別"] || ""),
+      label: label,
+      amount: amount,
+      status: String(inv["支払状態"] || "")
+    };
+  }).filter(function(item) {
+    return !!item.invoice_id && item.amount > 0 && item.status !== "支払済" && item.status !== "免除";
+  });
+}
+
 // ==============================
 // View行生成
 // ==============================
@@ -189,7 +236,10 @@ function paymentStatusView_buildRow(memberId, targetMonth, ctx) {
     target_month: normalizeMonth(targetMonth),
     member_id: memberId,
     billing_group_id: ctx.billingGroupId || "",
-    invoice_id: ctx.invoice_id || "",
+    invoice_ids: (ctx.invoiceIds || []).join("|"),
+    invoice_count: Number(ctx.invoiceCount || 0),
+    invoice_summary: ctx.invoiceSummary || "",
+    invoice_items_json: JSON.stringify(ctx.invoiceItems || []),
     会員名: ctx.memberName || "",
     会費タイプ: ctx.planType || "",
     請求額: Number(ctx.billedTotal || 0),
@@ -211,6 +261,8 @@ function paymentStatusView_buildRow(memberId, targetMonth, ctx) {
 // View更新
 // ==============================
 function paymentStatusView_update(memberId, targetMonth, updateValues) {
+  paymentStatusView_ensureViewHeaders_(updateValues);
+
   upsertViewRow(
     "20_会費状態View",
     ["target_month", "member_id"],
@@ -220,6 +272,36 @@ function paymentStatusView_update(memberId, targetMonth, updateValues) {
     },
     updateValues
   );
+}
+
+function paymentStatusView_ensureViewHeaders_(updateValues) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName("20_会費状態View");
+  if (!sheet) {
+    throw new Error("シートが見つかりません: 20_会費状態View");
+  }
+
+  const lastColumn = sheet.getLastColumn();
+  const headers = lastColumn > 0
+    ? sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(function(header) {
+        return String(header).trim();
+      })
+    : [];
+
+  const existing = {};
+  headers.forEach(function(header) {
+    if (header) existing[header] = true;
+  });
+
+  const missing = Object.keys(updateValues || {}).filter(function(header) {
+    return !existing[header];
+  });
+
+  if (missing.length === 0) return;
+
+  sheet
+    .getRange(1, headers.length + 1, 1, missing.length)
+    .setValues([missing]);
 }
 
 // ==============================
@@ -270,11 +352,21 @@ function paymentStatusView_get(memberId) {
 }
 
 function paymentStatusView_convertResponse(row) {
+  const invoiceItems = paymentStatusView_parseInvoiceItems_(row["invoice_items_json"]);
+  const invoiceIdsText = String(row["invoice_ids"] || "");
+  const invoiceIds = invoiceIdsText
+    ? invoiceIdsText.split("|").map(function(id) { return String(id).trim(); }).filter(function(id) { return !!id; })
+    : invoiceItems.map(function(item) { return item.invoice_id; }).filter(function(id) { return !!id; });
+
   return {
     ok: true,
+    memberId: String(row["member_id"] || ""),
     memberName: String(row["会員名"] || ""),
     billingGroupId: String(row["billing_group_id"] || ""),
-    invoice_id: String(row["invoice_id"] || ""),  
+    invoiceIds: invoiceIds,
+    invoiceCount: Number(row["invoice_count"] || invoiceIds.length || 0),
+    invoiceSummary: String(row["invoice_summary"] || ""),
+    invoiceItems: invoiceItems,
     targetMonth: normalizeMonth(row["target_month"]),
     planType: String(row["会費タイプ"] || ""),
     billedTotal: Number(row["請求額"] || 0),
@@ -290,6 +382,18 @@ function paymentStatusView_convertResponse(row) {
     cashRequestsLen: Number(row["現金支払要求未完了数"] || 0),
     message: String(row["メッセージ"] || "")
   };
+}
+
+function paymentStatusView_parseInvoiceItems_(value) {
+  const text = String(value || "").trim();
+  if (!text) return [];
+
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
 }
 
 // ==============================

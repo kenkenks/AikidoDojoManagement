@@ -48,8 +48,8 @@ function debug_paymentEvidence_acceptBatch() {
   const input = {
     mode: "payment_batch",
     teacher_id: teacher_id,
-    payments: payment_items,
-    count: 1,
+    payment_items: payment_items,
+    count: payment_items.length,
     source: "payment_teacher.html"
   };
   
