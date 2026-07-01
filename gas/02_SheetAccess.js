@@ -3,6 +3,7 @@
 
 function getRequiredSheet_(ctx, sheetName) {
   ctx = ensureSheetContext(ctx);
+  
   const sheet = ctx.ss.getSheetByName(sheetName);
   if (!sheet) {
     throw new Error("シートが見つかりません: " + sheetName);
@@ -46,6 +47,8 @@ function appendObjectsByHeader_(sheet, objects) {
 }
 
 function appendAttendanceRows(ctx, attendanceRows) {
+  ctx = ensureSheetContext(ctx);
+
   const sheet = getRequiredSheet_(ctx, "07_出席ログ");
   assertHeaders_(sheet, [
     "attendance_id", "稽古日", "登録日時", "member_id", "target_month",
@@ -57,6 +60,8 @@ function appendAttendanceRows(ctx, attendanceRows) {
 }
 
 function getActiveAttendanceKeySet(ctx, attendanceDate) {
+  ctx = ensureSheetContext(ctx);
+  
   const dateText = formatAttendanceDate_(attendanceDate);
   const keys = {};
 
@@ -73,6 +78,8 @@ function getActiveAttendanceKeySet(ctx, attendanceDate) {
 }
 
 function getActiveAttendanceRowsForScope(ctx, attendanceDate, memberId, locationId, billingBlockId) {
+  ctx = ensureSheetContext(ctx);
+
   const sheet = getRequiredSheet_(ctx, "07_出席ログ");
   assertHeaders_(sheet, [
     "稽古日", "member_id", "location_id", "billing_block_id", "slot_id", "状態"
@@ -96,6 +103,8 @@ function getActiveAttendanceRowsForScope(ctx, attendanceDate, memberId, location
 }
 
 function cancelAttendanceRows(ctx, attendanceRows, teacherId, reason) {
+  ctx = ensureSheetContext(ctx);
+
   if (!attendanceRows || attendanceRows.length === 0) return;
 
   const sheet = getRequiredSheet_(ctx, "07_出席ログ");

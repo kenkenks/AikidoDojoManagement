@@ -16,8 +16,10 @@ function registerAttendance(memberId) {
   };
 }
 
-function getAttendanceSessionInfo(params) {
-  const ctx = createSheetContext();
+// doGet() で呼び出すと、JSONP形式で出席登録APIを呼び出せる。
+function getAttendanceSessionInfo(params, ctx) {
+  ctx = ensureSheetContext(ctx);
+
   const locationId = normalizeId_(params.location_id);
   const billingBlockId = normalizeId_(params.billing_block_id);
 
@@ -29,19 +31,19 @@ function getAttendanceSessionInfo(params) {
   if (!location) return { ok: false, message: "有効な道場が見つかりません。" };
 
   if (billingBlockId) {
-    return buildAttendanceSessionInfo_(ctx, location, billingBlockId, false);
+    return buildAttendanceSessionInfo_(location, billingBlockId, false, ctx);
   }
 
-  const now = parseSessionDateTime_(params.at);
-  const candidates = findBillingBlockCandidates_(ctx, locationId, now);
+  const now = parseSessionDateTime_(params.at, ctx);
+  const candidates = findBillingBlockCandidates_(locationId, now, ctx);
   const exactCandidates = candidates.filter(candidate => candidate.is_current);
   const nearbyCandidates = candidates.filter(candidate => candidate.is_nearby);
 
   if (exactCandidates.length === 1) {
-    return buildAttendanceSessionInfo_(ctx, location, exactCandidates[0].billing_block_id, true);
+    return buildAttendanceSessionInfo_(location, exactCandidates[0].billing_block_id, true, ctx);
   }
   if (exactCandidates.length === 0 && nearbyCandidates.length === 1) {
-    return buildAttendanceSessionInfo_(ctx, location, nearbyCandidates[0].billing_block_id, true);
+    return buildAttendanceSessionInfo_(location, nearbyCandidates[0].billing_block_id, true, ctx);
   }
 
   const choices = exactCandidates.length > 1
@@ -65,7 +67,9 @@ function getAttendanceSessionInfo(params) {
   };
 }
 
-function buildAttendanceSessionInfo_(ctx, location, billingBlockId, inferred) {
+function buildAttendanceSessionInfo_(location, billingBlockId, inferred, ctx) {
+  ctx = ensureSheetContext(ctx);
+  
   const locationId = normalizeId_(location["location_id"]);
   const block = getBillingBlocks(ctx).find(row =>
     normalizeId_(row["billing_block_id"]) === billingBlockId &&
@@ -103,7 +107,9 @@ function buildAttendanceSessionInfo_(ctx, location, billingBlockId, inferred) {
   };
 }
 
-function findBillingBlockCandidates_(ctx, locationId, dateTime) {
+function findBillingBlockCandidates_(locationId, dateTime, ctx) {
+  ctx = ensureSheetContext(ctx);
+
   const weekday = getWeekdayLabel_(dateTime);
   const currentMinutes = timeToMinutes_(Utilities.formatDate(
     dateTime, Session.getScriptTimeZone(), "HH:mm"
@@ -134,12 +140,15 @@ function findBillingBlockCandidates_(ctx, locationId, dateTime) {
   }).filter(Boolean).sort((a, b) => timeToMinutes_(a.start_time) - timeToMinutes_(b.start_time));
 }
 
-function getMemberAttendanceState(params) {
-  const ctx = createSheetContext();
+//------------------------------------------------------------------------------------------------
+// doGet() で呼び出すと、JSONP形式で出席登録APIを呼び出せる。
+function getMemberAttendanceState(params, ctx) {
+  ctx = ensureSheetContext(ctx);
+  
   const memberId = normalizeId_(params.member_id);
   const locationId = normalizeId_(params.location_id);
   const billingBlockId = normalizeId_(params.billing_block_id);
-  const attendanceDate = parseAttendanceDate_(params.attendance_date);
+  const attendanceDate = parseAttendanceDate_(params.attendance_date, ctx);
 
   if (!memberId || !locationId || !billingBlockId) {
     return { ok: false, message: "会員・道場・課金枠を指定してください。" };
@@ -161,25 +170,30 @@ function getMemberAttendanceState(params) {
   };
 }
 
-function registerAttendanceBatch(data) {
+//------------------------------------------------------------------------------------------------
+// doPost() で呼び出すと、JSONP形式で出席登録APIを呼び出せる。
+function registerAttendanceBatch(data, ctx) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
 
   try {
-    return registerAttendanceBatchLocked_(data || {});
+    ctx = ensureSheetContext(ctx);
+
+    return registerAttendanceBatchLocked_(data || {}, ctx);
   } finally {
     lock.releaseLock();
   }
 }
 
-function registerAttendanceBatchLocked_(data) {
-  const ctx = createSheetContext();
+function registerAttendanceBatchLocked_(data, ctx) {
+  ctx = ensureSheetContext(ctx);
+
   const teacherId = normalizeId_(data.teacher_id);
   const locationId = normalizeId_(data.location_id);
   const billingBlockId = normalizeId_(data.billing_block_id);
   const sessionId = normalizeId_(data.attendance_session_id) || ("ASES-" + Utilities.getUuid());
-  const attendanceDate = parseAttendanceDate_(data.attendance_date);
-  const targetMonth = sup_formatTargetMonth_(attendanceDate);
+  const attendanceDate = sup_today(ctx);
+  const targetMonth = sup_targetMonth(ctx);
   const items = Array.isArray(data.attendance_items) ? data.attendance_items : [];
 
   if (!teacherId || !locationId || !billingBlockId) {
@@ -187,7 +201,7 @@ function registerAttendanceBatchLocked_(data) {
   }
   if (items.length === 0) return { ok: false, message: "出席対象がありません。" };
 
-  validateAttendanceMasterData_(ctx, teacherId, locationId, billingBlockId);
+  validateAttendanceMasterData_(teacherId, locationId, billingBlockId, ctx);
 
   const members = {};
   getMembers(ctx).forEach(row => {
@@ -311,17 +325,21 @@ function registerAttendanceBatchLocked_(data) {
   };
 }
 
-function validateAttendanceMasterData_(ctx, teacherId, locationId, billingBlockId) {
+function validateAttendanceMasterData_(teacherId, locationId, billingBlockId, ctx) {
+  ctx = ensureSheetContext(ctx);
+  
   const teacher = getTeachers(ctx).find(row =>
     normalizeId_(row["teacher_id"]) === teacherId && isActiveMasterRow_(row)
   );
   if (!teacher) throw new Error("有効な先生が見つかりません。");
   if (!isTrueValue_(teacher["出席受付可"])) throw new Error("この先生は出席受付不可です。");
 
-  validateAttendanceScope_(ctx, locationId, billingBlockId);
+  validateAttendanceScope_(locationId, billingBlockId, ctx);
 }
 
-function validateAttendanceScope_(ctx, locationId, billingBlockId) {
+function validateAttendanceScope_(locationId, billingBlockId, ctx) {
+  ctx = ensureSheetContext(ctx);
+
   const location = getLocations(ctx).find(row =>
     normalizeId_(row["location_id"]) === locationId && isActiveMasterRow_(row)
   );
@@ -337,6 +355,7 @@ function validateAttendanceScope_(ctx, locationId, billingBlockId) {
 
 function calculateAttendanceChargeCount(memberId, targetMonth, ctx) {
   ctx = ensureSheetContext(ctx);
+
   const target = normalizeMonth(targetMonth);
   const blockMap = {};
   getBillingBlocks(ctx).forEach(block => {
@@ -349,7 +368,7 @@ function calculateAttendanceChargeCount(memberId, targetMonth, ctx) {
     if (normalizeMonth(row["target_month"]) !== target) return;
     if (normalizeId_(row["member_id"]) !== normalizeId_(memberId)) return;
 
-    const dateText = formatAttendanceDate_(row["稽古日"]);
+    const dateText = formatAttendanceDate_(row["稽古日"], ctx);
     const blockId = normalizeId_(row["billing_block_id"]);
     const slotId = normalizeId_(row["slot_id"]);
     if (!dateText || !blockId || !slotId) return;
@@ -386,8 +405,10 @@ function isTrueValue_(value) {
   return value === true || ["TRUE", "true", "1", "可", "有効"].includes(normalizeId_(value));
 }
 
-function parseAttendanceDate_(value) {
-  if (!value) return sup_today(ctx);
+function parseAttendanceDate_(value, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  if (!value) return sup_now(ctx);
   if (value instanceof Date && !isNaN(value.getTime())) return value;
   const match = String(value).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
   if (!match) throw new Error("稽古日は yyyy-MM-dd 形式で指定してください。");
@@ -401,9 +422,11 @@ function parseAttendanceDate_(value) {
   return date;
 }
 
-function formatAttendanceDate_(value) {
+function formatAttendanceDate_(value, ctx) {
+  ctx = ensureSheetContext(ctx);
+
   if (value === "" || value == null) return "";
-  const date = value instanceof Date ? value : parseAttendanceDate_(value);
+  const date = value instanceof Date ? value : parseAttendanceDate_(value, ctx);
   return Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM-dd");
 }
 
@@ -427,8 +450,8 @@ function minutesToTimeText_(minutes) {
   return String(hour).padStart(2, "0") + ":" + String(minute).padStart(2, "0");
 }
 
-function parseSessionDateTime_(value) {
-  if (!value) return sup_today(ctx);
+function parseSessionDateTime_(value, ctx) {
+  if (!value) return sup_now(ctx);
   const date = new Date(value);
   if (isNaN(date.getTime())) throw new Error("課金枠判定日時が不正です。");
   return date;

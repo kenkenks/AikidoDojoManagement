@@ -113,6 +113,13 @@ function sup_getTimeTravelSetting_(ctx) {
   return result;
 }
 
+function sup_formatTargetMonth_(date) {
+  return Utilities.formatDate(
+    date,
+    Session.getScriptTimeZone(),
+    "yyyy-MM"
+  );
+}
 
 // この設計で一番気に入っている点
 // 
