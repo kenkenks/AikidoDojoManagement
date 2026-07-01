@@ -10,9 +10,9 @@ function paymentEvidence_record(input, ctx) {
   
   sup_logDebug("paymentEvidence_record", {
     input: JSON.stringify(input, null, 2)
-  });
+  }, ctx);
   const recordContext = paymentEvidenceRecord_collect(input, ctx);
-  const record = paymentEvidenceRecord_make(recordContext);
+  const record = paymentEvidenceRecord_make(recordContext, ctx);
   
   return paymentEvidenceRecord_update(record, ctx);
 }
@@ -111,7 +111,7 @@ function paymentEvidenceRecord_collect(input, ctx) {
     throw new Error("record: confirmed_by がありません。先生QRの teacher_id を指定してください。");
   }
 
-  const target = paymentEvidence_findRowById_(ctx, evidenceId);
+  const target = paymentEvidence_findRowById_(evidenceId, ctx);
   if (!target) {
     throw new Error("record: 決済エビデンスが見つかりません: " + evidenceId);
   }
@@ -132,7 +132,7 @@ function paymentEvidenceRecord_collect(input, ctx) {
 // ==============================
 // Record生成
 // ==============================
-function paymentEvidenceRecord_make(context) {
+function paymentEvidenceRecord_make(context, ctx) {
   return {
     evidence_id: context.evidence_id,
     status: "CONFIRMED",
@@ -149,18 +149,18 @@ function paymentEvidenceRecord_make(context) {
 function paymentEvidenceRecord_update(record, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const target = paymentEvidence_findRowById_(ctx, record.evidence_id);
+  const target = paymentEvidence_findRowById_(record.evidence_id, ctx);
   if (!target) {
     throw new Error("record: 決済エビデンスが見つかりません: " + record.evidence_id);
   }
 
-  paymentEvidence_updateColumns_(ctx, target.rowNumber, {
+  paymentEvidence_updateColumns_(target.rowNumber, {
     status: record.status,
     evidence_code: record.evidence_code,
     confirmed_at: record.confirmed_at,
     confirmed_by: record.confirmed_by,
     remarks: record.remarks || target.row["remarks"] || ""
-  });
+  }, ctx);
 
   return {
     ok: true,
@@ -173,7 +173,7 @@ function paymentEvidenceRecord_update(record, ctx) {
 // ==============================
 // DAO / 共通
 // ==============================
-function paymentEvidence_findRowById_(ctx, evidenceId) {
+function paymentEvidence_findRowById_(evidenceId, ctx) {
   ctx = ensureSheetContext(ctx);
 
   const sheet = getRequiredSheet_(ctx, "09_決済エビデンス");
@@ -195,7 +195,7 @@ function paymentEvidence_findRowById_(ctx, evidenceId) {
   return null;
 }
 
-function paymentEvidence_updateColumns_(ctx, rowNumber, valuesByHeader) {
+function paymentEvidence_updateColumns_(rowNumber, valuesByHeader, ctx) {
   ctx = ensureSheetContext(ctx);
 
   const sheet = getRequiredSheet_(ctx, "09_決済エビデンス");

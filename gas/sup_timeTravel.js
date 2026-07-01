@@ -62,6 +62,14 @@ function sup_targetMonth(ctx) {
   );
 }
 
+function sup_formatDate_(ctx, format) {
+  return Utilities.formatDate(
+    sup_now(ctx),
+    Session.getScriptTimeZone(),
+    format
+  );
+}
+
 /**
  * タイムトリップ設定取得
  *
@@ -116,7 +124,7 @@ function sup_getTimeTravelSetting_(ctx) {
 // sup_loadSettings()
 //         ↓
 // ctx.settings
-        ↓
+//        ↓
 // sup_now(ctx)
 
 // という流れになります。

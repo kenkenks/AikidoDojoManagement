@@ -1,7 +1,7 @@
 function doGet(e) {
   const params = (e && e.parameter) || {};
 
-  sup_logDebug("doGet", { action: params.action, member_id: params.member_id, plan_id: params.plan_id });
+  sup_logDebug("doGet", { action: params.action, member_id: params.member_id, plan_id: params.plan_id }, ctx);
 
   if (params.action === "getMemberInfo") {
     const result = safelyExecute_(function() {
@@ -11,7 +11,7 @@ function doGet(e) {
   }
 
   if (params.action === "getPaymentInfo") {
-    sup_logDebug("doGet", { action: params.action, member_id: params.member_id, plan_id: params.plan_id });
+    sup_logDebug("doGet", { action: params.action, member_id: params.member_id, plan_id: params.plan_id }, ctx);
 
     const result = safelyExecute_(function() {
       return getMemberPaymentInfo_(params.member_id || "", params.plan_id || "");
@@ -68,7 +68,7 @@ function getMemberPaymentInfo_(memberId, plan_id) {
   const member = getPaymentStatus(memberId);
   if (!member || member.ok !== true) return member;
 
-  sup_logDebug("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id });
+  sup_logDebug("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id }, ctx);
 
   const plan_id_r = plan_id || "P002";
   try {

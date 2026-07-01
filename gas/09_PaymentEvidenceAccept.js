@@ -113,7 +113,7 @@ function paymentEvidence_acceptBatch(data, ctx) {
 
   sup_logDebug("paymentEvidence_recordBatch start", {
     result: JSON.stringify(data, null, 2)
-  });
+  }, ctx);
 
   const requestResult = paymentEvidence_requestBatch(data, ctx);
 
@@ -140,14 +140,14 @@ function paymentEvidence_acceptBatch(data, ctx) {
     } else {
       sup_logDebug("debug_paymentEvidence_recordBatch_before", {
         result: JSON.stringify("エビデンス情報がありません" + record.member_id, null, 2)
-      });
+      }, ctx);
     }          
   }
 
   sup_logDebug("debug_paymentEvidence_recordBatch_before", {
     evidence_items: evidence_items,
     result: JSON.stringify(requestResult, null, 2)
-  });
+  }, ctx);
 
   const input = {
     teacher_id: data.teacher_id || "",
@@ -159,7 +159,7 @@ function paymentEvidence_acceptBatch(data, ctx) {
   sup_logDebug("debug_paymentEvidence_recordBatch_after", {
     evidence_items: evidence_items,
     result: JSON.stringify(recordResult, null, 2)
-  });
+  }, ctx);
 
   const postResult = paymentEvidence_postBatch(ctx);
 

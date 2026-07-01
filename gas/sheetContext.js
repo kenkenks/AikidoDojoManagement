@@ -1,18 +1,30 @@
 function createSheetContext() {
-  return {
+  const ctx = {
     ss: SpreadsheetApp.getActiveSpreadsheet(),
     cache: {}
   };
+
+  ctx.settings = sup_loadSettings(ctx);
+
+  return ctx;
 }
 
 function ensureSheetContext(ctx) {
   ctx = ctx || {};
+
   if (!ctx.ss) {
     ctx.ss = SpreadsheetApp.getActiveSpreadsheet();
   }
+
   if (!ctx.cache) {
     ctx.cache = {};
   }
+
+  // ss/cache を作った後に、設定を一度だけ読む
+  if (!ctx.settings) {
+    ctx.settings = sup_loadSettings(ctx);
+  }
+
   return ctx;
 }
 
@@ -121,3 +133,4 @@ function invalidatePaymentEvidences(ctx) {
 function invalidateFeeStatusView(ctx) {
   invalidateSheetRows(ctx, "20_会費状態View");
 }
+

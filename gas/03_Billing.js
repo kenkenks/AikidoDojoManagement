@@ -19,9 +19,9 @@ function billing_acceptMonthlySelection(memberId, plan_id, ctx) {
     billing_registerMonthlySelection(billingContext, ctx);
 
     invoice =
-      billing_makeInvoice(billingContext);
+      billing_makeInvoice(billingContext, ctx);
 
-    billing_appendInvoice(ctx, invoice);
+    billing_appendInvoice(invoice, ctx);
 
     viewUpdate =
       paymentStatusView_refresh(
@@ -115,7 +115,7 @@ function billing_getMonthlySelection(billingGroupId, targetMonth, ctx) {
 // ==============================
 // Invoice生成
 // ==============================
-function billing_makeInvoice(billingContext) {
+function billing_makeInvoice(billingContext, ctx) {
   return makeInvoice(
     billingContext.targetMonth,
     billingContext.billingGroupId,
@@ -125,11 +125,12 @@ function billing_makeInvoice(billingContext) {
     billingContext.invoiceName,
     billingContext.quantity,
     billingContext.unitPrice,
-    billingContext.monthlyCap
+    billingContext.monthlyCap,
+    ctx
   );
 }
 
-function makeInvoice(targetMonth, billingGroupId, memberId, planId, type, name, quantity, unitPrice, monthlyCap) {
+function makeInvoice(targetMonth, billingGroupId, memberId, planId, type, name, quantity, unitPrice, monthlyCap, ctx) {
   const now = sup_now(ctx);
   const invoiceId = `INV-${targetMonth}-${billingGroupId}-${memberId || "GROUP"}-${Utilities.getUuid().slice(0, 8)}`;
 
@@ -178,7 +179,7 @@ function makeInvoice(targetMonth, billingGroupId, memberId, planId, type, name, 
 // Register
 // ==============================
 function billing_registerMonthlySelection(billingContext, ctx) {
-  billing_appendMonthlySelection(ctx, {
+  billing_appendMonthlySelection({
     target_month: billingContext.targetMonth,
     member_id: billingContext.memberId,
     billing_group_id: billingContext.billingGroupId,
@@ -186,13 +187,13 @@ function billing_registerMonthlySelection(billingContext, ctx) {
     宣言日: sup_now(ctx),
     状態: "有効",
     備考: ""
-  });
+  }, ctx);
 }
 
 // ==============================
 // DAO
 // ==============================
-function billing_appendMonthlySelection(ctx, selection) {
+function billing_appendMonthlySelection(selection, ctx) {
   ctx = ensureSheetContext(ctx);
 
   const sheet = ctx.ss.getSheetByName("04_月次選択");
@@ -210,7 +211,7 @@ function billing_appendMonthlySelection(ctx, selection) {
   invalidateMonthlySelections(ctx);
 }
 
-function billing_appendInvoice(ctx, invoice) {
+function billing_appendInvoice(invoice, ctx) {
   ctx = ensureSheetContext(ctx);
 
   const sheet = ctx.ss.getSheetByName("05_請求明細");
@@ -241,9 +242,9 @@ function billing_appendInvoice(ctx, invoice) {
 // ==============================
 // 互換ラッパー
 // ==============================
-function appendMonthlyBillingSelection(memberId, plan_id) {
+function appendMonthlyBillingSelection(memberId, plan_id, ctx) {
   try {
-    return billing_acceptMonthlySelection(memberId, plan_id, createSheetContext());
+    return billing_acceptMonthlySelection(memberId, plan_id, createSheetContext(),ctx);
   } catch (e) {
     return { ok: false, message: e.message };
   }
@@ -253,7 +254,7 @@ function getMonthlySelection(billingGroupId, targetMonth, ctx) {
   return billing_getMonthlySelection(billingGroupId, targetMonth, ctx);
 }
 
-function registerMonthlyBillingSelection(ctx, targetMonth, memberId, billingGroupId, plan_id) {
+function registerMonthlyBillingSelection(targetMonth, memberId, billingGroupId, plan_id, ctx) {
   return billing_registerMonthlySelection({
     targetMonth,
     memberId,
@@ -262,6 +263,6 @@ function registerMonthlyBillingSelection(ctx, targetMonth, memberId, billingGrou
   }, ctx);
 }
 
-function appendInvoice(ctx, invoice) {
-  return billing_appendInvoice(ctx, invoice);
+function appendInvoice(invoice, ctx) {
+  return billing_appendInvoice(invoice, ctx);
 }

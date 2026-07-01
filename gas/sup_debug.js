@@ -16,7 +16,7 @@ function debug_run() {
   sup_logDebug(functionName, { 
     memberId: memberId, plan_id: plan_id, 
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
   
   return { ok: true, message: "処理終了" };
 }
@@ -39,7 +39,7 @@ function debug_paymentStatusView_refresh() {
   sup_logDebug(functionName, { 
     memberId: memberId, planType: planType, targetMonth: targetMonth,
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
   
   return { ok: true, message: "処理終了" };
 }
@@ -64,7 +64,7 @@ function debug_payment_accept() {
   sup_logDebug(functionName, { 
     memberId: memberId,  
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
   
   return { ok: true, message: "処理終了" };
 }
@@ -78,7 +78,7 @@ function debug_getPaymentStatus() {
   sup_logDebug(functionName, { 
     memberId: memberId, 
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
   
   return { ok: true, message: "処理終了" };
 }
@@ -98,7 +98,7 @@ function debug_getMemberPaymentInfo() {
   sup_logDebug(functionName, { 
     memberId: memberId, plan_id: plan_id, 
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
   
   return { ok: true, message: "処理終了" };
 }
@@ -120,7 +120,7 @@ function debug_filterBySheet() {
   sup_logDebug(functionName, { 
     memberId: memberId, sheetName: sheetName, boolCol: boolCol, boolValue: boolValue,
     result: JSON.stringify(result, null, 2)
-  });
+  }, ss);
 }
 
 

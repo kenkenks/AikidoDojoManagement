@@ -10,7 +10,7 @@ function paymentEvidence_request(input, ctx) {
 
   try {
     const requestContext = paymentEvidenceRequest_collect(input, ctx);
-    const request = paymentEvidenceRequest_make(requestContext);
+    const request = paymentEvidenceRequest_make(requestContext, ctx);
   
     return paymentEvidenceRequest_register(request, ctx);
   } catch (e) {
@@ -150,7 +150,7 @@ function paymentEvidenceRequest_collect(input, ctx) {
 // ==============================
 // Request生成
 // ==============================
-function paymentEvidenceRequest_make(context) {
+function paymentEvidenceRequest_make(context, ctx) {
   return {
     evidence_id: paymentEvidence_createEvidenceId_(context.payment_method),
     invoice_id: context.invoice_id,

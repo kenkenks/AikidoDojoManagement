@@ -26,8 +26,8 @@
 /**
  * DEBUG
  */
-function sup_logDebug(message, data = null) {
-  sup_outputLog_("DEBUG", message, data);
+function sup_logDebug(message, data = null, ctx) {
+  sup_outputLog_("DEBUG", message, data, ctx);
 }
 
 
@@ -35,22 +35,22 @@ function sup_logDebug(message, data = null) {
  * INFO
  */
 function sup_logInfo(message, data = null) {
-  sup_outputLog_("INFO", message, data);
+  sup_outputLog_("INFO", message, data, ctx);
 }
 
 
 /**
  * ERROR
  */
-function sup_logError(message, data = null) {
-  sup_outputLog_("ERROR", message, data);
+function sup_logError(message, data = null, ctx) {
+  sup_outputLog_("ERROR", message, data, ctx);
 }
 
 
 /**
  * 共通ログ出力
  */
-function sup_outputLog_(level, message, data) {
+function sup_outputLog_(level, message, data, ctx) {
 
   const LEVELS = {
     ERROR: 1,
@@ -75,7 +75,7 @@ function sup_outputLog_(level, message, data) {
   }
 
   if (SUP_LOG.SHEET) {
-    sup_appendLogSheet_(level, message, data);
+    sup_appendLogSheet_(level, message, data, ctx);
   }
 }
 
@@ -83,7 +83,7 @@ function sup_outputLog_(level, message, data) {
 /**
  * デバッグシートへ出力
  */
-function sup_appendLogSheet_(level, message, data) {
+function sup_appendLogSheet_(level, message, data, ctx) {
 
   const sheet =
     SpreadsheetApp.getActiveSpreadsheet()

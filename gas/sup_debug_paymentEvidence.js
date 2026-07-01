@@ -53,11 +53,6 @@ function debug_paymentEvidence_acceptBatch() {
     source: "payment_teacher.html"
   };
   
-  // sup_logDebug("debug_paymentEvidence_acceptBatch input", {
-  //       result: JSON.stringify(result, null, 2)
-  // });
-  
-
   //============ テスト対象
   //============
    const result = paymentEvidence_acceptBatch(input, ctx);
@@ -68,7 +63,7 @@ function debug_paymentEvidence_acceptBatch() {
 
     result: JSON.stringify(result, null, 2)
 
-  });
+  }, ctx);
 
   return result;
 
@@ -108,7 +103,7 @@ function debug_paymentEvidence_requestBatch() {
   sup_logDebug("debug_paymentEvidence_requestBatch", {
     count: paymentItems.length,
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
 
   return result;
 }
@@ -153,7 +148,7 @@ function debug_paymentEvidence_recordBatch() {
     requested_count: requested.length,
     evidence_items: evidence_items,
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
 
   return result;
 }
@@ -182,7 +177,7 @@ function debug_paymentEvidence_postBatch() {
 
   sup_logDebug("debug_paymentEvidence_postBatch", {
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
 
   return result;
 }
@@ -216,7 +211,7 @@ function debug_paymentEvidence_request() {
   sup_logDebug("debug_paymentEvidence_request", {
     input,
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
 
   return result;
 }
@@ -265,7 +260,7 @@ function debug_paymentEvidence_post() {
   sup_logDebug("debug_paymentEvidence_post", {
     input,
     result: JSON.stringify(result, null, 2)
-  });
+  }, ctx);
 
   return result;
 }

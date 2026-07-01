@@ -99,7 +99,7 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
       lessonCount,
       isPaid: false,
       isCapped: false,
-      todayAttendanceRegistered: paymentStatusView_isAttendedToday(memberId, attendances),
+      todayAttendanceRegistered: paymentStatusView_isAttendedToday(memberId, attendances, ctx),
       cashRequestsLen,
       cashPayCount,
       message: "今月の会費タイプを選択してください。"
@@ -133,7 +133,7 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
       lessonCount,
       isPaid: false,
       isCapped: false,
-      todayAttendanceRegistered: paymentStatusView_isAttendedToday(memberId, attendances),
+      todayAttendanceRegistered: paymentStatusView_isAttendedToday(memberId, attendances, ctx),
       cashRequestsLen,
       cashPayCount,
       message: "※今月の請求はまだ作成されていません。"
@@ -198,7 +198,7 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
     lessonCount,
     isPaid,
     isCapped,
-    todayAttendanceRegistered: paymentStatusView_isAttendedToday(memberId, attendances),
+    todayAttendanceRegistered: paymentStatusView_isAttendedToday(memberId, attendances, ctx),
     cashRequestsLen,
     cashPayCount,
     message
@@ -395,7 +395,7 @@ function paymentStatusView_parseInvoiceItems_(value) {
 // ==============================
 // Calc
 // ==============================
-function paymentStatusView_isAttendedToday(memberId, attendances) {
+function paymentStatusView_isAttendedToday(memberId, attendances, ctx) {
   const today = sup_formatDate_(sup_today(ctx), "yyyy-MM-dd");
 
   return attendances.some(a => {

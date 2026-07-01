@@ -131,7 +131,7 @@ function paymentEvidencePost_collect(input, ctx) {
     throw new Error("post: evidence_id がありません。");
   }
 
-  const target = paymentEvidence_findRowById_(ctx, evidenceId);
+  const target = paymentEvidence_findRowById_(evidenceId, ctx);
   if (!target) {
     throw new Error("post: 決済エビデンスが見つかりません: " + evidenceId);
   }
@@ -200,16 +200,16 @@ function paymentEvidencePost_register(payment, ctx) {
 function paymentEvidencePost_updatePosted(input, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const target = paymentEvidence_findRowById_(ctx, input.evidence_id);
+  const target = paymentEvidence_findRowById_(input.evidence_id, ctx);
   if (!target) {
     throw new Error("post: 決済エビデンスが見つかりません: " + input.evidence_id);
   }
 
-  paymentEvidence_updateColumns_(ctx, target.rowNumber, {
+  paymentEvidence_updateColumns_(target.rowNumber, {
     status: "POSTED",
     posted_at: sup_now(ctx),
     payment_log_id: input.payment_log_id
-  });
+  }, ctx);
 
   return {
     ok: true,
