@@ -1,7 +1,7 @@
 // スプレッドシートの読み書きを集約する軽量DAO層。
 // 業務処理側では、列番号ではなくヘッダー名を使う。
 
-function getRequiredSheet_(ctx, sheetName) {
+function getRequiredSheet_(sheetName, ctx) {
   ctx = ensureSheetContext(ctx);
   
   const sheet = ctx.ss.getSheetByName(sheetName);
@@ -46,10 +46,10 @@ function appendObjectsByHeader_(sheet, objects) {
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
 }
 
-function appendAttendanceRows(ctx, attendanceRows) {
+function appendAttendanceRows(attendanceRows, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const sheet = getRequiredSheet_(ctx, "07_出席ログ");
+  const sheet = getRequiredSheet_("07_出席ログ", ctx);
   assertHeaders_(sheet, [
     "attendance_id", "稽古日", "登録日時", "member_id", "target_month",
     "location_id", "slot_id", "billing_block_id", "teacher_id",
@@ -59,7 +59,7 @@ function appendAttendanceRows(ctx, attendanceRows) {
   invalidateAttendances(ctx);
 }
 
-function getActiveAttendanceKeySet(ctx, attendanceDate) {
+function getActiveAttendanceKeySet(attendanceDate, ctx) {
   ctx = ensureSheetContext(ctx);
   
   const dateText = formatAttendanceDate_(attendanceDate);
@@ -77,10 +77,10 @@ function getActiveAttendanceKeySet(ctx, attendanceDate) {
   return keys;
 }
 
-function getActiveAttendanceRowsForScope(ctx, attendanceDate, memberId, locationId, billingBlockId) {
+function getActiveAttendanceRowsForScope(attendanceDate, memberId, locationId, billingBlockId, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const sheet = getRequiredSheet_(ctx, "07_出席ログ");
+  const sheet = getRequiredSheet_("07_出席ログ", ctx);
   assertHeaders_(sheet, [
     "稽古日", "member_id", "location_id", "billing_block_id", "slot_id", "状態"
   ]);
@@ -102,12 +102,12 @@ function getActiveAttendanceRowsForScope(ctx, attendanceDate, memberId, location
   );
 }
 
-function cancelAttendanceRows(ctx, attendanceRows, teacherId, reason) {
+function cancelAttendanceRows(attendanceRows, teacherId, reason, ctx) {
   ctx = ensureSheetContext(ctx);
 
   if (!attendanceRows || attendanceRows.length === 0) return;
 
-  const sheet = getRequiredSheet_(ctx, "07_出席ログ");
+  const sheet = getRequiredSheet_("07_出席ログ", ctx);
   const headerInfo = assertHeaders_(sheet, [
     "状態", "取消日時", "取消者teacher_id", "取消理由"
   ]);

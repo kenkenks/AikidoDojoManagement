@@ -1,11 +1,21 @@
+// GETリクエストの処理
+// 例: https://script.google.com/macros/s/AKfycbx.../exec?action=getMemberInfo&member_id=12345
 function doGet(e) {
   const params = (e && e.parameter) || {};
 
-  sup_logDebug("doGet", { action: params.action, member_id: params.member_id, plan_id: params.plan_id }, ctx);
+  const ctx = createSheetContext();
+
+  sup_logDebug("doGet", {
+    action: params.action,
+    member_id: params.member_id,
+    plan_id: params.plan_id,
+    location_id: params.location_id,
+    billing_block_id: params.billing_block_id
+  }, ctx);
 
   if (params.action === "getMemberInfo") {
     const result = safelyExecute_(function() {
-      return getPaymentStatus(params.member_id || "");
+      return getPaymentStatus(params.member_id || "", ctx);
     });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
@@ -14,11 +24,10 @@ function doGet(e) {
     sup_logDebug("doGet", { action: params.action, member_id: params.member_id, plan_id: params.plan_id }, ctx);
 
     const result = safelyExecute_(function() {
-      return getMemberPaymentInfo_(params.member_id || "", params.plan_id || "");
+      return getMemberPaymentInfo_(params.member_id || "", params.plan_id || "", ctx);
     });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
-
 
   if (params.action === "paypay_code_start") {
     const result = safelyExecute_(function() {
@@ -26,7 +35,7 @@ function doGet(e) {
         member_id: params.member_id || "",
         plan_id: params.plan_id || "",
         teacher_id: params.teacher_id || "PAYPAY_MEMBER"
-      });
+      }, ctx);
     });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
@@ -38,21 +47,21 @@ function doGet(e) {
         status: params.status || "CONFIRMED",
         statuses: params.statuses || params.status || "CONFIRMED",
         payment_method: params.payment_method || ""
-      });
+      }, ctx);
     });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
   if (params.action === "attendance_session_info") {
     const result = safelyExecute_(function() {
-      return getAttendanceSessionInfo(params);
+      return getAttendanceSessionInfo(params, ctx);
     });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
   if (params.action === "member_attendance_state") {
     const result = safelyExecute_(function() {
-      return getMemberAttendanceState(params);
+      return getMemberAttendanceState(params, ctx);
     });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
@@ -64,21 +73,21 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
-function getMemberPaymentInfo_(memberId, plan_id) {
-  const member = getPaymentStatus(memberId);
+function getMemberPaymentInfo_(memberId, plan_id, ctx) {
+  const member = getPaymentStatus(memberId, ctx);
   if (!member || member.ok !== true) return member;
 
   sup_logDebug("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id }, ctx);
 
   const plan_id_r = plan_id || "P002";
   try {
-    const billingResult = billing_acceptMonthlySelection(memberId, plan_id_r);
+    const billingResult = billing_acceptMonthlySelection(memberId, plan_id_r, ctx);
     Logger.log(JSON.stringify(billingResult, null, 2));
   } catch (e) {
     Logger.log("Error occurred: " + e.toString());
   }
 
-  const paymentStatus = getPaymentStatus(memberId);
+  const paymentStatus = getPaymentStatus(memberId, ctx);
   if (!paymentStatus || paymentStatus.ok !== true) {
     return {
       success: false,
@@ -117,7 +126,11 @@ function getMemberPaymentInfo_(memberId, plan_id) {
   };
 }
 
+// POSTリクエストの処理
+// 例: https://script.google.com/macros/s/AKfycbx.../exec
 function doPost(e) {
+  const ctx = createSheetContext();
+
   const result = safelyExecute_(function() {
     if (!e || !e.postData || !e.postData.contents) {
       throw new Error("送信データがありません。");
@@ -127,19 +140,19 @@ function doPost(e) {
     const data = JSON.parse(jsonText);
 
     if (data.mode === "attendance_batch" || Array.isArray(data.attendance_items)) {
-      return registerAttendanceBatch(data);
+      return registerAttendanceBatch(data, ctx);
     }
-    
+
     if (data.mode === "paypay_code_record") {
-      return paypayCode_record(data);
+      return paypayCode_record(data, ctx);
     }
 
     if (data.mode === "payment_evidence_post_selected") {
-      return paymentEvidence_postSelectedBatch(data, createSheetContext());
+      return paymentEvidence_postSelectedBatch(data, ctx);
     }
 
     if (data.mode === "payment_evidence_post_batch") {
-      return paymentEvidence_postBatch(createSheetContext());
+      return paymentEvidence_postBatch(ctx);
     }
 
     if (
@@ -148,10 +161,16 @@ function doPost(e) {
       Array.isArray(data.payment_items) ||
       Array.isArray(data.payments)
     ) {
-      return paymentEvidence_acceptBatch(data);
+      return paymentEvidence_acceptBatch(data, ctx);
     }
-    appendQrExperimentLog(data, jsonText);
-    return { ok: true, legacy: true, message: "QR実験ログへ保存しました。" };
+
+    appendQrExperimentLog(data, jsonText, ctx);
+
+    return {
+      ok: true,
+      legacy: true,
+      message: "QR実験ログへ保存しました。"
+    };
   });
 
   return ContentService
@@ -162,11 +181,16 @@ function doPost(e) {
 function safelyExecute_(callback) {
   try {
     return callback();
-  } catch (error) {
-    Logger.error(error && error.stack ? error.stack : error);
+
+  } catch (e) {
+    Logger.log(e.stack || e.message);
+
     return {
       ok: false,
-      message: error && error.message ? error.message : String(error)
+      error: true,
+      message: e.message || String(e),
+      errorName: e.name || "Error",
+      stack: e.stack || ""
     };
   }
 }
@@ -186,29 +210,33 @@ function createJsonOrJsonpOutput_(data, callbackName) {
     .setMimeType(ContentService.MimeType.JSON);
 }
 
-function appendBatchAttendanceDemoLog(data, raw) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("QR_出席登録デモログ");
+function appendBatchAttendanceDemoLog(data, raw, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = ctx.ss.getSheetByName("QR_出席登録デモログ");
   if (!sheet) throw new Error("QR_出席登録デモログ シートが見つかりません。");
 
   const now = sup_now(ctx);
-  const rows = data.member_ids.map(memberId => [
-    now,
-    data.teacher_id || "",
-    data.location_id || "",
-    memberId,
-    data.source || "",
-    raw
-  ]);
+  const rows = data.member_ids.map(function(memberId) {
+    return [
+      now,
+      data.teacher_id || "",
+      data.location_id || "",
+      memberId,
+      data.source || "",
+      raw
+    ];
+  });
 
   if (rows.length > 0) {
     sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, rows[0].length).setValues(rows);
   }
 }
 
-function appendQrExperimentLog(data, raw) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("QR実験ログ");
+function appendQrExperimentLog(data, raw, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = ctx.ss.getSheetByName("QR実験ログ");
   if (!sheet) throw new Error("QR実験ログ シートが見つかりません。");
 
   sheet.appendRow([

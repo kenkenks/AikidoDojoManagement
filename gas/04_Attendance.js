@@ -144,7 +144,7 @@ function findBillingBlockCandidates_(locationId, dateTime, ctx) {
 // doGet() で呼び出すと、JSONP形式で出席登録APIを呼び出せる。
 function getMemberAttendanceState(params, ctx) {
   ctx = ensureSheetContext(ctx);
-  
+
   const memberId = normalizeId_(params.member_id);
   const locationId = normalizeId_(params.location_id);
   const billingBlockId = normalizeId_(params.billing_block_id);
@@ -158,9 +158,9 @@ function getMemberAttendanceState(params, ctx) {
   );
   if (!member) return { ok: false, message: "有効な会員が見つかりません。" };
 
-  validateAttendanceScope_(ctx, locationId, billingBlockId);
+  validateAttendanceScope_(locationId, billingBlockId, ctx);
   const rows = getActiveAttendanceRowsForScope(
-    ctx, attendanceDate, memberId, locationId, billingBlockId
+    attendanceDate, memberId, locationId, billingBlockId, ctx
   );
 
   return {
@@ -172,12 +172,12 @@ function getMemberAttendanceState(params, ctx) {
 
 //------------------------------------------------------------------------------------------------
 // doPost() で呼び出すと、JSONP形式で出席登録APIを呼び出せる。
-function registerAttendanceBatch(data, ctx) {
+function registerAttendanceBatch(data) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
 
   try {
-    ctx = ensureSheetContext(ctx);
+    ctx = createSheetContext();
 
     return registerAttendanceBatchLocked_(data || {}, ctx);
   } finally {
@@ -264,7 +264,7 @@ function registerAttendanceBatchLocked_(data, ctx) {
     }
 
     const existingRows = getActiveAttendanceRowsForScope(
-      ctx, attendanceDate, memberId, locationId, billingBlockId
+      attendanceDate, memberId, locationId, billingBlockId, ctx
     );
     const existingBySlot = {};
     existingRows.forEach(row => existingBySlot[normalizeId_(row["slot_id"])] = row);
@@ -310,9 +310,9 @@ function registerAttendanceBatchLocked_(data, ctx) {
   });
 
   cancelAttendanceRows(
-    ctx, rowsToCancel, teacherId, "出席確認画面との同期による選択解除"
+    rowsToCancel, teacherId, "出席確認画面との同期による選択解除", ctx
   );
-  appendAttendanceRows(ctx, rows);
+  appendAttendanceRows(rows, ctx);
 
   return {
     ok: true,

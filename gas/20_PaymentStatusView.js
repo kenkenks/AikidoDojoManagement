@@ -7,7 +7,7 @@
 // View更新（メイン）
 // ==============================
 function paymentStatusView_refresh(memberId, targetMonth, ctx) {
-  ctx = ensureSheetContext(ctx || createSheetContext());
+  ctx = ensureSheetContext(ctx);
 
   const viewContext =
     paymentStatusView_collectContext(memberId, targetMonth, ctx);
@@ -29,7 +29,7 @@ function paymentStatusView_refresh(memberId, targetMonth, ctx) {
 // 情報収集
 // ==============================
 function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
-  ctx = ensureSheetContext(ctx || createSheetContext());
+  ctx = ensureSheetContext(ctx);
 
   const t0 = Date.now();
   perfLog("START paymentStatusView_collectContext", t0);
@@ -260,8 +260,8 @@ function paymentStatusView_buildRow(memberId, targetMonth, ctx) {
 // ==============================
 // View更新
 // ==============================
-function paymentStatusView_update(memberId, targetMonth, updateValues) {
-  paymentStatusView_ensureViewHeaders_(updateValues);
+function paymentStatusView_update(memberId, targetMonth, updateValues, ctx) {
+  paymentStatusView_ensureViewHeaders_(updateValues, ctx);
 
   upsertViewRow(
     "20_会費状態View",
@@ -274,9 +274,10 @@ function paymentStatusView_update(memberId, targetMonth, updateValues) {
   );
 }
 
-function paymentStatusView_ensureViewHeaders_(updateValues) {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName("20_会費状態View");
+function paymentStatusView_ensureViewHeaders_(updateValues, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = ctx.ss.getSheetByName("20_会費状態View");
   if (!sheet) {
     throw new Error("シートが見つかりません: 20_会費状態View");
   }
@@ -307,7 +308,7 @@ function paymentStatusView_ensureViewHeaders_(updateValues) {
 // ==============================
 // View取得
 // ==============================
-function paymentStatusView_get(memberId) {
+function paymentStatusView_get(memberId, ctx) {
   try {
     if (!memberId) {
       return {
@@ -316,7 +317,8 @@ function paymentStatusView_get(memberId) {
       };
     }
 
-    const ctx = createSheetContext();
+    ctx = ensureSheetContext(ctx);
+
     const targetMonth = sup_targetMonth(ctx);
 
     const rows = getFeeStatusViewRows(ctx);
@@ -337,7 +339,7 @@ function paymentStatusView_get(memberId) {
       };
     }
 
-    return paymentStatusView_convertResponse(row);
+    return paymentStatusView_convertResponse(row, ctx);
 
   } catch (e) {
     return {
@@ -347,7 +349,7 @@ function paymentStatusView_get(memberId) {
   }
 }
 
-function paymentStatusView_convertResponse(row) {
+function paymentStatusView_convertResponse(row, ctx) {
   const invoiceItems = paymentStatusView_parseInvoiceItems_(row["invoice_items_json"]);
   const invoiceIdsText = String(row["invoice_ids"] || "");
   const invoiceIds = invoiceIdsText
@@ -421,14 +423,14 @@ function PaymentStatusView_buildViewRow(memberId, targetMonth, ctx) {
   return paymentStatusView_buildRow(memberId, targetMonth, ctx);
 }
 
-function PaymentStatusView_update(memberId, targetMonth, updateValues) {
-  return paymentStatusView_update(memberId, targetMonth, updateValues);
+function PaymentStatusView_update(memberId, targetMonth, updateValues, ctx) {
+  return paymentStatusView_update(memberId, targetMonth, updateValues, ctx);
 }
 
-function getPaymentStatus(memberId) {
-  return paymentStatusView_get(memberId);
+function getPaymentStatus(memberId, ctx) {
+  return paymentStatusView_get(memberId, ctx);
 }
 
-function convertFeeStatusViewRowToResponse(row) {
-  return paymentStatusView_convertResponse(row);
+function convertFeeStatusViewRowToResponse(row, ctx) {
+  return paymentStatusView_convertResponse(row, ctx);
 }
