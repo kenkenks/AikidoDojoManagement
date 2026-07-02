@@ -172,18 +172,19 @@ function getMemberAttendanceState(params, ctx) {
 
 //------------------------------------------------------------------------------------------------
 // doPost() で呼び出すと、JSONP形式で出席登録APIを呼び出せる。
-function registerAttendanceBatch(data) {
+function registerAttendanceBatch(data, ctx) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
 
   try {
-    ctx = createSheetContext();
-
+    ctx = ensureSheetContext(ctx || createSheetContext());
     return registerAttendanceBatchLocked_(data || {}, ctx);
+
   } finally {
     lock.releaseLock();
   }
 }
+
 
 function registerAttendanceBatchLocked_(data, ctx) {
   ctx = ensureSheetContext(ctx);
@@ -191,138 +192,22 @@ function registerAttendanceBatchLocked_(data, ctx) {
   const teacherId = normalizeId_(data.teacher_id);
   const locationId = normalizeId_(data.location_id);
   const billingBlockId = normalizeId_(data.billing_block_id);
-  const sessionId = normalizeId_(data.attendance_session_id) || ("ASES-" + Utilities.getUuid());
-  const attendanceDate = sup_today(ctx);
-  const targetMonth = sup_targetMonth(ctx);
-  const items = Array.isArray(data.attendance_items) ? data.attendance_items : [];
 
-  if (!teacherId || !locationId || !billingBlockId) {
-    return { ok: false, message: "先生・道場・課金枠を指定してください。" };
-  }
-  if (items.length === 0) return { ok: false, message: "出席対象がありません。" };
-
-  validateAttendanceMasterData_(teacherId, locationId, billingBlockId, ctx);
-
-  const members = {};
-  getMembers(ctx).forEach(row => {
-    if (isActiveMasterRow_(row)) members[normalizeId_(row["member_id"])] = row;
-  });
-
-  const slots = {};
-  getTrainingSlots(ctx).forEach(row => {
-    const slotId = normalizeId_(row["slot_id"]);
-    if (
-      slotId && isActiveMasterRow_(row) &&
-      normalizeId_(row["location_id"]) === locationId &&
-      normalizeId_(row["billing_block_id"]) === billingBlockId
-    ) slots[slotId] = row;
-  });
-
-  const rows = [];
-  const rowsToCancel = [];
-  const results = [];
-  const requestedMembers = {};
-
-  items.forEach(item => {
-    const memberId = normalizeId_(item.member_id);
-    const hasSlotArray = Array.isArray(item.slot_ids);
-    const slotIds = hasSlotArray
-      ? Array.from(new Set(item.slot_ids.map(normalizeId_).filter(Boolean)))
-      : [];
-    const result = {
-      member_id: memberId,
-      registered_slot_ids: [],
-      retained_slot_ids: [],
-      cancelled_slot_ids: [],
-      errors: []
-    };
-
-    if (!memberId || !members[memberId]) {
-      result.errors.push("有効な会員が見つかりません。");
-      results.push(result);
-      return;
-    }
-    if (requestedMembers[memberId]) {
-      result.errors.push("同じ会員が送信データ内で重複しています。");
-      results.push(result);
-      return;
-    }
-    requestedMembers[memberId] = true;
-    if (!hasSlotArray) {
-      result.errors.push("slot_ids は配列で指定してください。");
-      results.push(result);
-      return;
-    }
-
-    slotIds.forEach(slotId => {
-      if (!slots[slotId]) result.errors.push("無効な稽古枠: " + slotId);
-    });
-    // 無効な入力で既存出席を取り消さないため、この会員の同期を中止する。
-    if (result.errors.length > 0) {
-      results.push(result);
-      return;
-    }
-
-    const existingRows = getActiveAttendanceRowsForScope(
-      attendanceDate, memberId, locationId, billingBlockId, ctx
-    );
-    const existingBySlot = {};
-    existingRows.forEach(row => existingBySlot[normalizeId_(row["slot_id"])] = row);
-
-    existingRows.forEach(row => {
-      const existingSlotId = normalizeId_(row["slot_id"]);
-      if (!slotIds.includes(existingSlotId)) {
-        rowsToCancel.push(row);
-        result.cancelled_slot_ids.push(existingSlotId);
-      }
-    });
-
-    slotIds.forEach(slotId => {
-      if (existingBySlot[slotId]) {
-        result.retained_slot_ids.push(slotId);
-        return;
-      }
-
-      const slot = slots[slotId];
-      rows.push({
-        attendance_id: "ATT-" + Utilities.getUuid(),
-        "稽古日": attendanceDate,
-        "登録日時": sup_now(ctx),
-        member_id: memberId,
-        target_month: targetMonth,
-        location_id: locationId,
-        slot_id: slotId,
-        billing_block_id: billingBlockId,
-        teacher_id: teacherId,
-        attendance_session_id: sessionId,
-        "稽古時間分": Number(slot["稽古時間分"] || 60),
-        "状態": "有効",
-        source: String(data.source || ATTENDANCE_SOURCE_QR),
-        "取消日時": "",
-        "取消者teacher_id": "",
-        "取消理由": "",
-        "備考": ""
-      });
-      result.registered_slot_ids.push(slotId);
-    });
-
-    results.push(result);
-  });
-
-  cancelAttendanceRows(
-    rowsToCancel, teacherId, "出席確認画面との同期による選択解除", ctx
-  );
-  appendAttendanceRows(rows, ctx);
-
-  return {
-    ok: true,
-    attendance_session_id: sessionId,
-    registered_count: rows.length,
-    retained_count: results.reduce((sum, result) => sum + result.retained_slot_ids.length, 0),
-    cancelled_count: rowsToCancel.length,
-    results,
-    message: "追加 " + rows.length + "枠、取消 " + rowsToCancel.length + "枠で同期しました。"
-  };
+  return attendanceCore_registerBatch_({
+    teacher_id: teacherId,
+    location_id: locationId,
+    billing_block_id: billingBlockId,
+    attendance_session_id: data.attendance_session_id,
+    attendance_items: data.attendance_items,
+    source: data.source || ATTENDANCE_SOURCE_QR,
+    require_teacher: true,
+    initial_status: "有効",
+    sync_unselected: true,
+    allow_duplicate_members: false,
+    remarks: "",
+    cancel_reason: "出席確認画面との同期による選択解除",
+    message: ""
+  }, ctx);
 }
 
 function validateAttendanceMasterData_(teacherId, locationId, billingBlockId, ctx) {
