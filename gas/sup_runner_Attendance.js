@@ -94,7 +94,7 @@ function runner_story_attendance_001() {
     "Step05",
     "会員が出席登録完了を確認する",
     function() {
-      return attendanceGetMemberRegistrationState({
+      return attendanceMemberGetRegistrationState({
         member_id: "M001",
         location_id: locationId,
         billing_block_id: billingBlockId

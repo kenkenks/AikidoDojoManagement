@@ -9,6 +9,12 @@
 // TAG: CORE
 // TAG: RDD
 //
+// require_teacher:
+// true  = 先生操作として teacher_id を必須にする
+// false = 会員セルフ操作として teacher_id を空許容する
+// LEGACY COMPAT:
+// 旧関数名互換のために残す。
+// 新規実装では attendanceCore_findRowsForScope_ を使用する。
 
 function attendanceCore_registerBatch_(options, ctx) {
   ctx = ensureSheetContext(ctx);
