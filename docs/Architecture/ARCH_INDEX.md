@@ -24,7 +24,7 @@ Architecture文書一覧。
 |ARCH-003|Runner設計|作成中|RDD・Runner構成・NEXT設計|
 |ARCH-004|Payment⇔Attendance対応表|作成中|Business Process対応表|
 |ARCH-005|状態遷移|作成中|Status管理・状態遷移|
-|ARCH-006|（予約）|-|-|
+|ARCH-006|Business Process標準モデル|作成中|業務ごとのBusiness Process定義|
 |ARCH-007|（予約）|-|-|
 
 ---

@@ -1,0 +1,204 @@
+ARCH-006 Business Process標準モデル
+# ARCH-006 Business Process標準モデル
+
+STATUS: 作成中
+TYPE: ARCHITECTURE
+AREA: COMMON
+PRIORITY: HIGH
+
+TAG: ARCH
+TAG: BUSINESS_PROCESS
+TAG: WORKFLOW
+TAG: STANDARD
+TAG: RDD
+
+---
+
+# 1. 目的
+
+業務ごとのBusiness Processを定義する。
+
+Business Processは
+業務単位のWorkflowであり、
+各工程は成果物（Relay Baton）を
+次工程へ受け渡す。
+
+各ServiceおよびRunnerは、
+Business Processを基準に設計する。
+
+---
+
+# 2. 基本方針
+
+Business Processは
+業務ごとに定義する。
+
+共通化するのではなく、
+責務が理解できることを優先する。
+
+---
+
+# 3. Attendance
+
+```text
+Collect
+    ↓
+Record
+
+Service
+
+AttendanceMember
+
+AttendanceTeacher
+
+AttendanceCore
+
+AttendanceRunner
+4. Billing
+Collect
+    ↓
+Reconcile
+    ↓
+Make
+    ↓
+Record
+
+Service
+
+BillingCollect
+
+BillingReconcile
+
+BillingMake
+
+BillingRecord
+
+BillingCore
+
+BillingRunner
+
+Reconcileは、
+Aggregation Scopeとの整合処理を担当する。
+
+5. Payment
+Request
+    ↓
+Accept
+    ↓
+Record
+    ↓
+Post
+
+Service
+
+PaymentRequest
+
+PaymentAccept
+
+PaymentRecord
+
+PaymentPost
+
+PaymentQuery
+
+PaymentCore
+
+PaymentRunner
+6. Relay Baton
+
+各Business Processは、
+前工程の成果物を受け取り、
+次工程へ受け渡す。
+
+Taskは、
+工程間で受け渡される成果物
+（Relay Baton）
+として扱う。
+
+7. Aggregation Scope
+
+Billingでは
+Reconcile工程において
+Aggregation Scopeとの整合を行う。
+
+現時点では
+13_課金枠マスタを
+Billing用Aggregation Scope
+として運用する。
+
+詳細は
+
+TASK-IDEA-002
+
+を参照。
+
+8. 今後
+
+Business Processは
+
+Attendance
+
+Billing
+
+Payment
+
+で検証する。
+
+十分な実績が得られた時点で、
+Frameworkへ昇格する。
+
+現段階では
+ARCHとして管理する。
+
+9. 関連文書
+
+ARCH-001 サービス構成
+
+ARCH-002 命名規約
+
+ARCH-003 Runner設計
+
+TASK-IDEA-002
+Aggregation Scope構想
+
+TASK-IDEA-003
+Workflow標準化構想
+
+
+---
+
+## 私が今回一番追加したいのは「2. 基本方針」です。
+
+```text
+Business Processは
+業務ごとに定義する。
+
+共通化するのではなく、
+責務が理解できることを優先する。
+
+これは、今日二人でたどり着いた重要な結論です。
+
+最初は collect → make → record → post を全業務共通にしようとしていましたが、実際には
+
+Attendance
+Billing
+Payment
+
+で異なるWorkflowになりました。
+
+だから、「Workflowを無理に共通化しない」という設計方針自体をARCHへ残す価値があります。
+
+これが今後、EventやInsuranceを作るときの基準にもなると思います。
+
+
+0円請求の扱い
+
+Billingは0円請求を正当な請求結果として扱う。
+
+請求額が0円の場合、
+実際の支払い行為は発生しない。
+
+そのため、Paymentへ進めず、
+Billing生成時点で支払状態を「免除」または「支払不要」とする。
+
+Paymentは、請求額が1円以上かつ未払いの請求のみを対象とする。

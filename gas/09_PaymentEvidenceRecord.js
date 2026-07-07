@@ -176,7 +176,7 @@ function paymentEvidenceRecord_update(record, ctx) {
 function paymentEvidence_findRowById_(evidenceId, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const sheet = getRequiredSheet_(ctx, "09_決済エビデンス");
+  const sheet = getRequiredSheet_("09_決済エビデンス", ctx);
   const headerInfo = assertHeaders_(sheet, paymentEvidence_requiredHeaders_());
   const values = sheet.getDataRange().getValues();
 
@@ -198,7 +198,7 @@ function paymentEvidence_findRowById_(evidenceId, ctx) {
 function paymentEvidence_updateColumns_(rowNumber, valuesByHeader, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const sheet = getRequiredSheet_(ctx, "09_決済エビデンス");
+  const sheet = getRequiredSheet_("09_決済エビデンス",ctx);
   const headerInfo = assertHeaders_(sheet, paymentEvidence_requiredHeaders_());
 
   Object.keys(valuesByHeader).forEach(header => {
