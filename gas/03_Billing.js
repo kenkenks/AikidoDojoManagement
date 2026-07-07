@@ -44,69 +44,14 @@ function billing_acceptMonthlySelection(memberId, plan_id, ctx) {
 // 情報収集
 // ==============================
 /**
- * ROLE
- * BillingMonthlyService / Collect
+ * LEGACY COMPATIBILITY
  *
- * RESPONSIBILITY
- * 月額請求受付に必要な会員・請求グループ・料金プラン情報を収集する。
- *
- * NOTE
- * 月額用Collect。
- * 回数料金では別Collectを用意し、
- * Reconcile / Make / Record は共通化する方針。
+ * 新規実装では
+ * billingMonthlyCollect()
+ * を使用すること。
  */
 function billing_collectMonthlySelectionContext(memberId, plan_id, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  if (!memberId) {
-    throw new Error("memberId がありません。");
-  }
-
-  if (!plan_id) {
-    throw new Error("plan_id がありません。");
-  }
-
-  const members = getMembers(ctx);
-  const member = members.find(m =>
-    String(m["member_id"]).trim() === String(memberId).trim()
-  );
-
-  if (!member) {
-    throw new Error("会員が見つかりません。");
-  }
-
-  const billingGroupId = String(member["請求グループID"] || "").trim();
-  if (!billingGroupId) {
-    throw new Error("請求グループIDがありません。");
-  }
-
-  const targetMonth = sup_targetMonth(ctx);
-
-  const existing = billing_getMonthlySelection(billingGroupId, targetMonth, ctx);
-  if (existing) {
-    throw new Error("今月の会費タイプはすでに登録済みです。");
-  }
-
-  const fees = getFees(ctx);
-  const fee = fees.find(f =>
-    String(f["plan_id"]).trim() === String(plan_id).trim()
-  );
-
-  if (!fee) {
-    throw new Error("料金プランが見つかりません。");
-  }
-
-  return {
-    targetMonth,
-    memberId,
-    billingGroupId,
-    plan_id,
-    invoiceType: fee["会費タイプ"],
-    invoiceName: fee["表示名"],
-    quantity: 1,
-    unitPrice: Number(fee["回数単価"] || 0),
-    monthlyCap: Number(fee["上限金額"] || 0)
-  };
+  return billingMonthlyCollect(memberId, plan_id, ctx);
 }
 
 /**
@@ -122,7 +67,6 @@ function billing_makeInvoice(billingContext, ctx) {
 
 /**
  * ROLE
- * BillingCore / Make
  *
  * RESPONSIBILITY
  * 請求明細オブジェクトを生成する。
@@ -143,26 +87,6 @@ function billing_makeInvoice(billingContext, ctx) {
 // ==============================
 // Register
 // ==============================
-/**
- * ROLE
- * BillingRecord
- *
- * RESPONSIBILITY
- * 月次選択を04_月次選択へ記録する。
- */
-function billing_registerMonthlySelection(billingContext, ctx) {
-  billing_appendMonthlySelection({
-    target_month: billingContext.targetMonth,
-    member_id: billingContext.memberId,
-    billing_group_id: billingContext.billingGroupId,
-    plan_id: billingContext.plan_id,
-    宣言日: sup_now(ctx),
-    状態: "有効",
-    備考: ""
-  }, ctx);
-}
-
-
 
 /**
  * LEGACY COMPATIBILITY

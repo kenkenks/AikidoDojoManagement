@@ -29,7 +29,7 @@ function billingMonthlyAccept(memberId, plan_id, ctx) {
   try {
     // Collect
     billingContext =
-      billing_collectMonthlySelectionContext(memberId, plan_id, ctx);
+    billingMonthlyCollect(memberId, plan_id, ctx);
 
     // Record Monthly Selection
     billingMonthlyRegisterSelection_(billingContext, ctx);
@@ -61,6 +61,69 @@ function billingMonthlyAccept(memberId, plan_id, ctx) {
   };
 }
 
+/**
+ * ROLE
+ * BillingMonthlyService / Collect
+ *
+ * RESPONSIBILITY
+ * 月額請求受付に必要な情報を収集する。
+ *
+ * OUTPUT
+ * BillingContext
+ */
+function billingMonthlyCollect(memberId, planId, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  if (!memberId) {
+    throw new Error("memberId がありません。");
+  }
+
+  if (!planId) {
+    throw new Error("plan_id がありません。");
+  }
+
+  const members = getMembers(ctx);
+  const member = members.find(m =>
+    String(m["member_id"]).trim() === String(memberId).trim()
+  );
+
+  if (!member) {
+    throw new Error("会員が見つかりません。");
+  }
+
+  const billingGroupId = String(member["請求グループID"] || "").trim();
+  if (!billingGroupId) {
+    throw new Error("請求グループIDがありません。");
+  }
+
+  const targetMonth = sup_targetMonth(ctx);
+
+  const existing = billingCoreGetMonthlySelection_(billingGroupId, targetMonth, ctx);
+  if (existing) {
+    throw new Error("今月の会費タイプはすでに登録済みです。");
+  }
+
+  const fees = getFees(ctx);
+  const fee = fees.find(f =>
+    String(f["plan_id"]).trim() === String(planId).trim()
+  );
+
+  if (!fee) {
+    throw new Error("料金プランが見つかりません。");
+  }
+
+  return {
+    targetMonth,
+    memberId,
+    billingGroupId,
+    plan_id: planId,
+    invoiceType: fee["会費タイプ"],
+    invoiceName: fee["表示名"],
+    quantity: 1,
+    unitPrice: Number(fee["回数単価"] || 0),
+    monthlyCap: Number(fee["上限金額"] || 0)
+  };
+}
 /**
  * ROLE
  * BillingMonthlyService

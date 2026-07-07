@@ -232,3 +232,49 @@ ARCH-001 サービス構成
 ARCH-002 命名規約
 TASK-DEV-011 運用ストーリーランナー
 STORY-001 通常出席
+
+# Debug と Runner の違い
+
+## Debug
+
+Debugは、開発者が個別関数・個別APIの動作を確認するための補助処理である。
+
+Debugは自由に作成してよい。
+
+主な用途:
+
+- 関数単体確認
+- API確認
+- 一時的な検証
+- データ確認
+- 開発中の動作確認
+
+## Runner
+
+Runnerは、Storyが成立しているかを確認するための検証資産である。
+
+RunnerはStoryと対応し、Prepare / Execute / Verify / Summary の構成を持つ。
+
+主な用途:
+
+- Story確認
+- 受入確認
+- 回帰確認
+- NEXT検出
+- 完了判定
+
+## 位置付け
+
+```text
+Debug  = 関数確認
+Runner = Story確認
+Debug  = 開発者の道具
+Runner = プロジェクトの資産
+運用ルール
+DebugコードをRunnerへ混在させない。
+Runnerに一時的な検証コードを書かない。
+Debugは自由に作成してよい。
+RunnerはStory番号と対応させる。
+Runnerは完了判定に使える品質を保つ。
+
+この追記後に、次は **03_BillingRunner.js 作成** へ進むのが良いです。

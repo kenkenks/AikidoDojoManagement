@@ -1,0 +1,13 @@
+Prepare
+  対象データ初期化
+
+Execute
+  M001〜M008 を billingMonthlyAccept() で登録
+
+Verify
+  05_請求明細に請求ができていること
+  0円請求は免除になること
+  1円以上は未払いになること
+
+Summary
+  total / success / failed / elapsed_ms
