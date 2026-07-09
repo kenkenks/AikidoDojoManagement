@@ -599,13 +599,11 @@
       Promise.all([
         jsonp(GAS_URL, {
           action: "payment_evidence_list",
-          target_month: targetMonth,
           statuses: "CONFIRMED",
           payment_method: "PAYPAY"
         }),
         jsonp(GAS_URL, {
           action: "payment_evidence_list",
-          target_month: targetMonth,
           statuses: "POSTED",
           payment_method: "PAYPAY"
         })

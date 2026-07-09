@@ -1,4 +1,4 @@
-// ========================================
+// =======onth=================================
 // WebConnect.gs
 // Web Entry Point
 // ========================================
@@ -96,7 +96,7 @@ function doGet(e) {
   if (params.action === "payment_evidence_list") {
     const result = safelyExecute_(function() {
       return paymentEvidenceQuery_list({
-        target_month: params.target_month || "",
+        target_month: params.target_month || sup_targetMonth(ctx),
         status: params.status || "CONFIRMED",
         statuses: params.statuses || params.status || "CONFIRMED",
         payment_method: params.payment_method || ""
