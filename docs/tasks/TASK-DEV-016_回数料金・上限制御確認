@@ -1,0 +1,37 @@
+TASK-DEV-016
+回数料金・上限制御確認
+
+STATUS: 作成中
+TYPE: TASK
+AREA: BILLING
+PRIORITY: HIGH
+
+TAG: BILLING
+TAG: USAGE
+TAG: LIMIT
+TAG: PAYMENT
+TAG: RUNNER
+TAG: OPERATION
+
+目的
+
+画面実装へ進む前に、
+回数料金と月額上限の挙動を確認する。
+
+確認事項
+
+□ 回数料金1回目で請求が作成される
+□ 上限内なら追加請求できる
+□ 上限到達後は追加請求されない
+□ 重複請求が発生しない
+□ 上限内の未払い分は支払い可能
+□ 0円請求・免除はPayment対象外
+
+成果物
+
+runner_billing_story_002()
+
+完了条件
+
+runner_billing_story_002() PASS
+必要に応じて Payment Runner / Main Runner へ反映

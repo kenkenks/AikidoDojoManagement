@@ -1,0 +1,135 @@
+# STORY-M001 会費受付〜入金反映
+
+STATUS: 作成中
+TYPE: STORY
+AREA: PAYMENT
+TASK: TASK-DEV-015
+PRIORITY: HIGH
+
+TAG: MAIN_STORY
+TAG: BILLING
+TAG: PAYMENT
+TAG: PAYMENT_EVIDENCE
+TAG: WEB_CONNECT
+TAG: OPERATION
+
+---
+
+## 目的
+
+会員が会費を確認し、
+支払いを行い、
+先生が確認して、
+入金反映まで完了できること。
+
+本Storyは、
+道場システムの会費運用における
+メインストーリーである。
+
+---
+
+## Business Process
+
+```text
+Billing
+    ↓
+PaymentEvidence Request
+    ↓
+PaymentEvidence Record
+    ↓
+PaymentEvidence Query
+    ↓
+PaymentEvidence Post
+Main Flow
+① 会員が会員画面を開く
+        ↓
+② システムが会費情報を表示する
+        ↓
+③ 未払い請求がある場合、支払い対象を表示する
+        ↓
+④ 会員がPayPayで支払う
+        ↓
+⑤ 会員がPayPay決済コードを登録する
+        ↓
+⑥ 09_決済エビデンスがCONFIRMEDになる
+        ↓
+⑦ 先生が先生画面でCONFIRMED一覧を確認する
+        ↓
+⑧ 先生が決済更新を行う
+        ↓
+⑨ 06_入金ログへ反映される
+        ↓
+⑩ 09_決済エビデンスがPOSTEDになる
+        ↓
+⑪ 05_請求明細の支払状態が更新される
+        ↓
+⑫ 20_会費状態Viewが更新される
+Expected
+未払い請求が作成される
+
+会員画面で未払い額を確認できる
+
+PayPay決済エビデンスが作成される
+
+決済コード登録によりCONFIRMEDになる
+
+先生画面でCONFIRMED一覧を確認できる
+
+先生の決済更新によりPOSTEDになる
+
+06_入金ログに入金が記録される
+
+05_請求明細が支払済になる
+
+20_会費状態Viewが支払済になる
+Runner
+runner_story_m001()
+Runner構成
+Prepare
+    ↓
+Billing
+    ↓
+PaymentEvidence Request
+    ↓
+PaymentEvidence Record
+    ↓
+PaymentEvidence Query
+    ↓
+PaymentEvidence Post
+    ↓
+Verify
+    ↓
+Summary
+対応Runner
+runner_billing_story_001()
+
+runner_payment_story_p001()
+
+runner_payment_story_p002()
+
+runner_payment_story_p004()
+
+runner_payment_story_p003()
+完了条件
+Billing Runner PASS
+
+PaymentEvidence P001 PASS
+
+PaymentEvidence P002 PASS
+
+PaymentEvidence P003 PASS
+
+PaymentEvidence P004 PASS
+
+Main Story Runner PASS
+
+WebConnect経由で会員画面・先生画面の導線確認ができる
+備考
+
+Main Storyは画面仕様ではなく、業務仕様を表す。
+
+会員画面・先生画面は、
+本Storyを実現するためのViewである。
+
+画面仕様の詳細は、
+WebConnect運用確認タスクで扱う。

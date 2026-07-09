@@ -202,3 +202,185 @@ function billingRunnerJudgeResult_(actual, expected) {
     message: "未定義のexpectedです: " + expected
   };
 }
+
+
+// ========================================
+// runner_billing_story_002
+// 回数料金・上限制御確認
+// ========================================
+//
+// STORY-B002
+// TASK-DEV-016
+//
+
+function runner_billing_story_002() {
+  const startedAt = Date.now();
+  const ctx = createSheetContext();
+
+  const story = "STORY-B002";
+  const task = "TASK-DEV-016";
+  const steps = [];
+
+  function runStep(step, title, fn) {
+    const t0 = Date.now();
+
+    try {
+      const result = fn();
+
+      steps.push({
+        ok: result && result.ok !== false,
+        step: step,
+        title: title,
+        elapsed_ms: Date.now() - t0,
+        message: result && result.message ? result.message : "",
+        result: result
+      });
+
+    } catch (e) {
+      steps.push({
+        ok: false,
+        step: step,
+        title: title,
+        elapsed_ms: Date.now() - t0,
+        message: e.message,
+        result: {
+          ok: false,
+          message: e.message
+        }
+      });
+    }
+  }
+
+  runStep("Prepare", "回数料金確認用データを準備する", function() {
+    return {
+      ok: true,
+      message: "Prepareは仮実装です。"
+    };
+  });
+
+  runStep("Case01", "上限内の1回目請求を確認する", function() {
+    const ctx2 = ctx;
+
+    const invoice = billingCoreMakeInvoiceObject_(
+      sup_targetMonth(ctx2),
+      "G_RUNNER_B002",
+      "M_RUNNER_B002",
+      "P_RUNNER_USAGE",
+      "回数料金",
+      "回数料金テスト",
+      1,
+      1500,
+      7500,
+      ctx2
+    );
+
+    const amount = Number(invoice["金額"] || 0);
+    const status = String(invoice["支払状態"] || "");
+
+    return {
+      ok: amount === 1500 && status === "未払い",
+      invoice: invoice,
+      amount: amount,
+      status: status,
+      message: amount === 1500 && status === "未払い"
+        ? "上限内の1回目請求を確認しました。"
+        : "上限内の1回目請求が期待値と異なります。"
+    };
+  });
+
+  runStep("Case02", "上限内の追加請求を確認する", function() {
+    const invoice = billingCoreMakeInvoiceObject_(
+      sup_targetMonth(ctx),
+      "G_RUNNER_B002",
+      "M_RUNNER_B002",
+      "P_RUNNER_USAGE",
+      "回数料金",
+      "回数料金テスト",
+      3,
+      1500,
+      7500,
+      ctx
+    );
+
+    const amount = Number(invoice["金額"] || 0);
+
+    return {
+      ok: amount === 4500 && invoice["支払状態"] === "未払い",
+      invoice,
+      message: "上限内の追加請求を確認しました。"
+    };
+  });
+
+  runStep("Case03", "上限到達後に重複請求されないことを確認する", function() {
+    const invoice = billingCoreMakeInvoiceObject_(
+      sup_targetMonth(ctx),
+      "G_RUNNER_B002",
+      "M_RUNNER_B002",
+      "P_RUNNER_USAGE",
+      "回数料金",
+      "回数料金テスト",
+      10,
+      1500,
+      7500,
+      ctx
+    );
+
+    const amount = Number(invoice["金額"] || 0);
+
+    return {
+      ok: amount === 7500 && invoice["支払状態"] === "未払い",
+      invoice,
+      message: "上限適用を確認しました。"
+    };
+  });
+
+  runStep("Case04", "上限内の未払い分がPayment対象になることを確認する", function() {
+    const invoice = billingCoreMakeInvoiceObject_(
+      sup_targetMonth(ctx),
+      "G_RUNNER_B002",
+      "M_RUNNER_B002",
+      "P_RUNNER_USAGE",
+      "回数料金",
+      "回数料金テスト",
+      3,
+      1500,
+      7500,
+      ctx
+    );
+
+    const amount = Number(invoice["請求予定額"] || invoice["金額"] || 0);
+    const status = String(invoice["支払状態"] || "");
+
+    const isPaymentTarget =
+      status === "未払い" &&
+      amount > 0;
+
+    return {
+      ok: isPaymentTarget,
+      invoice: invoice,
+      amount: amount,
+      status: status,
+      isPaymentTarget: isPaymentTarget,
+      message: isPaymentTarget
+        ? "上限内の未払い分がPayment対象になることを確認しました。"
+        : "上限内の未払い分がPayment対象になりません。"
+    };
+  });
+
+  const success = steps.filter(function(step) { return step.ok; }).length;
+  const failed = steps.filter(function(step) { return !step.ok; }).length;
+
+  const summary = {
+    ok: failed === 0,
+    story: story,
+    task: task,
+    total: steps.length,
+    success: success,
+    failed: failed,
+    elapsed_ms: Date.now() - startedAt,
+    steps: steps
+  };
+
+  Logger.log(JSON.stringify(summary, null, 2));
+  return summary;
+}

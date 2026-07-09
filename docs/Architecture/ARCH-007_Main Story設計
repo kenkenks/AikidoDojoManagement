@@ -1,0 +1,135 @@
+目的
+
+Business Processを統合し、
+利用者が行う業務全体をStoryとして定義する。
+定義
+Main Story
+
+＝
+
+Business Process の組み合わせ
+構造
+Main Story
+        │
+        ├── Business Process
+        │        │
+        │        ├── Runner
+        │        ├── Story
+        │        └── Service
+        │
+        └── View
+例
+STORY-M001
+会費受付〜入金反映
+
+↓
+
+Billing
+
+↓
+
+Payment Request
+
+↓
+
+Payment Record
+
+↓
+
+Payment Post
+
+↓
+
+Payment Query
+Rule
+Main Storyは
+
+業務を書く。
+
+画面を書かない。
+
+画面遷移を書かない。
+View
+
+画面は
+
+Main Story
+
+↓
+
+View
+
+で決まる。
+
+つまり
+
+会員画面
+
+先生画面
+
+管理画面
+
+はMain Storyを実現する手段である。
+
+Runner
+
+Main Story Runnerは
+
+Business Process Runnerを順番に実行する。
+
+runner_story_m001()
+
+↓
+
+Billing
+
+↓
+
+PaymentRequest
+
+↓
+
+PaymentRecord
+
+↓
+
+PaymentPost
+
+↓
+
+PaymentQuery
+Goal
+Main Story
+
+↓
+
+Runner
+
+↓
+
+Debug
+
+↓
+
+運用
+
+まで確認できた時点で、
+
+StoryはDoneとする。
+
+Main Story Runnerは、
+対象Storyに影響するデータのみを初期化する。
+
+システム全体のデータは変更しない。
+
+
+ARCH
+├─ ARCH-001
+├─ ARCH-002
+└─ ARCH-007 Main Story設計
+
+STORY
+├─ STORY-MAIN001   ← 業務全体
+├─ STORY-A001      ← Attendance
+├─ STORY-B001      ← Billing
+└─ STORY-P001～P004← Payment
