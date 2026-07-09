@@ -1,3 +1,20 @@
+/**
+ * ROLE
+ * PaymentEvidenceRequestService
+ *
+ * RESPONSIBILITY
+ * 決済エビデンス要求受付の入口。
+ *
+ * FLOW
+ * Collect
+ *   ↓
+ * Make
+ *   ↓
+ * Register
+ *
+ * NOTE
+ * PaymentEvidence Request のオーケストレーター。
+ */
 // 09_PaymentEvidenceRecord.gs
 //   決済エビデンスを確認済みに更新する
 //   09_決済エビデンス の REQUESTED 行に evidence_code を記録する
@@ -89,9 +106,13 @@ function paymentEvidence_recordBatch(data, ctx) {
   }
 }
 
-// ==============================
-// 情報収集
-// ==============================
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Collect
+ *
+ * RESPONSIBILITY
+ * REQUESTED作成に必要な情報を収集する。
+ */
 function paymentEvidenceRecord_collect(input, ctx) {
   ctx = ensureSheetContext(ctx);
   
@@ -129,9 +150,13 @@ function paymentEvidenceRecord_collect(input, ctx) {
   };
 }
 
-// ==============================
-// Record生成
-// ==============================
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Make
+ *
+ * RESPONSIBILITY
+ * REQUESTEDレコードを生成する。
+ */
 function paymentEvidenceRecord_make(context, ctx) {
   return {
     evidence_id: context.evidence_id,
@@ -143,9 +168,13 @@ function paymentEvidenceRecord_make(context, ctx) {
   };
 }
 
-// ==============================
-// Record更新
-// ==============================
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Register
+ *
+ * RESPONSIBILITY
+ * 09_決済エビデンスへ登録する。
+ */
 function paymentEvidenceRecord_update(record, ctx) {
   ctx = ensureSheetContext(ctx);
 
@@ -173,40 +202,3 @@ function paymentEvidenceRecord_update(record, ctx) {
 // ==============================
 // DAO / 共通
 // ==============================
-function paymentEvidence_findRowById_(evidenceId, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const sheet = getRequiredSheet_("09_決済エビデンス", ctx);
-  const headerInfo = assertHeaders_(sheet, paymentEvidence_requiredHeaders_());
-  const values = sheet.getDataRange().getValues();
-
-  for (let r = 1; r < values.length; r++) {
-    const valuesRow = values[r];
-    if (normalizeId_(valuesRow[headerInfo.map["evidence_id"]]) === normalizeId_(evidenceId)) {
-      const row = {};
-      headerInfo.headers.forEach((header, index) => row[header] = valuesRow[index]);
-      return {
-        rowNumber: r + 1,
-        row
-      };
-    }
-  }
-
-  return null;
-}
-
-function paymentEvidence_updateColumns_(rowNumber, valuesByHeader, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const sheet = getRequiredSheet_("09_決済エビデンス",ctx);
-  const headerInfo = assertHeaders_(sheet, paymentEvidence_requiredHeaders_());
-
-  Object.keys(valuesByHeader).forEach(header => {
-    if (headerInfo.map[header] === undefined) {
-      throw new Error("09_決済エビデンス に列がありません: " + header);
-    }
-    sheet.getRange(rowNumber, headerInfo.map[header] + 1).setValue(valuesByHeader[header]);
-  });
-
-  paymentEvidence_invalidate(ctx);
-}

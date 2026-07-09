@@ -1,3 +1,21 @@
+/**
+ * ROLE
+ * PaymentEvidenceRequestService
+ *
+ * RESPONSIBILITY
+ * 決済エビデンス要求受付の入口。
+ *
+ * FLOW
+ * Collect
+ *   ↓
+ * Make
+ *   ↓
+ * Register
+ *
+ * NOTE
+ * PaymentEvidence Request のオーケストレーター。
+ */
+
 // 09_PaymentEvidenceRequest.gs
 //   決済エビデンス要求を作成する
 //   09_決済エビデンス に REQUESTED 行を新規登録する
@@ -89,9 +107,13 @@ function paymentEvidence_requestBatch(data, ctx) {
   }
 }
 
-// ==============================
-// 情報収集
-// ==============================
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Collect
+ *
+ * RESPONSIBILITY
+ * REQUESTED作成に必要な情報を収集する。
+ */
 function paymentEvidenceRequest_collect(input, ctx) {
   ctx = ensureSheetContext(ctx);
 
@@ -147,9 +169,13 @@ function paymentEvidenceRequest_collect(input, ctx) {
   };
 }
 
-// ==============================
-// Request生成
-// ==============================
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Make
+ *
+ * RESPONSIBILITY
+ * REQUESTEDレコードを生成する。
+ */
 function paymentEvidenceRequest_make(context, ctx) {
   return {
     evidence_id: paymentEvidence_createEvidenceId_(context.payment_method),
@@ -169,9 +195,13 @@ function paymentEvidenceRequest_make(context, ctx) {
   };
 }
 
-// ==============================
-// Request登録
-// ==============================
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Register
+ *
+ * RESPONSIBILITY
+ * 09_決済エビデンスへ登録する。
+ */
 function paymentEvidenceRequest_register(request, ctx) {
   ctx = ensureSheetContext(ctx);
 
@@ -272,14 +302,6 @@ function paymentEvidence_normalizePaymentMethod_(value) {
   return upper;
 }
 
-function paymentEvidence_findInvoiceById_(invoiceId, ctx) {
-  const id = normalizeId_(invoiceId);
-  if (!id) return null;
-
-  return getInvoices(ctx).find(invoice =>
-    normalizeId_(invoice["invoice_id"]) === id
-  ) || null;
-}
 
 function paymentEvidence_findUnpaidInvoiceIdByMember_(memberId, ctx) {
   const targetMonth = sup_targetMonth(ctx);

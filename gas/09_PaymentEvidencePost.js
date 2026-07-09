@@ -1,3 +1,21 @@
+/**
+ * ROLE
+ * PaymentEvidenceRequestService
+ *
+ * RESPONSIBILITY
+ * 決済エビデンス要求受付の入口。
+ *
+ * FLOW
+ * Collect
+ *   ↓
+ * Make
+ *   ↓
+ * Register
+ *
+ * NOTE
+ * PaymentEvidence Request のオーケストレーター。
+ */
+
 // 09_PaymentEvidencePost.gs
 //   CONFIRMED の決済エビデンスを 06_入金ログ に反映する
 //   反映後、09_決済エビデンス を POSTED に更新する
@@ -120,9 +138,13 @@ function paymentEvidence_postBatch(ctx) {
   }
 }
 
-// ==============================
-// 情報収集
-// ==============================
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Collect
+ *
+ * RESPONSIBILITY
+ * REQUESTED作成に必要な情報を収集する。
+ */
 function paymentEvidencePost_collect(input, ctx) {
   ctx = ensureSheetContext(ctx);
 
@@ -166,9 +188,13 @@ function paymentEvidencePost_collect(input, ctx) {
   };
 }
 
-// ==============================
-// Payment生成
-// ==============================
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Make
+ *
+ * RESPONSIBILITY
+ * REQUESTEDレコードを生成する。
+ */
 function paymentEvidencePost_make(context, ctx) {
   const evidence = context.evidence;
   const invoice = context.invoice;
@@ -187,12 +213,16 @@ function paymentEvidencePost_make(context, ctx) {
   };
 }
 
-// ==============================
-// Payment登録
-// ==============================
-function paymentEvidencePost_register(payment, ctx) {
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Register
+ *
+ * RESPONSIBILITY
+ * 09_決済エビデンスへ登録する。
+ */function paymentEvidencePost_register(payment, ctx) {
   return payment_register(payment, ctx);
 }
+
 
 // ==============================
 // POSTED更新

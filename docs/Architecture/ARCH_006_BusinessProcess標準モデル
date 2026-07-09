@@ -202,3 +202,61 @@ Billingは0円請求を正当な請求結果として扱う。
 Billing生成時点で支払状態を「免除」または「支払不要」とする。
 
 Paymentは、請求額が1円以上かつ未払いの請求のみを対象とする。
+
+## PaymentEvidence
+
+PaymentEvidenceは、請求明細に対する支払い証跡を管理する。
+
+```text
+Request
+    ↓
+Record
+    ↓
+Post
+    ↓
+Query
+Process	責務
+Request	05_請求明細から09_決済エビデンスをREQUESTEDで作成する
+Record	決済コードを記録し、REQUESTEDをCONFIRMEDへ更新する
+Post	CONFIRMEDを06_入金ログへ反映し、09をPOSTEDへ更新する
+Query	先生画面用に決済エビデンス一覧を取得する
+
+PaymentEvidenceは、DebugとRunnerを分離する。
+
+Debugは個別関数確認に使用する。
+RunnerはStory全体の成立確認に使用する。
+
+Runnerでは、Expected / Actual / Judge 方式を採用する。
+
+
+これを追記したら、次は **TASK-DEV-014-002 PaymentEvidence標準モデル設計** に進みます。
+
+ARCH-006（Business Process標準モデル）に、将来的にはこの図を入れたいですね。
+
+Business Process
+
+Request
+    ↓
+Record
+    ↓
+Post
+    ↓
+Query
+
+====================
+
+Story Runner
+
+Prepare
+    ↓
+Request
+    ↓
+Judge
+    ↓
+Verify
+    ↓
+Summary
+
+つまり、
+
+Business ProcessとRunnerは1対1ではなく、RunnerはBusiness Processを検証するフレームという位置付けです。

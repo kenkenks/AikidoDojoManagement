@@ -278,3 +278,185 @@ RunnerはStory番号と対応させる。
 Runnerは完了判定に使える品質を保つ。
 
 この追記後に、次は **03_BillingRunner.js 作成** へ進むのが良いです。
+
+ARCH-003 追加案
+# Runner設計
+
+## Runnerの目的
+
+RunnerはStoryが仕様どおり成立していることを確認する。
+
+Debugが個別関数の確認であるのに対し、
+RunnerはBusiness Process全体の成立を確認する。
+
+---
+
+## Runner標準フロー
+
+```text
+Prepare
+    ↓
+Execute
+    ↓
+Judge
+    ↓
+Verify
+    ↓
+Summary
+```
+
+---
+
+## Judge
+
+Runnerでは、ExpectedとActualを比較し、
+一致した場合をPASSとする。
+
+```text
+Expected
+    ↓
+Actual
+    ↓
+Judge
+```
+
+正常終了だけをPASSとしない。
+
+以下はすべて正常判定となる。
+
+・成功すべき成功
+・失敗すべき失敗
+・スキップすべきスキップ
+
+---
+
+## Storyとの対応
+
+RunnerはStoryと1対1で対応する。
+
+例
+
+STORY-B001
+    ↓
+runner_billing_story_001()
+
+STORY-P001
+    ↓
+runner_payment_story_p001()
+
+---
+
+## Debugとの役割
+
+Debug
+    個別関数確認
+
+Runner
+    Story確認
+
+Debugは開発者の道具。
+
+Runnerはプロジェクト資産とする。
+RunnerCoreは？
+
+私はまだ書きません。
+
+理由は、
+
+今は
+
+BillingRunner
+
+しか完成していません。
+
+次に
+
+PaymentRunner
+
+ができて、
+
+「ほぼ同じ構造だ」
+
+と確認できたら、
+
+ARCHに
+
+RunnerCore
+
+を追加します。
+
+このプロジェクトらしい進め方
+
+これまで一貫していましたよね。
+
+実装
+
+↓
+
+実績
+
+↓
+
+ARCHへ反映
+
+BillingCoreもそうでした。
+
+だからRunnerCoreも同じ。
+
+実績ができてから標準化する。
+
+この流れが、このフレームワークらしいと思います。
+
+## Business Process単位のJudge / Verify
+
+RunnerはStory全体を確認するが、
+判定単位はStoryそのものではなく、
+Storyを構成するBusiness Processとする。
+
+```text
+Story
+    ↓
+Business Process
+    ↓
+Judge
+    ↓
+Verify
+Judge
+
+Judgeは、Business Processの実行結果が
+Expectedと一致しているかを判定する。
+
+例:
+
+PaymentEvidence Request
+    ↓
+paymentRunnerJudgeRequest_()
+Billing Monthly Accept
+    ↓
+billingRunnerJudgeMonthlyAccept_()
+Verify
+
+Verifyは、Judgeで期待どおりと判定された結果が、
+実際にシート上へ正しく反映されているかを確認する。
+
+例:
+
+PaymentEvidence Request
+    ↓
+09_決済エビデンスにREQUESTEDが作成されていること
+方針
+StoryはBusiness Processの組み合わせで構成する。
+JudgeはBusiness Process単位で作成する。
+VerifyもBusiness Process単位で作成する。
+Runner本体にはBusiness Processの流れだけを残す。
+詳細な判定ロジックは xxxRunnerJudgeProcess_() へ分離する。
+
+これをARCH-003へ追記してから、コード側では次にこれを作ります。
+
+```javascript
+function paymentRunnerJudgeRequest_(requestResult) {
+  // REQUESTED_CREATED
+  // REQUESTED_ALREADY_EXISTS
+  // SKIPPED_PAID
+  // SKIPPED_EXEMPT
+}

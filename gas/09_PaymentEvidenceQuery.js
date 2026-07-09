@@ -1,3 +1,21 @@
+/**
+ * ROLE
+ * PaymentEvidenceRequestService
+ *
+ * RESPONSIBILITY
+ * 決済エビデンス要求受付の入口。
+ *
+ * FLOW
+ * Collect
+ *   ↓
+ * Make
+ *   ↓
+ * Register
+ *
+ * NOTE
+ * PaymentEvidence Request のオーケストレーター。
+ */
+
 // 09_PaymentEvidenceQuery.gs
 //   先生会費画面で使う決済エビデンス一覧取得・選択POST用の補助API
 //
@@ -144,6 +162,32 @@ function paymentEvidence_postSelectedBatch(data, ctx) {
     lock.releaseLock();
   }
 }
+
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Collect
+ *
+ * RESPONSIBILITY
+ * REQUESTED作成に必要な情報を収集する。
+ */
+
+
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Make
+ *
+ * RESPONSIBILITY
+ * REQUESTEDレコードを生成する。
+ */
+
+/**
+ * ROLE
+ * PaymentEvidenceRequest / Register
+ *
+ * RESPONSIBILITY
+ * 09_決済エビデンスへ登録する。
+ */
+
 
 function paymentEvidenceQuery_parseStatuses_(value) {
   if (Array.isArray(value)) {

@@ -1,0 +1,59 @@
+# STORY-P001
+決済エビデンス受付
+
+STATUS: 作成中
+TYPE: STORY
+AREA: PAYMENT
+TASK: TASK-DEV-014
+
+---
+
+## 目的
+
+未払い請求に対して、
+決済エビデンス(Requested)を作成する。
+
+---
+
+## Business Process
+
+Request
+
+---
+
+## Flow
+
+未払い請求取得
+    ↓
+支払方法選択
+    ↓
+REQUESTED作成
+    ↓
+結果返却
+
+---
+
+## Expected
+
+・未払い請求のみ受付できる
+
+・REQUESTEDが作成される
+
+・REQUESTEDが既に存在する場合は重複作成しない
+
+・免除は対象外
+
+・支払済は対象外
+
+---
+
+## Runner
+
+runner_story_p001()
+
+---
+
+## Next Story
+
+STORY-P002
+決済コード登録
