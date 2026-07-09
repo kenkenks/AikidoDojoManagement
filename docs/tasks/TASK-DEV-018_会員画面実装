@@ -1,0 +1,46 @@
+TASK-DEV-018
+会員画面実装
+
+STATUS: 作成中
+TYPE: TASK
+AREA: WEB
+PRIORITY: HIGH
+
+TAG: VIEW
+TAG: MEMBER
+TAG: PAYMENT
+TAG: PAYPAY
+TAG: WEB_CONNECT
+TAG: OPERATION
+
+目的
+
+会員が自分の会費状態を確認し、
+PayPay支払い受付を開始し、
+決済コードを登録できる画面を実装する。
+
+対象
+
+会員画面HTML
+WebConnect.gs
+paypayCode_start()
+paypayCode_record()
+getPaymentInfo
+
+画面機能
+
+□ 会員IDを受け取って表示できる
+□ 会費状態を取得できる
+□ 未払い額を表示できる
+□ 支払済・免除・未払いを色で区別できる
+□ PayPay支払い開始ボタンを表示できる
+□ PayPay受付開始でREQUESTEDを作成できる
+□ 決済コード入力欄を表示できる
+□ 決済コード登録でCONFIRMEDにできる
+□ 登録完了メッセージを表示できる
+
+完了条件
+
+会員画面から、
+会費確認 → PayPay受付 → 決済コード登録
+まで実行できること。
