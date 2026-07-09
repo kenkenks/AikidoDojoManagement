@@ -1,0 +1,55 @@
+TASK-DEV-017
+画面連結・運用確認
+
+STATUS: 作成中
+TYPE: TASK
+AREA: WEB
+PRIORITY: HIGH
+
+TAG: WEB_CONNECT
+TAG: VIEW
+TAG: MEMBER
+TAG: TEACHER
+TAG: PAYPAY
+TAG: PAYMENT
+TAG: OPERATION
+
+目的
+
+会員画面・先生画面から、
+会費受付〜入金反映までの運用フローを実行できることを確認する。
+
+対象
+
+WebConnect.gs
+sup_debug_WebConnect.gs
+sup_runner_WebConnect.gs
+会員画面
+先生画面
+
+確認事項
+
+□ 会員画面を表示できる
+□ 会費情報を取得できる
+□ PayPay受付開始ができる
+□ PayPay決済コードを登録できる
+□ 09_決済エビデンスがCONFIRMEDになる
+□ 先生画面でCONFIRMED一覧を取得できる
+□ 先生画面から決済更新できる
+□ 06_入金ログへ反映される
+□ 09_決済エビデンスがPOSTEDになる
+□ 05_請求明細が支払済になる
+□ 20_会費状態Viewが更新される
+
+完了条件
+
+WebConnect経由で STORY-MAIN001 相当の流れが通ること。
+
+
+| Browser Action | WebConnect      | Service                      | Story   |
+| -------------- | --------------- | ---------------------------- | ------- |
+| 会員画面表示         | member_home     | getPaymentStatus             | MAIN001 |
+| 支払開始           | payment_request | paymentEvidence_requestBatch | P001    |
+| 決済コード登録        | payment_record  | paymentEvidence_recordBatch  | P002    |
+| 先生一覧           | payment_query   | paymentEvidenceQuery_list    | P004    |
+| 決済反映           | payment_post    | paymentEvidence_postBatch    | P003    |

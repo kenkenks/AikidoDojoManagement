@@ -204,7 +204,7 @@ function paymentEvidenceQuery_parseStatuses_(value) {
   });
 }
 
-function paymentEvidenceQuery_currentMonth_() {
+function paymentEvidenceQuery_currentMonth_(ctx) {
   return sup_targetMonth(ctx);
 }
 

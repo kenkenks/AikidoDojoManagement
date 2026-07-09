@@ -170,7 +170,7 @@ function paypayCode_record(data, ctx) {
       continue;
     }
 
-    const target = paymentEvidence_findRowById_(ctx, evidenceId);
+    const target = paymentEvidence_findRowById_(evidenceId, ctx);
     if (!target) {
       skipped.push({ ok: false, index: i, evidence_id: evidenceId, message: '決済エビデンスが見つかりません。' });
       continue;

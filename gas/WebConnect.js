@@ -1,3 +1,56 @@
+// ========================================
+// WebConnect.gs
+// Web Entry Point
+// ========================================
+//
+// TYPE: WEB_CONNECT
+// AREA: WEB
+// TAG: WEB_CONNECT
+// TAG: MEMBER
+// TAG: TEACHER
+// TAG: PAYMENT
+//
+// RESPONSIBILITY
+// Browser と Service の接続点。
+// doGet / doPost による画面表示・JSON API入口を担当する。
+//
+// ENTRY MAP
+//
+// GET
+//   getMemberInfo
+//     → getPaymentStatus()
+//     → 会員情報・会費状態取得
+//
+//   getPaymentInfo
+//     → getMemberPaymentInfo_()
+//     → 会費情報取得・月額請求作成
+//
+//   paypay_code_start
+//     → paypayCode_start()
+//     → PayPay受付開始 / REQUESTED作成
+//
+//   payment_evidence_list
+//     → paymentEvidenceQuery_list()
+//     → 先生画面用CONFIRMED一覧取得
+//
+// POST
+//   paypay_code_record
+//     → paypayCode_record()
+//     → PayPay決済コード登録 / CONFIRMED化
+//
+//   payment_evidence_post_selected
+//     → paymentEvidence_postSelectedBatch()
+//     → 先生選択分の入金反映
+//
+//   payment_evidence_post_batch
+//     → paymentEvidence_postBatch()
+//     → CONFIRMED一括入金反映
+//
+//   payment_batch / paymentEvidence_acceptBatch
+//     → paymentEvidence_acceptBatch()
+//     → 決済エビデンス一括受付
+//
+
 // GETリクエストの処理
 // 例: https://script.google.com/macros/s/AKfycbx.../exec?action=getMemberInfo&member_id=12345
 function doGet(e) {
