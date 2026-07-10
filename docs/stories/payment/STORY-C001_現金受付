@@ -1,0 +1,72 @@
+STORY-C001
+現金受付
+
+STATUS: 作成中
+TYPE: STORY
+AREA: PAYMENT
+TASK: TASK-DEV-019
+PRIORITY: HIGH
+
+TAG: CASH
+TAG: PAYMENT
+TAG: BILLING
+TAG: WEB_CONNECT
+TAG: OPERATION
+
+目的
+
+先生が現金を受領した場合に、
+会費の入金として記録し、
+請求明細と会費状態Viewへ反映する。
+
+---
+
+Business Process
+
+Cash Receive
+    ↓
+Payment Log
+    ↓
+Invoice Update
+    ↓
+Payment View Update
+
+---
+
+Main Flow
+
+未払い請求がある
+    ↓
+先生が現金を受領する
+    ↓
+システムが06_入金ログへ記録する
+    ↓
+05_請求明細が支払済になる
+    ↓
+20_会費状態Viewが支払済になる
+    ↓
+現金合計へ反映される
+
+---
+
+Expected
+
+・未払い請求が現金受付対象になる
+・現金は決済コードを要求しない
+・payment_method は CASH として記録される
+・06_入金ログへ入金が記録される
+・05_請求明細が支払済になる
+・20_会費状態Viewが支払済になる
+
+---
+
+Runner
+
+runner_cash_story_c001()
+
+---
+
+完了条件
+
+runner_cash_story_c001() PASS
+先生画面から現金受付できること

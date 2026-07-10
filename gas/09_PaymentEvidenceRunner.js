@@ -490,3 +490,4 @@ function runner_payment_story_p004() {
   Logger.log(JSON.stringify(summary, null, 2));
   return summary;
 }
+
