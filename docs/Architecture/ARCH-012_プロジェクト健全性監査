@@ -1,0 +1,378 @@
+# ARCH-012
+# Framework Maintenance
+
+---
+
+## 状態
+
+ACTIVE
+
+---
+
+## 目的
+
+Framework Maintenance は、
+フレームワーク全体の健全性（Health）を継続的に維持するためのアーキテクチャである。
+
+本アーキテクチャは、
+コードの修正を目的としない。
+
+知識資産・ソースコード・ドキュメント・設定ファイル・開発環境を対象とし、
+
+・同期
+・整合性確認
+・健康診断
+・改善提案
+
+を継続的に実施することを目的とする。
+
+---
+
+# 基本方針
+
+Maintenance は
+
+**AUTO**
+
+と
+
+**MANUAL**
+
+へ分類する。
+
+---
+
+## AUTO
+
+機械で実施可能な保守作業
+
+人は実施しない。
+
+例
+
+・INDEX生成
+・メタデータ同期
+・状態同期
+・リンク確認
+・ID重複確認
+・未使用資産検出
+・重複処理検出
+・Sheet読込解析
+・Runner一覧生成
+
+---
+
+## MANUAL
+
+設計者による判断が必要な保守作業
+
+例
+
+・Architectureレビュー
+・Storyレビュー
+・責務分割
+・命名
+・コメント品質
+・抽象化
+・運用判断
+
+---
+
+# Framework Health
+
+Framework は
+定期的に健康状態を確認する。
+
+健康状態は
+
+CHECK
+
+として管理する。
+
+---
+
+## CHECK
+
+Framework Health Check は
+
+以下の単位で管理する。
+
+CHECK-001
+ドキュメント・知識資産監査
+
+CHECK-002
+ソースコメント監査
+
+CHECK-003
+Framework整合監査
+
+CHECK-004
+データアクセス監査
+
+CHECK-005
+未使用・重複資産監査
+
+CHECK-006
+開発環境監査
+
+CHECK-007
+命名・配置監査
+
+CHECK-008
+Iteration運用監査
+
+---
+
+# 判定
+
+監査結果は
+以下の重要度で管理する。
+
+ERROR
+
+実装修正が必要
+
+---
+
+WARNING
+
+設計者レビューが必要
+
+---
+
+INFO
+
+改善候補
+
+---
+
+# ワークフロー
+
+Framework Maintenance は
+
+Iteration の開始時と終了時に実施する。
+
+開始
+
+Framework Maintenance
+
+↓
+
+Development
+
+↓
+
+Framework Maintenance
+
+↓
+
+KPT
+
+↓
+
+Iteration Close
+
+---
+
+# 成果物
+
+Maintenance により
+以下の成果物を維持する。
+
+・Architecture
+
+・Story
+
+・Task
+
+・Iteration
+
+・Runner
+
+・Dictionary
+
+・README
+
+・Document
+
+・Comment
+
+・Source Code
+
+・Project Metadata
+
+・Configuration
+
+---
+
+# 自動化方針
+
+機械で同期可能なものは
+原則として自動同期する。
+
+人は
+判断・設計・改善に集中する。
+
+---
+
+# 将来構想
+
+Framework Maintenance は
+Story Studio の構成要素となる。
+
+Story Studio
+
+├ Story
+
+├ Task
+
+├ Runner
+
+├ Generator
+
+├ Maintenance
+
+│    ├ Sync
+
+│    ├ Check
+
+│    ├ Doctor
+
+│    └ Report
+
+└ Deploy
+
+---
+
+# 関連Architecture
+
+ARCH-008
+システム内用語辞書
+
+ARCH-009
+データアクセスアーキテクチャ
+
+ARCH-010
+Story Studio
+
+ARCH-011
+Knowledge Synchronization
+
+---
+
+# 備考
+
+Framework が成長するほど、
+Maintenance の価値は大きくなる。
+
+Framework Maintenance は
+修正作業ではなく、
+
+Framework が継続的に成長できる状態を維持するための基盤である。
+
+
+
+---------------------------------------------------------------------
+雑談
+
+ARCH-012
+プロジェクト健全性監査
+Project Health Check
+
+状態
+検討中
+
+目的
+
+コード、設計資産、ドキュメント、開発環境、運用資産を横断して確認し、
+プロジェクト全体の健全性を継続的に維持する。
+
+本監査は、コードの全面的なリファクタリングを目的としない。
+不整合、陳腐化、未使用資産、重複処理、環境差異などを発見し、
+必要な修正をTASK・ARCH・STORYへ接続することを目的とする。
+
+対象資産
+
+・ARCH
+・ITER
+・TASK
+・STORY
+・Runner
+・Service
+・Repository / DAO
+・WebConnect
+・HTML / CSS / JavaScript
+・README
+・docs
+・ソースコメント
+・設定ファイル
+・Spreadsheetアクセス
+・デバッグ資産
+・未使用資産
+
+基本原則
+
+・監査と修正を分離する。
+・最初に事実を収集し、直ちに大規模改修しない。
+・指摘には根拠となるファイル・関数・設定を明記する。
+・不一致には重要度を設定する。
+・修正が必要な項目はTASK化する。
+・普遍的な改善原則はARCH候補とする。
+・仕様や業務フローに影響する場合はSTORYを確認する。
+・修正後は関連Runnerおよび全Runnerで回帰確認する。
+
+判定レベル
+
+ERROR
+・実行不能
+・データ破損または誤処理の可能性
+・ARCH、STORY、実装の重大な矛盾
+・参照されるべき資産の欠落
+
+WARNING
+・現時点では動作するが、保守性や運用性に問題がある
+・コメント、文書、実装の陳腐化
+・未使用または重複の可能性
+・シート再読込やキャッシュ無効化の過剰
+・命名、改行、文字コードなどの不統一
+
+INFO
+・改善候補
+・共通化候補
+・将来の拡張候補
+・現時点では修正不要だが記録すべき事項
+
+監査単位
+
+CHECK-001 ドキュメント・知識資産監査
+CHECK-002 ソースコメント・仮実装監査
+CHECK-003 フレームワーク対応関係監査
+CHECK-004 Spreadsheet読込・キャッシュ監査
+CHECK-005 未使用・重複資産監査
+CHECK-006 開発環境・改行・文字コード監査
+CHECK-007 命名・ファイル配置監査
+CHECK-008 Iteration・TASK・ARCH運用監査
+
+各CHECKの記録項目
+
+・CHECK-ID
+・対象
+・確認目的
+・確認方法
+・結果
+・判定レベル
+・根拠
+・対応方針
+・関連TASK
+・関連ARCH
+・関連STORY
+・対応状態
+
+完了条件
+
+・CHECK-001～CHECK-008を実施する。
+・ERRORをすべてTASK化または解消する。
+・WARNINGを修正、保留、許容のいずれかに分類する。
+・INFOを将来候補として記録する。
+・監査結果をITER-002へ反映する。
+・必要な修正後に全Runnerを実行する。

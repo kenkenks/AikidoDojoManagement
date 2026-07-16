@@ -1,0 +1,104 @@
+FEATURE-MTN-001 RealitySync
+
+Phase1（ITER-002）
+TASK-MTN-001
+
+ARCH_INDEX同期
+
+Reality
+↓
+ARCH_INDEX生成
+TASK-MTN-002
+
+STORY_INDEX同期
+
+TASK-MTN-003
+
+TASK_INDEX同期
+
+TASK-MTN-004
+
+ITER_INDEX同期
+
+
+dojo sync
+      │
+      ▼
+RealitySync
+      │
+      ├─ Scan
+      │
+      ├─ Compare
+      │
+      ├─ Generate
+      │
+      ├─ Validate
+      │
+      └─ Report
+
+この5段階です。
+
+① Scan
+
+Realityを収集する。
+
+ディレクトリ
+mdファイル
+コード
+② Compare
+
+期待との差分を見る。
+
+ここでLagを検出。
+
+③ Generate
+
+INDEXなど生成可能なものを生成。
+
+④ Validate
+
+重複
+
+欠番
+
+リンク切れ
+
+など確認。
+
+⑤ Report
+
+最後に
+
+Updated 3
+
+Created 1
+
+Warning 2
+
+を表示。
+
+私がここで一番追加したいこと
+
+RealitySyncは絶対に修正から始めない。
+
+必ず
+
+Scan
+↓
+Compare
+
+から始めます。
+
+これも「Reality First」の思想です。
+
+いきなり修正すると、「何が変わったのか」が分からなくなります。
+
+ここで一つ設計原則を追加したいです。
+
+RealitySyncは「観測 → 判断 → 更新」の順序を守る。更新を観測より先に行ってはならない。
+
+これはReality Firstの思想にも一致します。
+
+私は、ITER-002はここまで設計してから実装に入るのがちょうど良いと思います。
+
+そうすれば、最初の dojo sync は単なるインデックス更新コマンドではなく、RealitySyncエンジンの第一歩になります。

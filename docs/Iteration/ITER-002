@@ -1,0 +1,402 @@
+ITER-002
+テーマ
+
+Framework Maintenance の構築
+
+機能追加ではなく、
+
+フレームワーク自身を保守できるようにする。
+
+
+STEP1
+ARCH-012
+
+まず思想を確定します。
+
+これは1時間程度で終わると思います。
+
+ここでは
+
+目的
+AUTO
+MANUAL
+REPORT
+Health Check
+Sync
+
+を定義します。
+
+STEP2
+CHECK一覧作成
+
+まずは
+
+CHECK-001
+
+CHECK-002
+
+・・・
+
+CHECK-008
+
+だけ作ります。
+
+まだ内容は軽く。
+
+STEP3
+AUTO候補抽出
+
+これが一番面白い。
+
+例えば
+
+AUTO候補
+
+□ ARCH_INDEX
+
+□ STORY_INDEX
+
+□ TASK_INDEX
+
+□ PROJECT_METADATA
+
+□ README
+
+□ STATUS
+
+□ ID採番
+
+□ リンク確認
+
+まず一覧を作る。
+
+STEP4
+MANUAL候補
+
+逆に
+
+AIに任せないもの。
+
+例えば
+
+Architecture
+
+命名
+
+Story
+
+抽象化
+
+コメント品質
+
+設計レビュー
+STEP5
+AUTO TASK作成
+
+例えば
+
+TASK-MTN-001
+
+ARCH_INDEX同期
+TASK-MTN-002
+
+TASK_INDEX同期
+TASK-MTN-003
+
+STORY_INDEX同期
+
+この辺は全部Maintenance系になります。
+
+STEP6
+CHECK-001開始
+
+そこで初めて
+
+CHECK-001
+
+を実施します。
+
+この順番がいい理由
+
+もし今すぐ
+
+CHECK
+
+をやると
+
+途中で
+
+「これは自動化できる」
+
+が大量に出ます。
+
+つまり
+
+監査が止まる。
+
+なので
+
+先に
+
+Maintenanceのルール
+
+を決めてから
+
+監査。
+
+私ならタスク体系も分けます
+
+今まで
+
+TASK-DEV
+
+でした。
+
+Maintenanceは
+
+TASK-MTN
+
+にします。
+
+例えば
+
+TASK-MTN-001
+
+ARCH_INDEX同期
+TASK-MTN-002
+
+README同期
+TASK-MTN-003
+
+リンクチェック
+
+かなり整理できます。
+
+ITER-002のゴール
+
+私は
+
+機能追加ゼロでも構いません。
+
+代わりに
+
+ARCH-012
+
+CHECK-001～008
+
+TASK-MTN体系
+
+AUTO一覧
+
+MANUAL一覧
+
+ここまでできれば、
+
+ITER-003からの開発効率はかなり上がります。
+
+私が一番おすすめしたい進め方
+ARCH-012
+　　　↓
+
+CHECK体系確立
+　　　↓
+
+AUTO/MANUAL分類
+　　　↓
+
+TASK-MTN作成
+　　　↓
+
+CHECK-001実施
+　　　↓
+
+自動化できるものをTASK-MTNへ
+　　　↓
+
+次のCHECK
+
+この流れなら、監査しながらフレームワーク自身を育てることができます。
+
+これはまさに、あなたが目指している「AIと人の役割分担」を実際の開発プロセスに落とし込む最初のイテレーションになると思います。
+
+
+ITER-002 仮説目的
+
+Framework Maintenance の導入により、プロジェクトの健全性を継続的に維持できる基盤を構築する。
+
+ITER-002 ストーリー
+STORY-MTN-001
+
+Framework Maintenance を導入する。
+
+目的
+
+AIが同期できるものは自動同期する。
+人が判断すべきことだけをレビューする。
+Health Checkを定期的に実施できるようにする。
+ITER-002 実施順
+Phase 1
+
+ARCH-012
+
+Framework Maintenance
+
+↓
+
+思想確立
+
+Phase 2
+
+CHECK体系
+
+CHECK-001
+CHECK-002
+...
+CHECK-008
+
+ここではまだ監査はしない。
+
+チェックリストだけ作る。
+
+Phase 3
+
+AUTO候補一覧
+
+例えば
+
+ARCH_INDEX同期
+
+TASK_INDEX同期
+
+STORY_INDEX同期
+
+PROJECT_METADATA同期
+
+README同期
+
+STATUS同期
+
+ID重複確認
+
+リンク確認
+Phase 4
+
+MANUAL候補一覧
+
+Architectureレビュー
+
+Storyレビュー
+
+コメント品質
+
+命名
+
+抽象化
+
+設計判断
+Phase 5
+
+TASK-MTN体系
+
+ここで初めて
+
+TASK-MTN-001
+
+ARCH_INDEX同期
+
+のように保守タスクを登録します。
+
+Phase 6
+
+CHECK-001開始
+
+今回は
+
+Documentation
+
+Knowledge Assets
+
+だけ監査。
+
+AUTOで直せるものは直す。
+
+残ったものだけレビュー。
+
+ITER-002 完了条件
+
+私はここも明確にしたいです。
+
+□ ARCH-012完成
+
+□ CHECK体系完成
+
+□ AUTO一覧完成
+
+□ MANUAL一覧完成
+
+□ TASK-MTN体系開始
+
+□ CHECK-001完了
+
+□ CHECK-002開始準備
+
+□ KPT実施
+今回から変わること
+
+今までは
+
+開発
+
+↓
+
+KPT
+
+でした。
+
+これからは
+
+Maintenance
+
+↓
+
+開発
+
+↓
+
+Maintenance
+
+↓
+
+KPT
+
+になります。
+
+つまり、
+
+開発サイクルの前後にMaintenanceが入る。
+
+私が特に良いと思ったこと
+
+今回の話で一番大きいのは、
+
+「保守＝修正」ではない
+
+と定義できたことです。
+
+このフレームワークでいうMaintenanceは、
+
+同期
+整理
+健全性確認
+自動生成
+自動修復
+
+を含む活動です。
+
+つまり、「壊れたから直す」のではなく、
+
+「壊れない状態を維持する」
+
+ための仕組みです。
+
+これはフレームワークの思想としても非常に一貫していますし、ITER-002のテーマとしてもふさわしいと思います。

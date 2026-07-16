@@ -1,0 +1,169 @@
+TASK-MTN-001
+ARCH_INDEX同期
+状態
+
+READY
+
+関連
+ARCH-012：Framework Maintenance
+STORY-MTN-001：Framework Maintenanceを実施する
+FEATURE-MTN-001：RealitySync
+目的
+
+Architecture文書の実ファイルをRealityとして走査し、ARCH_INDEXをコマンド一つで同期する。
+
+dojo sync arch
+
+全INDEX同期へ拡張した後は、次でも呼び出せるようにします。
+
+dojo sync
+Realityと生成物
+Reality
+docs/Architecture/ARCH-*.md
+
+Generated
+docs/Architecture/ARCH_INDEX.md
+
+Architecture本文が正本です。ARCH_INDEX.mdは派生物とし、一覧部分を手作業では編集しません。
+
+初版の同期項目
+
+各ARCH文書から、機械的に取得できる次の情報だけを使います。
+
+ID
+タイトル
+状態
+ファイル
+
+生成例：
+
+| ID | タイトル | 状態 | ファイル |
+|---|---|---|---|
+| ARCH-012 | Framework Maintenance | ACTIVE | ARCH-012_FrameworkMaintenance.md |
+処理フロー
+dojo sync arch
+    ↓
+Scan
+    ARCHファイルを列挙
+    ↓
+Parse
+    ID・タイトル・状態を取得
+    ↓
+Validate
+    重複ID・不正形式・空文書を検出
+    ↓
+Generate
+    INDEX内容を生成
+    ↓
+Compare
+    現在のINDEXと比較
+    ↓
+Write
+    差分がある場合のみ更新
+    ↓
+Report
+    実行結果を表示・記録
+同期ルール
+ARCH_INDEX.md自身は走査対象外。
+IDの昇順で並べる。
+同じ入力からは必ず同じINDEXを生成する。
+内容が変わらなければファイルを書き換えない。
+Architecture本文は一切変更しない。
+不明な状態や空文書は推測で補完しない。
+ID重複はINDEXを書き換えず、エラー終了する。
+欠番は許容し、情報として報告する。
+警告があっても安全に生成できる場合は同期を継続する。
+更新前にRealityを完全に観測する。
+異常時の扱い
+状況	判定	同期
+ID重複	ERROR	中止
+IDを取得できない	ERROR	対象を除外して失敗扱い
+空文書	WARNING	一覧へ暫定掲載または除外を設定で決定
+タイトルなし	WARNING	ファイル名由来で補完しない
+状態なし	WARNING	UNKNOWNとして掲載
+欠番	INFO	継続
+INDEX差分なし	INFO	書き換えない
+
+ここは重要なので、推測による自動補完を避けます。RealitySyncはRealityを改ざんせず、不明なものを不明として示します。
+
+コンソール出力
+
+通常表示：
+
+RealitySync — ARCH_INDEX
+
+Scanned    13
+Indexed    13
+Updated     1
+Warnings    2
+Errors      0
+
+ARCH_INDEX.md UPDATED
+Completed in 0.18s
+
+詳細表示：
+
+dojo sync arch --verbose
+ログ
+
+初版から次を残します。
+
+.realitysync/logs/
+
+JSONL形式で、最低限次を記録します。
+
+run_id
+日時
+コマンド
+走査件数
+対象ファイル
+検出した警告・エラー
+INDEXの更新有無
+処理時間
+終了コード
+
+ログはGit管理対象外です。
+
+終了コード
+0  正常終了
+1  WARNINGあり・同期完了
+2  ERRORにより同期不完全または中止
+3  コマンド・設定不正
+4  RealitySync自体の実行不能
+完了条件
+□ コマンドからARCH同期を実行できる
+□ ARCH文書を自動走査できる
+□ ID・タイトル・状態・ファイルを取得できる
+□ ID順のINDEXを生成できる
+□ 差分がない場合は書き換えない
+□ 重複IDを検出して更新を中止できる
+□ 不完全な文書をWARNINGとして報告できる
+□ コンソール要約を表示できる
+□ 詳細ログを保存できる
+□ 再実行して不要なGit差分が発生しない
+Runner候補
+RUN-MTN-001-01
+正常なARCH群からINDEXを生成する
+
+RUN-MTN-001-02
+既存INDEXと同一なら書き換えない
+
+RUN-MTN-001-03
+ARCH追加後にINDEXへ追加する
+
+RUN-MTN-001-04
+ARCH削除後にINDEXから削除する
+
+RUN-MTN-001-05
+ID重複時に更新を中止する
+
+RUN-MTN-001-06
+状態欠落時にUNKNOWNとWARNINGを出す
+
+RUN-MTN-001-07
+欠番があっても同期を継続する
+
+RUN-MTN-001-08
+ARCH_INDEX自身を走査対象から除外する
+
+次は、実際のリポジトリにあるARCH文書と現在のARCH_INDEXの書式を観測し、Parser仕様をRealityに合わせて確定する段階です。リポジトリのZIPまたは対象フォルダがこのチャットにあれば、それを基に実装へ進めます。

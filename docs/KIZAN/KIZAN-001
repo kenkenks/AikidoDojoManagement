@@ -1,0 +1,74 @@
+# KIZAN-001
+# Fact・Responsibility・Unit・Chimera
+
+## 概要
+
+設計では、まずFact（事実）を観測し、
+その事実を担うResponsibility（責務）を分類する。
+
+責務を明確に分離すると、
+機能は独立したUnitとなる。
+
+責務分類を怠ると、
+複数の責務が混在したChimeraとなる。
+
+## 構造
+
+Fact
+  ↓
+Responsibility
+  ├─ 責務を分離する → Unit
+  └─ 責務を混在させる → Chimera
+
+## Chimeraの扱い
+
+Chimeraは、PoC・緊急対応・暫定実装として
+有効な場合がある。
+
+ただし、恒久利用すると、
+
+- 事実の所在が不明確になる
+- 変更影響が追えなくなる
+- 正体不明のバグの温床になる
+- テストと再利用が困難になる
+- 保守コストが増大する
+
+したがって、Chimeraは暫定状態として認識し、
+恒久設計の目標にはしない。
+
+## 関連
+
+
+ARCH Principle
+Fact・Responsibility・Unit・Chimera
+- ARCH-012 Framework Maintenance
+- FEATURE-MTN-001 RealitySync
+
+
+                     Fact
+                   （事実）
+                      │
+                      ▼
+             Responsibility
+                （責務分析）
+          ┌──────────┴──────────┐
+          │                     │
+          ▼                     ▼
+     Responsibility        Responsibility
+       Separation             Mixing
+      （責務分離）          （責務混在）
+          │                     │
+          ▼                     ▼
+        Unit                 Chimera
+    （独立した機能）        （キメラ）
+          │                     │
+          ▼                     ▼
+  保守・理解・再利用          一時的には有効
+      が容易               恒久利用は危険
+          │                     │
+          ▼                     ▼
+  理解しやすい             正体不明のバグ
+  テストしやすい           影響範囲不明
+  再利用しやすい           保守困難
+  保守しやすい             AI理解困難
+                          再利用できない

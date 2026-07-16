@@ -1,0 +1,158 @@
+STORY-MTN-001
+
+タイトル
+Framework Maintenance を実施する
+
+目的
+
+Framework が継続的に健全な状態を維持できるよう、
+Iteration の開始時および終了時に
+Maintenance を実施する。
+
+登場人物
+
+・開発者
+・AI
+
+前提条件
+
+・Framework が存在する。
+・Story / ARCH / TASK / Runner が管理されている。
+
+シナリオ
+
+1.
+開発者は
+Framework Maintenance を開始する。
+
+2.
+AI は
+AUTO対象を同期する。
+
+・INDEX更新
+・Metadata更新
+・状態同期
+・リンク確認
+・重複確認
+
+3.
+AI は
+Health Check を実施する。
+
+4.
+AI は
+
+ERROR
+
+WARNING
+
+INFO
+
+を出力する。
+
+5.
+開発者は
+WARNING以上をレビューする。
+
+6.
+必要に応じて
+
+TASK
+
+ARCH
+
+Story
+
+を追加・更新する。
+
+7.
+全Runnerを実行する。
+
+8.
+Iteration を開始する。
+
+事後条件
+
+・Framework が最新状態となる。
+・同期可能な成果物は同期済み。
+・問題点は TASK または ARCH として記録される。
+
+私が一つ追加したいこと
+
+このStoryには、
+
+開始時だけでなく終了時もあることを書きたいです。
+
+つまり、
+
+Iteration開始
+
+↓
+
+Maintenance
+
+↓
+
+開発
+
+↓
+
+Runner
+
+↓
+
+Maintenance
+
+↓
+
+KPT
+
+↓
+
+Iteration終了
+
+というライフサイクルをStoryに持たせる。
+
+そしてもう一つ
+
+ここで初めて、
+
+Maintenanceという業務が誕生します。
+
+今までは
+
+会費受付
+出席登録
+
+など業務でした。
+
+これからは
+
+Framework Maintenance
+
+も一つの業務になります。
+
+だからStory番号を
+
+STORY-MTN-001
+
+としたのは、とても良い命名です。
+
+私はこのStoryは、「保守する」という話ではなく、
+
+「Frameworkを毎回健康な状態にしてから開発し、健康な状態でIterationを終える」
+
+という新しい業務フローとして書くのが、このフレームワークらしいと思います。
+
+
+STORY-MTN-001
+
+...
+
+## Feature
+
+FEATURE-MTN-001 Framework Sync
+FEATURE-MTN-002 Framework Health Check
+FEATURE-MTN-003 Framework Report
+FEATURE-MTN-004 Framework Doctor
+お
