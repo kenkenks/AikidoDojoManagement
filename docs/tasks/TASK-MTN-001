@@ -2,7 +2,7 @@ TASK-MTN-001
 ARCH_INDEX同期
 状態
 
-READY
+実装済み・利用者確認待ち
 
 関連
 ARCH-012：Framework Maintenance
@@ -167,3 +167,41 @@ RUN-MTN-001-08
 ARCH_INDEX自身を走査対象から除外する
 
 次は、実際のリポジトリにあるARCH文書と現在のARCH_INDEXの書式を観測し、Parser仕様をRealityに合わせて確定する段階です。リポジトリのZIPまたは対象フォルダがこのチャットにあれば、それを基に実装へ進めます。
+
+
+実装結果（ITER-002）
+
+・Python製CLI `dojo.py` を追加
+・Windows用ラッパー `dojo.cmd` を追加
+・`dojo sync arch` を実装
+・Scanner / Parser / Validator / Generator / JSONL Loggerを責務分離
+・ARCH_INDEXの自動生成範囲へRealitySyncマーカーを追加
+・差分がない場合は書き換えないことを確認
+・重複ID時にINDEXを更新しないことを自動テストで確認
+・実行ログを `.realitysync/logs/` へ保存
+・`.realitysync/` をGit管理対象外へ追加
+
+確認結果
+
+```text
+Scanned    13
+Indexed    13
+Updated     1
+Warnings    7
+Errors      0
+```
+
+再実行結果
+
+```text
+Updated     0
+ARCH_INDEX.md UNCHANGED
+```
+
+残WARNING
+
+・ARCH-000 STATUS未記載
+・ARCH-002 タイトル／STATUS未記載
+・ARCH-007 タイトル／STATUS未記載
+・ARCH-010 空文書
+・ARCH-011 空文書

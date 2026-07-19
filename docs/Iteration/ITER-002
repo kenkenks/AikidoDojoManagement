@@ -400,3 +400,20 @@ KPT
 ための仕組みです。
 
 これはフレームワークの思想としても非常に一貫していますし、ITER-002のテーマとしてもふさわしいと思います。
+
+
+---
+
+# 進捗（RealitySync導入後）
+
+- [x] ARCH-012 Framework Maintenance
+- [x] STORY-MTN-001 Framework Maintenance
+- [x] FEATURE-MTN-001 RealitySync
+- [x] TASK-MTN-001 ARCH_INDEX同期
+- [x] `dojo sync arch` 初期実装
+- [x] Framework Principles 初版
+- [ ] TASK-MTN-002 STORY_INDEX同期
+- [ ] CHECK-001 ドキュメント・知識資産監査
+- [ ] KPT
+
+次の実装対象は、Story Reality の Parser 規則を定義した上で行う `dojo sync story` とする。

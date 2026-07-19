@@ -17,27 +17,45 @@ Architecture文書一覧。
 
 ---
 
+<!-- REALITYSYNC:ARCH_INDEX:BEGIN -->
+
 |No|タイトル|STATUS|概要|
 |---|---|---|---|
-|ARCH-001|サービス構成|作成中|システム全体のレイヤー構成と責務|
-|ARCH-002|命名規約|作成中|ファイル・関数・変数命名規約|
-|ARCH-003|Runner設計|作成中|RDD・Runner構成・NEXT設計|
-|ARCH-004|Payment⇔Attendance対応表|作成中|Business Process対応表|
-|ARCH-005|状態遷移|作成中|Status管理・状態遷移|
-|ARCH-006|Business Process標準モデル|作成中|業務ごとのBusiness Process定義|
-|ARCH-007|（予約）|-|-|
+|ARCH-000|システム開発の基本サイクル|UNKNOWN||
+|ARCH-001|サービス構成|作成中||
+|ARCH-002|（タイトル未取得）|UNKNOWN||
+|ARCH-003|Runner設計|作成中||
+|ARCH-004|Payment ⇔ Attendance対応表|作成中||
+|ARCH-005|状態遷移|作成中||
+|ARCH-006|Business Process標準モデル|作成中||
+|ARCH-007|（タイトル未取得）|UNKNOWN||
+|ARCH-008|システム内用語辞書（System Internal Dictionary）|検討中||
+|ARCH-009|データアクセスアーキテクチャ|検討中||
+|ARCH-010|（タイトル未取得）|UNKNOWN||
+|ARCH-011|（タイトル未取得）|UNKNOWN||
+|ARCH-012|Framework Maintenance|ACTIVE||
+
+<!-- REALITYSYNC:ARCH_INDEX:END -->
 
 ---
 
 # 更新ルール
 
-Architecture追加時は、
-本Indexへ登録すること。
+Architectureを追加・変更した場合は、
+プロジェクトルートで次を実行する。
 
-番号は連番とする。
+```powershell
+dojo sync arch
+```
 
-削除ではなく、
-STATUS変更で管理する。
+Pythonを直接利用する場合：
+
+```powershell
+python dojo.py sync arch
+```
+
+RealitySyncの自動生成範囲は手動編集しない。
+番号の欠番は許容し、削除ではなくSTATUS変更で管理する。
 
 ---
 

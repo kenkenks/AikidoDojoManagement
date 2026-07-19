@@ -244,6 +244,164 @@ Story Studio
 
 ---
 
+# RealitySync
+
+RealitySync は、Framework Maintenance の AUTO 領域を担当する保守エンジンである。
+
+RealitySync は、理想を推測して現実を書き換えない。
+最初に Reality を観測し、Model へ変換し、検証結果と同期結果を報告する。
+
+```text
+Observe
+  ↓
+Compare
+  ↓
+Lag Detection
+  ↓
+Synchronize
+  ↓
+Report
+```
+
+基本処理は、次の責務単位へ分離する。
+
+```text
+Scanner
+  ↓
+Parser
+  ↓
+Model
+  ↓
+Validator
+  ↓
+Generator
+```
+
+CLI を一次インターフェースとする。
+GUI、VS Code、AI、CI は CLI を呼び出す。
+
+```text
+dojo sync arch
+dojo sync story
+dojo sync feature
+dojo sync task
+dojo sync iteration
+dojo sync all
+```
+
+---
+
+# RealitySync Roadmap
+
+## Phase 1 — Architecture
+
+対象
+
+・ARCH ファイルの走査
+・Architecture Model への変換
+・ID、タイトル、STATUS の検証
+・ARCH_INDEX.md の同期
+
+状態
+
+**IMPLEMENTED**
+
+---
+
+## Phase 2 — Story
+
+対象
+
+・STORY ファイルの走査
+・Story Model への変換
+・STORY_INDEX.md の同期
+・孤立 Story の検出
+
+状態
+
+**PLANNED**
+
+---
+
+## Phase 3 — Feature
+
+対象
+
+・Story 内 Feature の取得
+・Feature と Story の対応確認
+・Feature Index の生成
+
+状態
+
+**PLANNED**
+
+---
+
+## Phase 4 — Task
+
+対象
+
+・TASK ファイルの走査
+・Task と Feature / Story / Iteration の対応確認
+・TASK_INDEX の生成
+
+状態
+
+**PLANNED**
+
+---
+
+## Phase 5 — Iteration
+
+対象
+
+・ITER ファイルの走査
+・Iteration 内の Task、Story、成果物の同期
+・Iteration の開始／終了 Maintenance 支援
+
+状態
+
+**PLANNED**
+
+---
+
+## Phase 6 — Code Reality
+
+対象
+
+・Service
+・Repository / DAO
+・Runner
+・Comment
+・Configuration
+
+コードの自動修正を初期目的としない。
+最初に観測、分類、責務境界の診断を行う。
+
+状態
+
+**FUTURE**
+
+---
+
+# Framework Principles
+
+RealitySync と Story Studio は、`docs/Principles/FRAMEWORK_PRINCIPLES.md` に定義する原則へ従う。
+
+中心語彙は次の四つとする。
+
+```text
+Fact
+  ↓
+Responsibility
+  ↓
+Unit OR Chimera
+```
+
+Chimera は移行途中の一時状態として許容するが、恒久利用しない。
+
+---
+
 # 関連Architecture
 
 ARCH-008
