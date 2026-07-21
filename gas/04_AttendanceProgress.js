@@ -4,8 +4,8 @@
 // ========================================
 //
 // 01_会員マスタを正本とし、出席ログから現在の審査対象稽古日数を集計する。
-// 審査基準は道場運用の確認前なので固定値を持たず、会員マスタの
-// 「審査可能稽古数」を使用する。
+// 級段位の名称・順序は14_級段位マスタ、必要稽古数は15_審査基準マスタを正本とする。
+// 会員マスタの「審査可能稽古数」は個別上書き値として優先する。
 
 const ATTENDANCE_PROGRESS_MEMBER_HEADERS = [
   "現在級段位",
@@ -33,16 +33,28 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
   });
 
   const states = {};
+  const standardMap = examinationStandard_getMap(ctx);
+  const rankOptionMap = rankMaster_getOptionMap(ctx);
   getMembers(ctx).forEach(function(member) {
     const memberId = normalizeId_(member["member_id"]);
     if (!targetIds[memberId] || !isActiveMasterRow_(member)) return;
 
-    const requiredCount = attendanceProgress_toNonNegativeNumber_(member["審査可能稽古数"]);
+    const currentRank = String(member["現在級段位"] || "").trim();
+    const standard = standardMap[currentRank] || {};
+    const rankOption = rankOptionMap[currentRank] || {};
+    const overrideCount = attendanceProgress_toNonNegativeNumber_(member["審査可能稽古数"]);
+    const standardCount = standard.progress_display_enabled
+      ? attendanceProgress_toNonNegativeNumber_(standard.required_training_count)
+      : 0;
+    const requiredCount = overrideCount || standardCount;
     states[memberId] = {
       member: member,
+      standard: standard,
+      rank_option: rankOption,
       start_date: attendanceProgress_normalizeOptionalDate_(member["級段位起算日"], ctx),
       carried_count: attendanceProgress_toNonNegativeNumber_(member["繰越稽古数"]),
       required_count: requiredCount,
+      required_count_source: overrideCount > 0 ? "会員個別" : (standardCount > 0 ? "審査基準マスタ" : "未設定"),
       attendance_dates: {}
     };
   });
@@ -73,6 +85,10 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       member_id: memberId,
       member_name: String(member["氏名"] || ""),
       current_rank: String(member["現在級段位"] || "").trim(),
+      current_rank_id: String(state.rank_option.rank_id || ""),
+      rank_sort_order: Number(state.rank_option.sort_order || 999999),
+      next_rank: String(state.standard.next_rank || ""),
+      examination_note: String(state.standard.note || ""),
       rank_source: String(member["級段位登録元"] || ""),
       rank_updated_at: member["級段位更新日時"] || "",
       rank_start_date: state.start_date,
@@ -80,6 +96,7 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       recorded_training_count: recordedCount,
       training_count: trainingCount,
       required_training_count: state.required_count,
+      required_training_count_source: state.required_count_source,
       remaining_training_count: remainingCount,
       examination_ready: state.required_count > 0 && remainingCount === 0,
       recent_attendance_dates: attendanceDates.slice(-5).reverse()

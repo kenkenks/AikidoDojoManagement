@@ -107,9 +107,21 @@
     let lastReadTime = 0;
     let attendanceSessionId = createSessionId();
     let submitting = false;
+    let rankOptions = [];
 
     document.getElementById("attendanceDate").textContent = localDateText(new Date());
     updateSendButton();
+    loadRankOptions();
+
+    function loadRankOptions() {
+      return jsonp(GAS_URL, { action: "attendance_rank_options" }).then(function(data) {
+        if (!data.ok) throw new Error(data.message || "級段位マスタを取得できませんでした。");
+        rankOptions = Array.isArray(data.rank_options) ? data.rank_options : [];
+        renderCandidates();
+      }).catch(function(error) {
+        addLog("級段位マスタ取得エラー: " + (error.message || String(error)), "error");
+      });
+    }
 
     function startScan() {
       if (scanning) return;
@@ -414,7 +426,7 @@
         progress.className = "progress";
         if (candidate.required_training_count > 0) {
           progress.textContent = "稽古数 " + candidate.training_count + "／" + candidate.required_training_count +
-            (candidate.examination_ready ? "（審査可能）" : "（あと" + candidate.remaining_training_count + "回）");
+            (candidate.examination_ready ? "（必要稽古数到達・先生確認）" : "（あと" + candidate.remaining_training_count + "回）");
           if (candidate.examination_ready) progress.classList.add("ready");
           else if (candidate.remaining_training_count !== null && candidate.remaining_training_count <= 5) progress.classList.add("near");
         } else {
@@ -547,12 +559,9 @@
 
     function sortedCandidates() {
       const mode = document.getElementById("candidateSort").value;
-      const rankOrder = ["無級", "10級", "9級", "8級", "7級", "6級", "5級", "4級", "3級", "2級", "1級", "初段", "二段", "三段", "四段", "五段", "六段", "七段", "八段"];
       return memberCandidates.map(function(item, index) { return { item:item, index:index }; }).sort(function(left, right) {
         if (mode === "rank") {
-          const leftRank = rankOrder.indexOf(left.item.current_rank);
-          const rightRank = rankOrder.indexOf(right.item.current_rank);
-          return (leftRank < 0 ? 999 : leftRank) - (rightRank < 0 ? 999 : rightRank) || left.index - right.index;
+          return rankSortValue(left.item.current_rank) - rankSortValue(right.item.current_rank) || left.index - right.index;
         }
         if (mode === "exam") {
           const leftRemaining = left.item.remaining_training_count === null ? 999999 : left.item.remaining_training_count;
@@ -564,15 +573,34 @@
     }
 
     function buildRankOptions(select, selectedRank) {
-      const ranks = ["", "無級", "10級", "9級", "8級", "7級", "6級", "5級", "4級", "3級", "2級", "1級", "初段", "二段", "三段", "四段", "五段", "六段", "七段", "八段"];
-      if (selectedRank && ranks.indexOf(selectedRank) < 0) ranks.push(selectedRank);
-      ranks.forEach(function(rank) {
-        const option = document.createElement("option");
-        option.value = rank;
-        option.textContent = rank || "選択してください";
-        option.selected = rank === selectedRank;
-        select.appendChild(option);
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "選択してください";
+      select.appendChild(empty);
+      ["成人", "少年"].forEach(function(system) {
+        const group = document.createElement("optgroup");
+        group.label = system;
+        rankOptions.filter(function(rank) { return rank.qualification_system === system; }).forEach(function(rank) {
+          const option = document.createElement("option");
+          option.value = rank.display_name;
+          option.textContent = rank.display_name;
+          option.selected = rank.display_name === selectedRank;
+          group.appendChild(option);
+        });
+        if (group.children.length) select.appendChild(group);
       });
+      if (selectedRank && !rankOptions.some(function(rank) { return rank.display_name === selectedRank; })) {
+        const legacy = document.createElement("option");
+        legacy.value = selectedRank;
+        legacy.textContent = selectedRank + "（旧表記・要選択）";
+        legacy.selected = true;
+        select.appendChild(legacy);
+      }
+    }
+
+    function rankSortValue(rankName) {
+      const rank = rankOptions.find(function(option) { return option.display_name === rankName; });
+      return rank ? Number(rank.sort_order || 999999) : 999999;
     }
 
     function slotIdsEqual(left, right) {

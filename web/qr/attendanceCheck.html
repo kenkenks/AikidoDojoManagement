@@ -138,10 +138,23 @@
     let attendanceSessionId = createSessionId();
     let submitting = false;
     let teacherOverviewItems = [];
+    let rankOptions = [];
 
     document.getElementById("attendanceDate").textContent = localDateText(new Date());
     updateSendButton();
+    loadRankOptions();
     initializeFromPageUrl();
+
+    function loadRankOptions() {
+      return jsonp(GAS_URL, { action: "attendance_rank_options" }).then(function(data) {
+        if (!data.ok) throw new Error(data.message || "級段位マスタを取得できませんでした。");
+        rankOptions = Array.isArray(data.rank_options) ? data.rank_options : [];
+        renderCandidates();
+        renderTeacherOverview();
+      }).catch(function(error) {
+        addLog("級段位マスタ取得エラー: " + (error.message || String(error)), "error");
+      });
+    }
 
     function initializeFromPageUrl() {
       const query = new URLSearchParams(window.location.search);
@@ -363,12 +376,9 @@
     function renderTeacherOverview() {
       const container = document.getElementById("teacherOverview");
       const mode = document.getElementById("overviewSort").value;
-      const rankOrder = ["無級", "10級", "9級", "8級", "7級", "6級", "5級", "4級", "3級", "2級", "1級", "初段", "二段", "三段", "四段", "五段", "六段", "七段", "八段"];
       const items = teacherOverviewItems.slice().sort(function(left, right) {
         if (mode === "rank") {
-          const leftRank = rankOrder.indexOf(left.current_rank);
-          const rightRank = rankOrder.indexOf(right.current_rank);
-          return (leftRank < 0 ? 999 : leftRank) - (rightRank < 0 ? 999 : rightRank) || left.member_name.localeCompare(right.member_name, "ja");
+          return Number(left.rank_sort_order || rankSortValue(left.current_rank)) - Number(right.rank_sort_order || rankSortValue(right.current_rank)) || left.member_name.localeCompare(right.member_name, "ja");
         }
         if (mode === "name") return left.member_name.localeCompare(right.member_name, "ja");
         const leftRemaining = left.remaining_training_count === null ? 999999 : left.remaining_training_count;
@@ -384,11 +394,11 @@
         name.textContent = item.member_name || item.member_id;
         const rank = document.createElement("div");
         rank.className = "overview-rank";
-        rank.textContent = item.current_rank || "未登録";
+        rank.textContent = (item.current_rank || "未登録") + (item.next_rank ? " → " + item.next_rank : "");
         const progress = document.createElement("div");
         progress.className = "overview-progress";
         progress.textContent = item.required_training_count > 0
-          ? item.training_count + "／" + item.required_training_count + (item.examination_ready ? " 審査可能" : " あと" + item.remaining_training_count + "回")
+          ? item.training_count + "／" + item.required_training_count + (item.examination_ready ? " 必要数到達・先生確認" : " あと" + item.remaining_training_count + "回")
           : item.training_count + "回／基準未設定";
         row.append(name, rank, progress);
         container.appendChild(row);
@@ -545,7 +555,7 @@
         progress.className = "progress";
         if (candidate.required_training_count > 0) {
           progress.textContent = "稽古数 " + candidate.training_count + "／" + candidate.required_training_count +
-            (candidate.examination_ready ? "（審査可能）" : "（あと" + candidate.remaining_training_count + "回）");
+            (candidate.examination_ready ? "（必要稽古数到達・先生確認）" : "（あと" + candidate.remaining_training_count + "回）");
           if (candidate.examination_ready) progress.classList.add("ready");
           else if (candidate.remaining_training_count !== null && candidate.remaining_training_count <= 5) progress.classList.add("near");
         } else {
@@ -680,12 +690,9 @@
 
     function sortedCandidates() {
       const mode = document.getElementById("candidateSort").value;
-      const rankOrder = ["無級", "10級", "9級", "8級", "7級", "6級", "5級", "4級", "3級", "2級", "1級", "初段", "二段", "三段", "四段", "五段", "六段", "七段", "八段"];
       return memberCandidates.map(function(item, index) { return { item:item, index:index }; }).sort(function(left, right) {
         if (mode === "rank") {
-          const leftRank = rankOrder.indexOf(left.item.current_rank);
-          const rightRank = rankOrder.indexOf(right.item.current_rank);
-          return (leftRank < 0 ? 999 : leftRank) - (rightRank < 0 ? 999 : rightRank) || left.index - right.index;
+          return rankSortValue(left.item.current_rank) - rankSortValue(right.item.current_rank) || left.index - right.index;
         }
         if (mode === "exam") {
           const leftRemaining = left.item.remaining_training_count === null ? 999999 : left.item.remaining_training_count;
@@ -697,15 +704,34 @@
     }
 
     function buildRankOptions(select, selectedRank) {
-      const ranks = ["", "無級", "10級", "9級", "8級", "7級", "6級", "5級", "4級", "3級", "2級", "1級", "初段", "二段", "三段", "四段", "五段", "六段", "七段", "八段"];
-      if (selectedRank && ranks.indexOf(selectedRank) < 0) ranks.push(selectedRank);
-      ranks.forEach(function(rank) {
-        const option = document.createElement("option");
-        option.value = rank;
-        option.textContent = rank || "選択してください";
-        option.selected = rank === selectedRank;
-        select.appendChild(option);
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = "選択してください";
+      select.appendChild(empty);
+      ["成人", "少年"].forEach(function(system) {
+        const group = document.createElement("optgroup");
+        group.label = system;
+        rankOptions.filter(function(rank) { return rank.qualification_system === system; }).forEach(function(rank) {
+          const option = document.createElement("option");
+          option.value = rank.display_name;
+          option.textContent = rank.display_name;
+          option.selected = rank.display_name === selectedRank;
+          group.appendChild(option);
+        });
+        if (group.children.length) select.appendChild(group);
       });
+      if (selectedRank && !rankOptions.some(function(rank) { return rank.display_name === selectedRank; })) {
+        const legacy = document.createElement("option");
+        legacy.value = selectedRank;
+        legacy.textContent = selectedRank + "（旧表記・要選択）";
+        legacy.selected = true;
+        select.appendChild(legacy);
+      }
+    }
+
+    function rankSortValue(rankName) {
+      const rank = rankOptions.find(function(option) { return option.display_name === rankName; });
+      return rank ? Number(rank.sort_order || 999999) : 999999;
     }
 
     function slotIdsEqual(left, right) {

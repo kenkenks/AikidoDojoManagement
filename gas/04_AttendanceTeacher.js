@@ -81,8 +81,11 @@ function attendanceTeacherGetTodayOverview(params, ctx) {
       member_id: memberId,
       member_name: progress.member_name || memberId,
       current_rank: progress.current_rank || "",
+      rank_sort_order: Number(progress.rank_sort_order || 999999),
+      next_rank: progress.next_rank || "",
       training_count: Number(progress.training_count || 0),
       required_training_count: Number(progress.required_training_count || 0),
+      required_training_count_source: progress.required_training_count_source || "未設定",
       remaining_training_count: progress.remaining_training_count === null || progress.remaining_training_count === undefined
         ? null
         : Number(progress.remaining_training_count),

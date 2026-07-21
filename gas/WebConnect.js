@@ -133,6 +133,13 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "attendance_rank_options") {
+    const result = safelyExecute_(function() {
+      return { ok: true, rank_options: rankMaster_getOptions(ctx) };
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   const template = HtmlService.createTemplateFromFile("index");
   template.memberId = params.member_id || "";
   return template.evaluate()
