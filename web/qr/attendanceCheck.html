@@ -40,10 +40,23 @@
     .progress { margin-top: 6px; padding: 7px 9px; border-radius: 7px; background: #f4f8fb; font-size: 14px; }
     .progress.near { background: #fff3cd; color: #6d4c00; font-weight: bold; }
     .progress.ready { background: #dff3e6; color: #176b45; font-weight: bold; }
+    .overview-toolbar { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
+    .overview-list { margin-top:10px; }
+    .overview-row { display:grid; grid-template-columns:minmax(110px, 1.4fr) 70px minmax(145px, 1fr); gap:8px; align-items:center; padding:9px 6px; border-top:1px solid #e5e5e5; }
+    .overview-row:first-child { border-top:0; }
+    .overview-name { font-weight:bold; }
+    .overview-rank { text-align:center; }
+    .overview-progress { font-size:14px; padding:5px 7px; border-radius:6px; background:#f4f8fb; }
+    .overview-row.near .overview-progress { background:#fff3cd; color:#6d4c00; font-weight:bold; }
+    .overview-row.ready .overview-progress { background:#dff3e6; color:#176b45; font-weight:bold; }
     .empty { color: #777; }
     .latest { font-size: 13px; word-break: break-all; }
     #log { padding-left: 20px; margin-bottom: 0; }
-    @media (max-width: 420px) { .key-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 520px) {
+      .key-grid { grid-template-columns: 1fr; }
+      .overview-row { grid-template-columns:1fr 60px; }
+      .overview-progress { grid-column:1 / -1; }
+    }
   </style>
 </head>
 <body>
@@ -62,6 +75,22 @@
     <h2>課金枠を選択</h2>
     <div class="warn">現在時刻から一つに絞れませんでした。</div>
     <select id="blockChoice" onchange="selectBillingBlock(this.value)"></select>
+  </section>
+
+  <section class="card">
+    <h2>本日の出席者 <span id="overviewCount">0名</span></h2>
+    <div class="overview-toolbar">
+      <label>並び順
+        <select id="overviewSort" onchange="renderTeacherOverview()">
+          <option value="exam">審査が近い順</option>
+          <option value="rank">級・段順</option>
+          <option value="name">氏名順</option>
+        </select>
+      </label>
+      <button type="button" onclick="loadTeacherAttendanceOverview()">更新</button>
+    </div>
+    <div id="overviewStatus" class="empty">道場を設定すると本日の出席者を表示します。</div>
+    <div id="teacherOverview" class="overview-list"></div>
   </section>
 
   <section class="card">
@@ -108,9 +137,31 @@
     let lastReadTime = 0;
     let attendanceSessionId = createSessionId();
     let submitting = false;
+    let teacherOverviewItems = [];
 
     document.getElementById("attendanceDate").textContent = localDateText(new Date());
     updateSendButton();
+    initializeFromPageUrl();
+
+    function initializeFromPageUrl() {
+      const query = new URLSearchParams(window.location.search);
+      currentLocationId = String(query.get("location_id") || "").trim();
+      currentBillingBlockId = String(query.get("billing_block_id") || "").trim();
+      currentTeacherId = String(query.get("teacher_id") || "").trim();
+      renderKeys();
+
+      if (currentLocationId) {
+        addLog("URLの道場情報を読み込みました。");
+        loadAttendanceSessionInfo();
+        return;
+      }
+
+      if (currentBillingBlockId) {
+        addLog("課金枠を設定しました。続けて道場QRを読み取ってください。", "warn");
+      } else if (currentTeacherId) {
+        addLog("先生を設定しました。続けて道場QRと課金枠QRを読み取ってください。", "warn");
+      }
+    }
 
     function startScan() {
       if (scanning) return;
@@ -149,12 +200,23 @@
       const parsed = parseQrText(decodedText);
       if (parsed.location_id || parsed.billing_block_id) {
         if (parsed.location_id) currentLocationId = parsed.location_id;
-        currentBillingBlockId = parsed.billing_block_id || "";
+        if (parsed.billing_block_id) currentBillingBlockId = parsed.billing_block_id;
         currentSlots = [];
         renderKeys();
-        addLog(parsed.billing_block_id ? "道場・課金枠QRを読み取りました。" : "道場QRを読み取りました。課金枠を自動判定します。");
+        if (parsed.location_id && parsed.billing_block_id) {
+          addLog("道場・課金枠QRを読み取りました。");
+        } else if (parsed.location_id) {
+          addLog(currentBillingBlockId
+            ? "道場QRを読み取りました。設定済みの課金枠と照合します。"
+            : "道場QRを読み取りました。課金枠を自動判定します。");
+        } else {
+          addLog(currentLocationId
+            ? "課金枠QRを読み取りました。設定済みの道場と照合します。"
+            : "課金枠QRを読み取りました。続けて道場QRを読み取ってください。",
+            currentLocationId ? "" : "warn");
+        }
         beep();
-        loadAttendanceSessionInfo();
+        if (currentLocationId) loadAttendanceSessionInfo();
         return;
       }
       if (parsed.teacher_id) {
@@ -233,6 +295,7 @@
         document.getElementById("billingBlockId").className = "ok";
         clearCandidates(true);
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
+        loadTeacherAttendanceOverview();
       }).catch(function (error) {
         currentSlots = [];
         renderCandidates();
@@ -263,6 +326,73 @@
       currentBillingBlockId = billingBlockId;
       renderKeys();
       loadAttendanceSessionInfo();
+    }
+
+    function loadTeacherAttendanceOverview() {
+      const status = document.getElementById("overviewStatus");
+      if (!currentLocationId) {
+        teacherOverviewItems = [];
+        status.textContent = "道場を設定すると本日の出席者を表示します。";
+        renderTeacherOverview();
+        return Promise.resolve(false);
+      }
+      status.textContent = "本日の出席者を読み込み中…";
+      const params = {
+        action: "teacher_attendance_today",
+        attendance_date: localDateText(new Date()),
+        location_id: currentLocationId
+      };
+      if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
+      return jsonp(GAS_URL, params).then(function(data) {
+        if (!data.ok) throw new Error(data.message || "本日の出席者を取得できませんでした。");
+        teacherOverviewItems = data.attendance_items || [];
+        status.className = teacherOverviewItems.length ? "" : "empty";
+        status.textContent = teacherOverviewItems.length ? "" : "本日の出席者はまだ登録されていません。";
+        document.getElementById("overviewCount").textContent = data.member_count + "名";
+        renderTeacherOverview();
+        return true;
+      }).catch(function(error) {
+        teacherOverviewItems = [];
+        status.textContent = error.message || String(error);
+        status.className = "error";
+        renderTeacherOverview();
+        return false;
+      });
+    }
+
+    function renderTeacherOverview() {
+      const container = document.getElementById("teacherOverview");
+      const mode = document.getElementById("overviewSort").value;
+      const rankOrder = ["無級", "10級", "9級", "8級", "7級", "6級", "5級", "4級", "3級", "2級", "1級", "初段", "二段", "三段", "四段", "五段", "六段", "七段", "八段"];
+      const items = teacherOverviewItems.slice().sort(function(left, right) {
+        if (mode === "rank") {
+          const leftRank = rankOrder.indexOf(left.current_rank);
+          const rightRank = rankOrder.indexOf(right.current_rank);
+          return (leftRank < 0 ? 999 : leftRank) - (rightRank < 0 ? 999 : rightRank) || left.member_name.localeCompare(right.member_name, "ja");
+        }
+        if (mode === "name") return left.member_name.localeCompare(right.member_name, "ja");
+        const leftRemaining = left.remaining_training_count === null ? 999999 : left.remaining_training_count;
+        const rightRemaining = right.remaining_training_count === null ? 999999 : right.remaining_training_count;
+        return leftRemaining - rightRemaining || left.member_name.localeCompare(right.member_name, "ja");
+      });
+      container.innerHTML = "";
+      items.forEach(function(item) {
+        const row = document.createElement("div");
+        row.className = "overview-row" + (item.examination_ready ? " ready" : (item.remaining_training_count !== null && item.remaining_training_count <= 5 ? " near" : ""));
+        const name = document.createElement("div");
+        name.className = "overview-name";
+        name.textContent = item.member_name || item.member_id;
+        const rank = document.createElement("div");
+        rank.className = "overview-rank";
+        rank.textContent = item.current_rank || "未登録";
+        const progress = document.createElement("div");
+        progress.className = "overview-progress";
+        progress.textContent = item.required_training_count > 0
+          ? item.training_count + "／" + item.required_training_count + (item.examination_ready ? " 審査可能" : " あと" + item.remaining_training_count + "回")
+          : item.training_count + "回／基準未設定";
+        row.append(name, rank, progress);
+        container.appendChild(row);
+      });
     }
 
     function addMemberCandidate(memberId) {
@@ -502,7 +632,9 @@
         body: JSON.stringify(payload)
       }).then(function () {
         addLog("同期要求が完了しました。保存結果を再確認します。");
-        return refreshAllMemberStates(expectedByMember);
+        return refreshAllMemberStates(expectedByMember).then(function(matches) {
+          return loadTeacherAttendanceOverview().then(function() { return matches; });
+        });
       }).catch(function (error) {
         addLog("送信エラー: " + error, "error");
       }).finally(function() {
