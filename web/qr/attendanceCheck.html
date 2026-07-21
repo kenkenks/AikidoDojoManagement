@@ -436,7 +436,7 @@
       loadMemberAttendanceState(memberId);
     }
 
-    function loadMemberAttendanceState(memberId, expectedSlotIds) {
+    function loadMemberAttendanceState(memberId, expectedState, quiet) {
       return jsonp(GAS_URL, {
         action: "member_attendance_state",
         attendance_date: localDateText(new Date()),
@@ -460,22 +460,24 @@
         candidate.loaded = true;
         candidate.load_error = "";
         renderCandidates();
-        const matches = expectedSlotIds === undefined ||
-          slotIdsEqual(actualSlotIds, normalizeSlotIds(expectedSlotIds));
-        addLog(memberId + " の登録済み枠を復元しました（" + candidate.slot_ids.length + "枠）。");
-        return { ok: true, matches: matches, member_id: memberId };
+        const slotMatches = !expectedState ||
+          slotIdsEqual(actualSlotIds, normalizeSlotIds(expectedState.slot_ids || []));
+        const rankMatches = !expectedState || data.current_rank === expectedState.current_rank;
+        if (!quiet) addLog(memberId + " の登録済み枠を復元しました（" + candidate.slot_ids.length + "枠）。");
+        return { ok: true, matches: slotMatches && rankMatches, member_id: memberId };
       }).catch(function (error) {
         const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
         if (!candidate) return { ok: false, matches: false, member_id: memberId };
         candidate.loaded = false;
         candidate.load_error = error.message || String(error);
         renderCandidates();
-        addLog(memberId + " の状態取得に失敗: " + candidate.load_error, "error");
+        if (!quiet) addLog(memberId + " の状態取得に失敗: " + candidate.load_error, "error");
         return { ok: false, matches: false, member_id: memberId };
       });
     }
 
-    function refreshAllMemberStates(expectedByMember) {
+    function refreshAllMemberStates(expectedByMember, attempt) {
+      attempt = Number(attempt || 1);
       memberCandidates.forEach(function(candidate) {
         candidate.loaded = false;
         candidate.load_error = "";
@@ -485,17 +487,23 @@
       return Promise.all(memberCandidates.map(function(candidate) {
         return loadMemberAttendanceState(
           candidate.member_id,
-          expectedByMember[candidate.member_id] || []
+          expectedByMember[candidate.member_id],
+          attempt > 1
         );
       })).then(function(results) {
         const failed = results.filter(function(result) { return !result.ok; });
         const mismatched = results.filter(function(result) { return result.ok && !result.matches; });
-        if (failed.length > 0) {
-          addLog("登録結果を確認できない会員があります: " + failed.map(function(result) { return result.member_id; }).join(", "), "error");
-          return false;
+        if ((failed.length > 0 || mismatched.length > 0) && attempt < 6) {
+          addLog("GASの保存完了を待っています（確認 " + attempt + "/6）。", "warn");
+          return new Promise(function(resolve) {
+            window.setTimeout(function() {
+              resolve(refreshAllMemberStates(expectedByMember, attempt + 1));
+            }, 700);
+          });
         }
-        if (mismatched.length > 0) {
-          addLog("画面選択と保存結果が一致しません: " + mismatched.map(function(result) { return result.member_id; }).join(", "), "error");
+        if (failed.length > 0 || mismatched.length > 0) {
+          const ids = failed.concat(mismatched).map(function(result) { return result.member_id; });
+          addLog("画面選択と保存結果を確認できません: " + Array.from(new Set(ids)).join(", "), "error");
           return false;
         }
         addLog("登録結果を再取得し、画面と出席ログの一致を確認しました。", "ok");
@@ -633,7 +641,10 @@
 
       const expectedByMember = {};
       payload.attendance_items.forEach(function(item) {
-        expectedByMember[item.member_id] = item.slot_ids.slice();
+        expectedByMember[item.member_id] = {
+          slot_ids: item.slot_ids.slice(),
+          current_rank: item.current_rank
+        };
       });
 
       submitting = true;
