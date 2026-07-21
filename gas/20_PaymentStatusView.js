@@ -79,7 +79,14 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
     ctx
   );
 
-  if (!selection) {
+  // 05_請求明細は月会費だけでなく審査費等の追加請求も正本とする。
+  // 月次選択がなくても請求明細が存在すればViewへ反映する。
+  const memberInvoices = invoices.filter(inv =>
+    normalizeMonth(inv["target_month"]) === normalizedTargetMonth &&
+    String(inv["billing_group_id"]).trim() === String(billingGroupId).trim()
+  );
+
+  if (!selection && memberInvoices.length === 0) {
     return {
       ok: true,
       memberId,
@@ -106,12 +113,7 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
     };
   }
 
-  const planId = selection["plan_id"];
-
-  const memberInvoices = invoices.filter(inv =>
-    normalizeMonth(inv["target_month"]) === normalizedTargetMonth &&
-    String(inv["billing_group_id"]).trim() === String(billingGroupId).trim()
-  );
+  const planId = selection ? selection["plan_id"] : "追加請求";
 
   if (memberInvoices.length === 0) {
     return {
@@ -232,28 +234,54 @@ function paymentStatusView_makeInvoiceItems_(invoices) {
 function paymentStatusView_buildRow(memberId, targetMonth, ctx) {
   ctx = ctx || {};
 
+  // 20_View用DTO。変数名の先頭番号は主な取得元シートを示す。
+  // Viewの既存ヘッダー／外部レスポンスは互換維持のため変更しない。
+  const dto = {
+    s01_member_id: memberId,
+    s01_member_name: ctx.memberName || "",
+    s01_billing_group_id: ctx.billingGroupId || "",
+    s04_target_month: normalizeMonth(targetMonth),
+    s04_plan_type: ctx.planType || "",
+    s05_invoice_ids: (ctx.invoiceIds || []).join("|"),
+    s05_invoice_count: Number(ctx.invoiceCount || 0),
+    s05_invoice_summary: ctx.invoiceSummary || "",
+    s05_invoice_items_json: JSON.stringify(ctx.invoiceItems || []),
+    s05_billed_total: Number(ctx.billedTotal || 0),
+    s05_unpaid_amount: Number(ctx.unpaidAmount || 0),
+    s05_status: ctx.status || "",
+    s05_monthly_cap: Number(ctx.monthlyCap || 0),
+    s06_paid_total: Number(ctx.paidTotal || 0),
+    s07_lesson_count: Number(ctx.lessonCount || 0),
+    s07_attended_today: !!ctx.todayAttendanceRegistered,
+    s09_cash_request_count: Number(ctx.cashRequestsLen || 0),
+    s20_is_paid: !!ctx.isPaid,
+    s20_is_capped: !!ctx.isCapped,
+    s20_message: ctx.message || "",
+    s20_updated_at: sup_now(ctx)
+  };
+
   return {
-    target_month: normalizeMonth(targetMonth),
-    member_id: memberId,
-    billing_group_id: ctx.billingGroupId || "",
-    invoice_ids: (ctx.invoiceIds || []).join("|"),
-    invoice_count: Number(ctx.invoiceCount || 0),
-    invoice_summary: ctx.invoiceSummary || "",
-    invoice_items_json: JSON.stringify(ctx.invoiceItems || []),
-    会員名: ctx.memberName || "",
-    会費タイプ: ctx.planType || "",
-    請求額: Number(ctx.billedTotal || 0),
-    入金額: Number(ctx.paidTotal || 0),
-    未払い額: Number(ctx.unpaidAmount || 0),
-    is_paid: !!ctx.isPaid,
-    支払状態: ctx.status || "",
-    月額上限: Number(ctx.monthlyCap || 0),
-    出席回数: Number(ctx.lessonCount || 0),
-    is_capped: !!ctx.isCapped,
-    本日出席済み: !!ctx.todayAttendanceRegistered,
-    現金支払要求未完了数: Number(ctx.cashRequestsLen || 0),
-    メッセージ: ctx.message || "",
-    更新日時: sup_now(ctx)
+    target_month: dto.s04_target_month,
+    member_id: dto.s01_member_id,
+    billing_group_id: dto.s01_billing_group_id,
+    invoice_ids: dto.s05_invoice_ids,
+    invoice_count: dto.s05_invoice_count,
+    invoice_summary: dto.s05_invoice_summary,
+    invoice_items_json: dto.s05_invoice_items_json,
+    会員名: dto.s01_member_name,
+    会費タイプ: dto.s04_plan_type,
+    請求額: dto.s05_billed_total,
+    入金額: dto.s06_paid_total,
+    未払い額: dto.s05_unpaid_amount,
+    is_paid: dto.s20_is_paid,
+    支払状態: dto.s05_status,
+    月額上限: dto.s05_monthly_cap,
+    出席回数: dto.s07_lesson_count,
+    is_capped: dto.s20_is_capped,
+    本日出席済み: dto.s07_attended_today,
+    現金支払要求未完了数: dto.s09_cash_request_count,
+    メッセージ: dto.s20_message,
+    更新日時: dto.s20_updated_at
   };
 }
 

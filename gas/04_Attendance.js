@@ -162,10 +162,19 @@ function getMemberAttendanceState(params, ctx) {
   const rows = getActiveAttendanceRowsForScope(
     attendanceDate, memberId, locationId, billingBlockId, ctx
   );
+  const progress = attendanceProgress_getMemberSummary(memberId, ctx);
 
   return {
     ok: true,
     member_id: memberId,
+    member_name: progress.ok ? progress.member_name : String(member["氏名"] || ""),
+    current_rank: progress.ok ? progress.current_rank : "",
+    rank_source: progress.ok ? progress.rank_source : "",
+    training_count: progress.ok ? progress.training_count : 0,
+    required_training_count: progress.ok ? progress.required_training_count : 0,
+    remaining_training_count: progress.ok ? progress.remaining_training_count : null,
+    examination_ready: progress.ok ? progress.examination_ready : false,
+    recent_attendance_dates: progress.ok ? progress.recent_attendance_dates : [],
     selected_slot_ids: Array.from(new Set(rows.map(row => normalizeId_(row["slot_id"])).filter(Boolean)))
   };
 }
@@ -193,10 +202,11 @@ function registerAttendanceBatchLocked_(data, ctx) {
   const locationId = normalizeId_(data.location_id);
   const billingBlockId = normalizeId_(data.billing_block_id);
 
-  return attendanceCore_registerBatch_({
+  const result = attendanceCore_registerBatch_({
     teacher_id: teacherId,
     location_id: locationId,
     billing_block_id: billingBlockId,
+    attendance_date: data.attendance_date,
     attendance_session_id: data.attendance_session_id,
     attendance_items: data.attendance_items,
     source: data.source || ATTENDANCE_SOURCE_QR,
@@ -208,6 +218,15 @@ function registerAttendanceBatchLocked_(data, ctx) {
     cancel_reason: "出席確認画面との同期による選択解除",
     message: ""
   }, ctx);
+
+  if (result && result.ok) {
+    result.rank_updates = attendanceProgress_updateSelfDeclaredRanks_(data.attendance_items, ctx);
+  }
+  return result;
+}
+
+function attendanceProgress_updateSelfDeclaredRanks_(items, ctx) {
+  return attendanceProgress_updateSelfDeclaredRanks(items, ctx);
 }
 
 function validateAttendanceMasterData_(teacherId, locationId, billingBlockId, ctx) {

@@ -145,6 +145,26 @@
       font-size: 14px;
       color: #333;
     }
+    .reconcile-grid {
+      display: grid;
+      grid-template-columns: 1fr 130px;
+      gap: 8px;
+      align-items: center;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid #ddd;
+    }
+    .reconcile-grid input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #aaa;
+      border-radius: 7px;
+      font-size: 16px;
+      text-align: right;
+    }
+    .reconcile-result { margin-top: 8px; padding: 8px; border-radius: 7px; background: #f5f5f5; }
+    .reconcile-result.match { background: #dff3e6; color: #176b45; font-weight: bold; }
+    .reconcile-result.mismatch { background: #fde7e5; color: #b3261e; font-weight: bold; }
 
     .role-badge {
       display:inline-block;
@@ -206,10 +226,19 @@
   </div>
 
   <div class="card summary">
+    <strong>登録上の予定額</strong>
     <div>現金: <span id="cashTotal">0</span>円</div>
     <div>PayPay: <span id="paypayTotal">0</span>円</div>
     <div>合計: <span id="grandTotal">0</span>円</div>
     <div>受付人数: <span id="paymentCount">0</span>名</div>
+    <div class="reconcile-grid">
+      <label for="actualCashTotal">確認した現金</label>
+      <div><input id="actualCashTotal" type="number" min="0" step="1" inputmode="numeric" oninput="renderReconciliation()">円</div>
+      <label for="actualPaypayTotal">確認したPayPay</label>
+      <div><input id="actualPaypayTotal" type="number" min="0" step="1" inputmode="numeric" oninput="renderReconciliation()">円</div>
+    </div>
+    <button type="button" onclick="copyExpectedToActual()">予定額を確認額へコピー</button>
+    <div id="reconcileResult" class="reconcile-result">確認額を入力すると差額を表示します。</div>
     <button onclick="sendPaymentsToGas()">集金完了</button>
     <button onclick="postConfirmedPayments()">決済更新</button>
   </div>
@@ -532,6 +561,47 @@
       document.getElementById("paypayTotal").textContent = formatYen(paypayTotal);
       document.getElementById("grandTotal").textContent = formatYen(cashTotal + paypayTotal);
       document.getElementById("paymentCount").textContent = paymentList.length;
+      renderReconciliation();
+    }
+
+    function copyExpectedToActual() {
+      document.getElementById("actualCashTotal").value = totalByPaymentType("現金");
+      document.getElementById("actualPaypayTotal").value = totalByPaymentType("PayPay");
+      renderReconciliation();
+    }
+
+    function totalByPaymentType(paymentType) {
+      return paymentList.reduce(function(sum, payment) {
+        return sum + (payment.payType === paymentType ? Number(payment.amount || 0) : 0);
+      }, 0);
+    }
+
+    function renderReconciliation() {
+      const cashInput = document.getElementById("actualCashTotal");
+      const paypayInput = document.getElementById("actualPaypayTotal");
+      const result = document.getElementById("reconcileResult");
+      if (!cashInput || !paypayInput || !result) return;
+      if (cashInput.value === "" && paypayInput.value === "") {
+        result.className = "reconcile-result";
+        result.textContent = "確認額を入力すると差額を表示します。";
+        return;
+      }
+      const expectedCash = totalByPaymentType("現金");
+      const expectedPaypay = totalByPaymentType("PayPay");
+      const actualCash = Number(cashInput.value || 0);
+      const actualPaypay = Number(paypayInput.value || 0);
+      const cashDifference = actualCash - expectedCash;
+      const paypayDifference = actualPaypay - expectedPaypay;
+      const totalDifference = cashDifference + paypayDifference;
+      result.className = "reconcile-result " + (cashDifference === 0 && paypayDifference === 0 ? "match" : "mismatch");
+      result.textContent = cashDifference === 0 && paypayDifference === 0
+        ? "一致：現金・PayPayとも登録額と合っています。"
+        : "差額　現金 " + formatSignedYen(cashDifference) + "円 / PayPay " + formatSignedYen(paypayDifference) + "円 / 合計 " + formatSignedYen(totalDifference) + "円";
+    }
+
+    function formatSignedYen(value) {
+      const number = Number(value || 0);
+      return (number > 0 ? "+" : "") + formatYen(number);
     }
 
     function sendPaymentsToGas() {
@@ -768,6 +838,8 @@
       paymentList = [];
       confirmedEvidences = [];
       postedEvidences = [];
+      document.getElementById("actualCashTotal").value = "";
+      document.getElementById("actualPaypayTotal").value = "";
       renderCurrentPayment();
       renderPaymentList();
       renderSummary();

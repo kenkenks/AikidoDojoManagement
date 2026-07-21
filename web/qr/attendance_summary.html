@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>出席・審査進捗</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    .summary-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
+    .summary-item { padding:12px; border-radius:9px; background:#f4f8f5; }
+    .summary-label { display:block; color:#666; font-size:12px; margin-bottom:4px; }
+    .summary-value { font-size:22px; font-weight:bold; }
+    .progress-bar { height:12px; overflow:hidden; border-radius:999px; background:#e5e5e5; margin:10px 0 5px; }
+    .progress-bar span { display:block; height:100%; background:#228454; }
+    .near { background:#fff3cd; }
+    .ready { background:#dff3e6; }
+    .error { color:#b3261e; font-weight:bold; }
+    @media (max-width:420px) { .summary-grid { grid-template-columns:1fr; } }
+  </style>
+</head>
+<body class="member">
+  <h1>🥋 出席・審査進捗</h1>
+  <p><a href="member_home.html" id="backLink">会員ホームへ戻る</a></p>
+
+  <section class="card" id="memberInputCard">
+    <label for="memberId">会員ID</label>
+    <input id="memberId" autocomplete="off" placeholder="例：M001">
+    <button class="primary" type="button" onclick="loadSummary()">表示</button>
+  </section>
+
+  <section class="card" id="summaryCard" hidden>
+    <h2 id="memberName"></h2>
+    <div class="summary-grid">
+      <div class="summary-item"><span class="summary-label">現在級・段</span><span id="currentRank" class="summary-value">未登録</span></div>
+      <div class="summary-item"><span class="summary-label">現在の稽古数</span><span id="trainingCount" class="summary-value">0</span></div>
+      <div class="summary-item"><span class="summary-label">審査可能稽古数</span><span id="requiredCount" class="summary-value">未設定</span></div>
+      <div class="summary-item" id="remainingItem"><span class="summary-label">審査可能まで</span><span id="remainingCount" class="summary-value">未設定</span></div>
+    </div>
+    <div class="progress-bar"><span id="progressBar" style="width:0%"></span></div>
+    <p id="progressMessage"></p>
+    <h3>直近の出席日</h3>
+    <ul id="recentDates"></ul>
+  </section>
+
+  <section class="card error" id="errorCard" hidden></section>
+
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
+    const initialMemberId = new URLSearchParams(location.search).get("member_id") || "";
+    document.getElementById("memberId").value = initialMemberId;
+    if (initialMemberId) loadSummary();
+
+    function loadSummary() {
+      const memberId = document.getElementById("memberId").value.trim();
+      if (!memberId) return showError("会員IDを入力してください。");
+      jsonp(GAS_URL, { action:"attendance_progress_summary", member_id:memberId })
+        .then(function(data) {
+          if (!data.ok) throw new Error(data.message || "出席情報を取得できませんでした。");
+          renderSummary(data);
+        })
+        .catch(function(error) { showError(error.message || String(error)); });
+    }
+
+    function renderSummary(data) {
+      document.getElementById("errorCard").hidden = true;
+      document.getElementById("summaryCard").hidden = false;
+      document.getElementById("memberName").textContent = data.member_name || data.member_id;
+      document.getElementById("currentRank").textContent = data.current_rank || "未登録";
+      document.getElementById("trainingCount").textContent = data.training_count + "回";
+      document.getElementById("requiredCount").textContent = data.required_training_count > 0 ? data.required_training_count + "回" : "未設定";
+      const remainingItem = document.getElementById("remainingItem");
+      if (data.required_training_count > 0) {
+        document.getElementById("remainingCount").textContent = data.examination_ready ? "到達" : data.remaining_training_count + "回";
+        remainingItem.className = "summary-item " + (data.examination_ready ? "ready" : (data.remaining_training_count <= 5 ? "near" : ""));
+        const percent = Math.min(100, Math.round(data.training_count * 100 / data.required_training_count));
+        document.getElementById("progressBar").style.width = percent + "%";
+        document.getElementById("progressMessage").textContent = data.examination_ready ? "審査可能稽古数に到達しています。" : "あと" + data.remaining_training_count + "回です。";
+      } else {
+        document.getElementById("remainingCount").textContent = "未設定";
+        document.getElementById("progressBar").style.width = "0%";
+        document.getElementById("progressMessage").textContent = "審査可能稽古数は確認後に設定します。";
+      }
+      const list = document.getElementById("recentDates");
+      list.innerHTML = "";
+      (data.recent_attendance_dates || []).forEach(function(date) {
+        const item = document.createElement("li"); item.textContent = date; list.appendChild(item);
+      });
+      if (!list.children.length) list.innerHTML = "<li>出席記録はまだありません。</li>";
+      history.replaceState(null, "", "?member_id=" + encodeURIComponent(data.member_id));
+      document.getElementById("backLink").href = "member_home.html?member_id=" + encodeURIComponent(data.member_id);
+    }
+
+    function showError(message) {
+      const card = document.getElementById("errorCard"); card.textContent = message; card.hidden = false;
+      document.getElementById("summaryCard").hidden = true;
+    }
+
+    function jsonp(url, params) {
+      return new Promise(function(resolve, reject) {
+        const callbackName = "progressCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+        const script = document.createElement("script");
+        const query = new URLSearchParams(Object.assign({}, params, { callback:callbackName }));
+        const timeout = window.setTimeout(function() { cleanup(); reject(new Error("取得がタイムアウトしました。")); }, 15000);
+        function cleanup() { window.clearTimeout(timeout); delete window[callbackName]; script.remove(); }
+        window[callbackName] = function(data) { cleanup(); resolve(data); };
+        script.onerror = function() { cleanup(); reject(new Error("GASへ接続できませんでした。")); };
+        script.src = url + "?" + query.toString(); document.head.appendChild(script);
+      });
+    }
+  </script>
+</body>
+</html>

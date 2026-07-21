@@ -9,9 +9,16 @@
       <a class="button member-link" href="attendance.html">🥋 出席登録</a>
       <a class="button member-link" href="paypay_code.html">📲 PayPay決済コード登録</a>
       <a class="button member-link" href="#">💰 会費状況（準備中）</a>
-      <a class="button member-link" href="#">📅 出席履歴（準備中）</a>
+      <a class="button member-link" id="attendanceSummaryLink" href="attendance_summary.html">📅 出席・審査進捗</a>
       <a class="button member-link" href="#">📢 お知らせ（準備中）</a>
     </div>
   </section>
   <p class="note"><a href="index.html">入口へ戻る</a></p>
+  <script>
+    const memberId = new URLSearchParams(location.search).get("member_id") || "";
+    if (memberId) {
+      document.getElementById("attendanceSummaryLink").href =
+        "attendance_summary.html?member_id=" + encodeURIComponent(memberId);
+    }
+  </script>
 </body></html>
