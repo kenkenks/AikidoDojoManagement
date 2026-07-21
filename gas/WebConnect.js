@@ -119,6 +119,13 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "teacher_attendance_today") {
+    const result = safelyExecute_(function() {
+      return attendanceTeacherGetTodayOverview(params, ctx);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "attendance_progress_summary") {
     const result = safelyExecute_(function() {
       return attendanceProgress_getMemberSummary(params.member_id || "", ctx);
@@ -140,11 +147,11 @@ function getMemberPaymentInfo_(memberId, plan_id, ctx) {
   sup_logDebug("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id }, ctx);
 
   const plan_id_r = plan_id || "P002";
-  const selectedFee = getFees(ctx).find(function(row) {
-    return normalizeId_(row["plan_id"]) === normalizeId_(plan_id_r) && isActiveMasterRow_(row);
-  });
   try {
-    const billingResult = selectedFee && String(selectedFee["会費タイプ"] || "").trim() === "審査費"
+    const fee = getFees(ctx).find(function(row) {
+      return normalizeId_(row["plan_id"]) === normalizeId_(plan_id_r) && isActiveMasterRow_(row);
+    });
+    const billingResult = fee && String(fee["会費タイプ"] || "").trim() === "審査費"
       ? billingExtraEnsureInvoice(memberId, plan_id_r, ctx)
       : billing_acceptMonthlySelection(memberId, plan_id_r, ctx);
     Logger.log(JSON.stringify(billingResult, null, 2));

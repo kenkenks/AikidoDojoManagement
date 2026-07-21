@@ -20,39 +20,72 @@ function attendanceProgress_getMemberSummary(memberId, ctx) {
   ctx = ensureSheetContext(ctx);
 
   const normalizedMemberId = normalizeId_(memberId);
-  const member = getMembers(ctx).find(function(row) {
-    return normalizeId_(row["member_id"]) === normalizedMemberId && isActiveMasterRow_(row);
+  const summaries = attendanceProgress_getMemberSummaries([normalizedMemberId], ctx);
+  return summaries[normalizedMemberId] || { ok: false, message: "有効な会員が見つかりません。" };
+}
+
+function attendanceProgress_getMemberSummaries(memberIds, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  const targetIds = {};
+  (memberIds || []).map(normalizeId_).filter(Boolean).forEach(function(memberId) {
+    targetIds[memberId] = true;
   });
 
-  if (!member) {
-    return { ok: false, message: "有効な会員が見つかりません。" };
-  }
+  const states = {};
+  getMembers(ctx).forEach(function(member) {
+    const memberId = normalizeId_(member["member_id"]);
+    if (!targetIds[memberId] || !isActiveMasterRow_(member)) return;
 
-  const rank = String(member["現在級段位"] || "").trim();
-  const carriedCount = attendanceProgress_toNonNegativeNumber_(member["繰越稽古数"]);
-  const requiredCount = attendanceProgress_toNonNegativeNumber_(member["審査可能稽古数"]);
-  const startDate = attendanceProgress_normalizeOptionalDate_(member["級段位起算日"], ctx);
-  const attendanceDates = attendanceProgress_collectAttendanceDates_(normalizedMemberId, startDate, ctx);
-  const recordedCount = attendanceDates.length;
-  const trainingCount = carriedCount + recordedCount;
-  const remainingCount = requiredCount > 0 ? Math.max(requiredCount - trainingCount, 0) : null;
+    const requiredCount = attendanceProgress_toNonNegativeNumber_(member["審査可能稽古数"]);
+    states[memberId] = {
+      member: member,
+      start_date: attendanceProgress_normalizeOptionalDate_(member["級段位起算日"], ctx),
+      carried_count: attendanceProgress_toNonNegativeNumber_(member["繰越稽古数"]),
+      required_count: requiredCount,
+      attendance_dates: {}
+    };
+  });
 
-  return {
-    ok: true,
-    member_id: normalizedMemberId,
-    member_name: String(member["氏名"] || ""),
-    current_rank: rank,
-    rank_source: String(member["級段位登録元"] || ""),
-    rank_updated_at: member["級段位更新日時"] || "",
-    rank_start_date: startDate,
-    carried_training_count: carriedCount,
-    recorded_training_count: recordedCount,
-    training_count: trainingCount,
-    required_training_count: requiredCount,
-    remaining_training_count: remainingCount,
-    examination_ready: requiredCount > 0 && remainingCount === 0,
-    recent_attendance_dates: attendanceDates.slice(-5).reverse()
-  };
+  getAttendances(ctx).forEach(function(row) {
+    if (!isActiveMasterRow_(row)) return;
+    const memberId = normalizeId_(row["member_id"]);
+    const state = states[memberId];
+    if (!state) return;
+    const dateText = formatAttendanceDate_(row["稽古日"], ctx);
+    if (!dateText || (state.start_date && dateText < state.start_date)) return;
+    state.attendance_dates[dateText] = true;
+  });
+
+  const summaries = {};
+  Object.keys(states).forEach(function(memberId) {
+    const state = states[memberId];
+    const member = state.member;
+    const attendanceDates = Object.keys(state.attendance_dates).sort();
+    const recordedCount = attendanceDates.length;
+    const trainingCount = state.carried_count + recordedCount;
+    const remainingCount = state.required_count > 0
+      ? Math.max(state.required_count - trainingCount, 0)
+      : null;
+
+    summaries[memberId] = {
+      ok: true,
+      member_id: memberId,
+      member_name: String(member["氏名"] || ""),
+      current_rank: String(member["現在級段位"] || "").trim(),
+      rank_source: String(member["級段位登録元"] || ""),
+      rank_updated_at: member["級段位更新日時"] || "",
+      rank_start_date: state.start_date,
+      carried_training_count: state.carried_count,
+      recorded_training_count: recordedCount,
+      training_count: trainingCount,
+      required_training_count: state.required_count,
+      remaining_training_count: remainingCount,
+      examination_ready: state.required_count > 0 && remainingCount === 0,
+      recent_attendance_dates: attendanceDates.slice(-5).reverse()
+    };
+  });
+  return summaries;
 }
 
 function attendanceProgress_updateSelfDeclaredRanks(items, ctx) {
@@ -108,19 +141,6 @@ function attendanceProgress_ensureMemberHeaders_(sheet) {
     sheet.getRange(1, headerInfo.headers.length + 1, 1, missing.length).setValues([missing]);
   }
   return getHeaderMap_(sheet);
-}
-
-function attendanceProgress_collectAttendanceDates_(memberId, startDate, ctx) {
-  const uniqueDates = {};
-  getAttendances(ctx).forEach(function(row) {
-    if (!isActiveMasterRow_(row)) return;
-    if (normalizeId_(row["member_id"]) !== memberId) return;
-
-    const dateText = formatAttendanceDate_(row["稽古日"], ctx);
-    if (!dateText || (startDate && dateText < startDate)) return;
-    uniqueDates[dateText] = true;
-  });
-  return Object.keys(uniqueDates).sort();
 }
 
 function attendanceProgress_normalizeOptionalDate_(value, ctx) {
