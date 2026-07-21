@@ -42,11 +42,11 @@
     .progress.ready { background: #dff3e6; color: #176b45; font-weight: bold; }
     .overview-toolbar { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
     .overview-list { margin-top:10px; }
-    .overview-row { display:grid; grid-template-columns:minmax(110px, 1.4fr) 70px minmax(145px, 1fr); gap:8px; align-items:center; padding:9px 6px; border-top:1px solid #e5e5e5; }
+    .overview-row { display:grid; grid-template-columns:minmax(140px, 1fr) auto; gap:6px 12px; align-items:center; padding:10px 6px; border-top:1px solid #e5e5e5; }
     .overview-row:first-child { border-top:0; }
     .overview-name { font-weight:bold; }
-    .overview-rank { text-align:center; }
-    .overview-progress { font-size:14px; padding:5px 7px; border-radius:6px; background:#f4f8fb; }
+    .overview-rank { text-align:right; font-weight:bold; }
+    .overview-progress { grid-column:1 / -1; font-size:14px; padding:6px 8px; border-radius:6px; background:#f4f8fb; }
     .overview-row.near .overview-progress { background:#fff3cd; color:#6d4c00; font-weight:bold; }
     .overview-row.ready .overview-progress { background:#dff3e6; color:#176b45; font-weight:bold; }
     .empty { color: #777; }
@@ -54,8 +54,7 @@
     #log { padding-left: 20px; margin-bottom: 0; }
     @media (max-width: 520px) {
       .key-grid { grid-template-columns: 1fr; }
-      .overview-row { grid-template-columns:1fr 60px; }
-      .overview-progress { grid-column:1 / -1; }
+      .overview-row { grid-template-columns:minmax(120px, 1fr) auto; }
     }
   </style>
 </head>
@@ -394,12 +393,18 @@
         name.textContent = item.member_name || item.member_id;
         const rank = document.createElement("div");
         rank.className = "overview-rank";
-        rank.textContent = (item.current_rank || "未登録") + (item.next_rank ? " → " + item.next_rank : "");
+        rank.textContent = item.current_rank || "未登録";
         const progress = document.createElement("div");
         progress.className = "overview-progress";
-        progress.textContent = item.required_training_count > 0
-          ? item.training_count + "／" + item.required_training_count + (item.examination_ready ? " 必要数到達・先生確認" : " あと" + item.remaining_training_count + "回")
-          : item.training_count + "回／基準未設定";
+        if (item.required_training_count > 0) {
+          const target = item.next_rank ? item.next_rank : "次回審査";
+          progress.textContent = item.training_count + "/" + item.required_training_count +
+            (item.examination_ready
+              ? "（" + target + "の必要稽古数到達・先生確認）"
+              : "（" + target + "まであと " + item.remaining_training_count + "回）");
+        } else {
+          progress.textContent = item.training_count + "回（審査基準未設定）";
+        }
         row.append(name, rank, progress);
         container.appendChild(row);
       });
