@@ -6,16 +6,16 @@
   <title>出席・審査進捗</title>
   <link rel="stylesheet" href="common.css">
   <style>
-    .summary-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
-    .summary-item { padding:12px; border-radius:9px; background:#f4f8f5; }
-    .summary-label { display:block; color:#666; font-size:12px; margin-bottom:4px; }
-    .summary-value { font-size:22px; font-weight:bold; }
+    .summary-head { display:grid; grid-template-columns:minmax(140px, 1fr) auto; gap:12px; align-items:center; }
+    .summary-head h2 { margin:0; }
+    .summary-rank { text-align:right; font-size:18px; }
+    .summary-progress { margin-top:10px; padding:9px 10px; border-radius:8px; background:#f4f8f5; }
     .progress-bar { height:12px; overflow:hidden; border-radius:999px; background:#e5e5e5; margin:10px 0 5px; }
     .progress-bar span { display:block; height:100%; background:#228454; }
     .near { background:#fff3cd; }
     .ready { background:#dff3e6; }
     .error { color:#b3261e; font-weight:bold; }
-    @media (max-width:420px) { .summary-grid { grid-template-columns:1fr; } }
+    @media (max-width:420px) { .summary-head { grid-template-columns:minmax(120px, 1fr) auto; } }
   </style>
 </head>
 <body class="member">
@@ -29,13 +29,11 @@
   </section>
 
   <section class="card" id="summaryCard" hidden>
-    <h2 id="memberName"></h2>
-    <div class="summary-grid">
-      <div class="summary-item"><span class="summary-label">現在級・段</span><span id="currentRank" class="summary-value">未登録</span></div>
-      <div class="summary-item"><span class="summary-label">現在の稽古数</span><span id="trainingCount" class="summary-value">0</span></div>
-      <div class="summary-item"><span class="summary-label">審査可能稽古数</span><span id="requiredCount" class="summary-value">未設定</span></div>
-      <div class="summary-item" id="remainingItem"><span class="summary-label">審査可能まで</span><span id="remainingCount" class="summary-value">未設定</span></div>
+    <div class="summary-head">
+      <h2 id="memberName"></h2>
+      <strong id="currentRank" class="summary-rank">未登録</strong>
     </div>
+    <div id="progressLine" class="summary-progress">0回（審査基準未設定）</div>
     <div class="progress-bar"><span id="progressBar" style="width:0%"></span></div>
     <p id="progressMessage"></p>
     <h3>直近の出席日</h3>
@@ -66,19 +64,22 @@
       document.getElementById("summaryCard").hidden = false;
       document.getElementById("memberName").textContent = data.member_name || data.member_id;
       document.getElementById("currentRank").textContent = data.current_rank || "未登録";
-      document.getElementById("trainingCount").textContent = data.training_count + "回";
-      document.getElementById("requiredCount").textContent = data.required_training_count > 0 ? data.required_training_count + "回" : "未設定";
-      const remainingItem = document.getElementById("remainingItem");
+      const progressLine = document.getElementById("progressLine");
       if (data.required_training_count > 0) {
-        document.getElementById("remainingCount").textContent = data.examination_ready ? "到達" : data.remaining_training_count + "回";
-        remainingItem.className = "summary-item " + (data.examination_ready ? "ready" : (data.remaining_training_count <= 5 ? "near" : ""));
+        const target = data.next_rank || "次回審査";
+        progressLine.textContent = data.training_count + "/" + data.required_training_count +
+          (data.examination_ready
+            ? "（" + target + "の必要稽古数到達・先生確認）"
+            : "（" + target + "まであと " + data.remaining_training_count + "回）");
+        progressLine.className = "summary-progress " + (data.examination_ready ? "ready" : (data.remaining_training_count <= 5 ? "near" : ""));
         const percent = Math.min(100, Math.round(data.training_count * 100 / data.required_training_count));
         document.getElementById("progressBar").style.width = percent + "%";
-        document.getElementById("progressMessage").textContent = data.examination_ready ? "審査可能稽古数に到達しています。" : "あと" + data.remaining_training_count + "回です。";
+        document.getElementById("progressMessage").textContent = data.examination_ready ? "審査可否は先生が確認します。" : "";
       } else {
-        document.getElementById("remainingCount").textContent = "未設定";
+        progressLine.textContent = data.training_count + "回（審査基準未設定）";
+        progressLine.className = "summary-progress";
         document.getElementById("progressBar").style.width = "0%";
-        document.getElementById("progressMessage").textContent = "審査可能稽古数は確認後に設定します。";
+        document.getElementById("progressMessage").textContent = "審査基準は確認後に設定します。";
       }
       const list = document.getElementById("recentDates");
       list.innerHTML = "";

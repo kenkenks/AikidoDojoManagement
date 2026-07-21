@@ -289,6 +289,8 @@
         member_id: memberId,
         member_name: "",
         current_rank: "",
+        next_rank: "",
+        rank_changed: false,
         training_count: 0,
         required_training_count: 0,
         remaining_training_count: null,
@@ -317,6 +319,8 @@
         candidate.slot_ids = actualSlotIds;
         candidate.member_name = data.member_name || "";
         candidate.current_rank = data.current_rank || "";
+        candidate.next_rank = data.next_rank || "";
+        candidate.rank_changed = false;
         candidate.training_count = Number(data.training_count || 0);
         candidate.required_training_count = Number(data.required_training_count || 0);
         candidate.remaining_training_count = data.remaining_training_count === null
@@ -418,19 +422,28 @@
         const rankSelect = document.createElement("select");
         buildRankOptions(rankSelect, candidate.current_rank);
         rankSelect.disabled = !candidate.loaded || submitting;
-        rankSelect.onchange = function () { candidate.current_rank = rankSelect.value; };
+        rankSelect.onchange = function () {
+          candidate.current_rank = rankSelect.value;
+          candidate.rank_changed = true;
+          renderCandidates();
+        };
         rankRow.append(rankLabel, rankSelect);
         row.appendChild(rankRow);
 
         const progress = document.createElement("div");
         progress.className = "progress";
-        if (candidate.required_training_count > 0) {
-          progress.textContent = "稽古数 " + candidate.training_count + "／" + candidate.required_training_count +
-            (candidate.examination_ready ? "（必要稽古数到達・先生確認）" : "（あと" + candidate.remaining_training_count + "回）");
+        if (candidate.rank_changed) {
+          progress.textContent = "級段位変更後の進捗は、出席登録後に更新します。";
+        } else if (candidate.required_training_count > 0) {
+          const target = candidate.next_rank || "次回審査";
+          progress.textContent = candidate.training_count + "/" + candidate.required_training_count +
+            (candidate.examination_ready
+              ? "（" + target + "の必要稽古数到達・先生確認）"
+              : "（" + target + "まであと " + candidate.remaining_training_count + "回）");
           if (candidate.examination_ready) progress.classList.add("ready");
           else if (candidate.remaining_training_count !== null && candidate.remaining_training_count <= 5) progress.classList.add("near");
         } else {
-          progress.textContent = "稽古数 " + candidate.training_count + "（審査可能数は未設定）";
+          progress.textContent = candidate.training_count + "回（審査基準未設定）";
         }
         row.appendChild(progress);
 
