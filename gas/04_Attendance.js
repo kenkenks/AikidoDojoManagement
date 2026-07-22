@@ -182,6 +182,34 @@ function getMemberAttendanceState(params, ctx) {
   };
 }
 
+// 保存直後の一致確認専用Query。
+// 審査進捗等を再集計せず、出席枠と会員マスタ上の現在級段だけを返す。
+function getAttendanceSavedState(params, ctx) {
+  ctx = ensureSheetContext(ctx);
+  const memberId = normalizeId_(params.member_id);
+  const locationId = normalizeId_(params.location_id);
+  const billingBlockId = normalizeId_(params.billing_block_id);
+  const attendanceDate = parseAttendanceDate_(params.attendance_date, ctx);
+  if (!memberId || !locationId || !billingBlockId) {
+    return { ok: false, message: "会員・道場・課金枠を指定してください。" };
+  }
+  const member = getMembers(ctx).find(function(row) {
+    return normalizeId_(row["member_id"]) === memberId && isActiveMasterRow_(row);
+  });
+  if (!member) return { ok: false, message: "有効な会員が見つかりません。" };
+  const rows = getActiveAttendanceRowsForScope(
+    attendanceDate, memberId, locationId, billingBlockId, ctx
+  );
+  return {
+    ok: true,
+    member_id: memberId,
+    current_rank: String(member["現在級段位"] || "").trim(),
+    selected_slot_ids: Array.from(new Set(rows.map(function(row) {
+      return normalizeId_(row["slot_id"]);
+    }).filter(Boolean)))
+  };
+}
+
 //------------------------------------------------------------------------------------------------
 // doPost() で呼び出すと、JSONP形式で出席登録APIを呼び出せる。
 function registerAttendanceBatch(data, ctx) {

@@ -534,12 +534,7 @@
       renderCandidates();
       updateSendButton();
       addLog("出席登録を送信しています。");
-      fetch(GAS_URL, {
-        method: "POST",
-        mode: "no-cors",
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify(payload)
-      }).then(function () {
+      postJsonViaForm(GAS_URL, payload).then(function () {
         addLog("同期要求が完了しました。保存結果を再確認します。");
         return refreshAllMemberStates(expectedByMember);
       }).catch(function (error) {
@@ -548,6 +543,32 @@
         submitting = false;
         renderCandidates();
         updateSendButton();
+      });
+    }
+
+    function postJsonViaForm(url, payload) {
+      return new Promise(function(resolve) {
+        const targetName = "attendancePost_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+        const iframe = document.createElement("iframe");
+        iframe.name = targetName;
+        iframe.hidden = true;
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = url;
+        form.target = targetName;
+        form.hidden = true;
+        const input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "payload";
+        input.value = JSON.stringify(payload);
+        form.appendChild(input);
+        document.body.append(iframe, form);
+        form.submit();
+        window.setTimeout(function() {
+          form.remove();
+          iframe.remove();
+          resolve();
+        }, 1500);
       });
     }
 

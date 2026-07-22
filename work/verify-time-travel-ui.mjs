@@ -25,6 +25,7 @@ for (const entrance of [
 ]) assert.match(gas, new RegExp(`function\\s+${entrance}\\s*\\(`));
 
 assert.match(connect, /params\.action === "system_context"/);
+assert.match(connect, /e\.parameter && e\.parameter\.payload/);
 assert.match(gas, /if \(setting\.enabled && setting\.targetMonth\)/);
 assert.match(gas, /result\.targetMonth = normalizeMonth\(s\.DEBUG_TARGET_MONTH\)/);
 assert.match(gas, /setNumberFormat\("@"\)\.setValue\(String\(updates\[key\]\)\)/);
@@ -45,6 +46,10 @@ assert.match(read("web/qr/attendance.html"), /currentAttendanceDate\(\)/);
 assert.match(read("web/qr/attendanceCheck.html"), /currentAttendanceDate\(\)/);
 assert.match(read("web/qr/attendance.html"), /callback:\s*callbackName,\s*_ts:\s*Date\.now\(\)/);
 assert.match(read("web/qr/attendanceCheck.html"), /callback:\s*callbackName,\s*_ts:\s*Date\.now\(\)/);
+assert.match(read("web/qr/attendance.html"), /postJsonViaForm\(GAS_URL, payload\)/);
+assert.match(read("web/qr/attendanceCheck.html"), /postJsonViaForm\(GAS_URL, payload\)/);
+assert.doesNotMatch(read("web/qr/attendance.html"), /mode:\s*"no-cors"/);
+assert.doesNotMatch(read("web/qr/attendanceCheck.html"), /mode:\s*"no-cors"/);
 assert.match(read("web/qr/payment_teacher.html"), /DOJO_SYSTEM_CONTEXT/);
 
 console.log("PASS verify-time-travel-ui");

@@ -248,7 +248,9 @@ function doPost(e) {
       throw new Error("送信データがありません。");
     }
 
-    const jsonText = e.postData.contents;
+    const jsonText = e.parameter && e.parameter.payload
+      ? e.parameter.payload
+      : e.postData.contents;
     const data = JSON.parse(jsonText);
 
     if (data.mode === "attendance_batch" || Array.isArray(data.attendance_items)) {
