@@ -217,32 +217,37 @@ function payment_updateInvoiceStatus(targetMonth, billingGroupId, ctx) {
     normalizedBillingGroupId
   );
 
-  let updated = 0;
-
+  const targetInvoices = [];
   for (let r = 1; r < values.length; r++) {
     const row = values[r];
-
-    const rowMonth = normalizeMonth(row[col["target_month"]]);
-    const rowGroup = String(row[col["billing_group_id"]]).trim();
-
     if (
-      rowMonth === normalizedTargetMonth &&
-      rowGroup === normalizedBillingGroupId
+      normalizeMonth(row[col["target_month"]]) === normalizedTargetMonth &&
+      String(row[col["billing_group_id"]]).trim() === normalizedBillingGroupId
     ) {
-      const plannedAmount = Number(
-        row[col["請求予定額"]] || row[col["金額"]] || 0
-      );
-
-      const unpaidAmount = plannedAmount - paidTotal;
-      const status = unpaidAmount <= 0 ? "支払済" : "未払い";
-
-      invoiceSheet
-        .getRange(r + 1, col["支払状態"] + 1)
-        .setValue(status);
-
-      updated++;
+      targetInvoices.push({
+        rowNumber: r + 1,
+        invoice_id: row[col["invoice_id"]],
+        amount: Number(row[col["請求予定額"]] || row[col["金額"]] || 0),
+        current_status: String(row[col["支払状態"]] || "")
+      });
     }
   }
+
+  const allocations = payment_calculateInvoiceStatuses_(
+    targetInvoices,
+    payments.filter(function(payment) {
+      return normalizeMonth(payment["target_month"]) === normalizedTargetMonth &&
+        String(payment["billing_group_id"] || "").trim() === normalizedBillingGroupId;
+    })
+  );
+
+  let updated = 0;
+  allocations.forEach(function(allocation) {
+    invoiceSheet
+      .getRange(allocation.rowNumber, col["支払状態"] + 1)
+      .setValue(allocation.status);
+    updated++;
+  });
 
   invalidateInvoices(ctx);
 
@@ -251,8 +256,48 @@ function payment_updateInvoiceStatus(targetMonth, billingGroupId, ctx) {
     targetMonth: normalizedTargetMonth,
     billingGroupId: normalizedBillingGroupId,
     paidTotal,
-    updated
+    updated,
+    allocations: allocations
   };
+}
+
+// invoice_id付き入金は、その請求だけへ充当する。
+// 旧データとの互換用にinvoice_idなしの入金だけを請求順へ充当する。
+function payment_calculateInvoiceStatuses_(invoices, payments) {
+  const directPaidByInvoice = {};
+  let legacyUnassignedTotal = 0;
+
+  (payments || []).forEach(function(payment) {
+    const invoiceId = normalizeId_(payment["invoice_id"]);
+    const amount = Number(payment["入金額"] || payment["金額"] || 0);
+    if (invoiceId) {
+      directPaidByInvoice[invoiceId] = Number(directPaidByInvoice[invoiceId] || 0) + amount;
+    } else {
+      legacyUnassignedTotal += amount;
+    }
+  });
+
+  return (invoices || []).map(function(invoice) {
+    const invoiceId = normalizeId_(invoice.invoice_id);
+    const plannedAmount = Number(invoice.amount || 0);
+    const directPaid = Number(directPaidByInvoice[invoiceId] || 0);
+    const remainingAfterDirect = Math.max(plannedAmount - directPaid, 0);
+    const legacyApplied = Math.min(legacyUnassignedTotal, remainingAfterDirect);
+    legacyUnassignedTotal -= legacyApplied;
+    const appliedAmount = directPaid + legacyApplied;
+    let status = appliedAmount >= plannedAmount ? "支払済" : "未払い";
+    if (plannedAmount <= 0) status = "免除";
+    if (String(invoice.current_status || "") === "取消") status = "取消";
+
+    return {
+      rowNumber: invoice.rowNumber,
+      invoice_id: invoiceId,
+      planned_amount: plannedAmount,
+      applied_amount: appliedAmount,
+      unpaid_amount: Math.max(plannedAmount - appliedAmount, 0),
+      status: status
+    };
+  });
 }
 
 // ==============================

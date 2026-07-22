@@ -116,7 +116,23 @@ function runner_story_integration_902() {
       "CASH",
       config,
       "RUN-STORY902-EXAM-20990716",
-      ctx
+      ctx,
+      function(index, invoices) {
+        if (index !== 0 || invoices.length !== 2) return null;
+        const current = getInvoices(ctx);
+        const monthly = current.find(function(row) {
+          return normalizeId_(row["invoice_id"]) === normalizeId_(invoices[0]["invoice_id"]);
+        });
+        const examination = current.find(function(row) {
+          return normalizeId_(row["invoice_id"]) === normalizeId_(invoices[1]["invoice_id"]);
+        });
+        return monthlyIntegration902_check_(
+          "partial_payment_keeps_exam_unpaid",
+          monthly && examination && normalizeId_(monthly["支払状態"]) === "支払済" && normalizeId_(examination["支払状態"]) === "未払い",
+          ["支払済", "未払い"],
+          [monthly && monthly["支払状態"], examination && examination["支払状態"]]
+        );
+      }
     );
     exam.extra_invoice = extra;
     return exam;
@@ -283,13 +299,14 @@ function monthlyIntegration902_cleanup_(config, ctx) {
   return { ok: true, deleted: deleted };
 }
 
-function monthlyIntegration902_payMember_(member, method, config, sessionId, ctx) {
+function monthlyIntegration902_payMember_(member, method, config, sessionId, ctx, afterEach) {
   const invoices = getInvoices(ctx).filter(function(row) {
     return normalizeMonth(row["target_month"]) === STORY_902_INTEGRATION_MONTH &&
       normalizeId_(row["billing_group_id"]) === member.billing_group_id &&
       normalizeId_(row["支払状態"]) !== "支払済" && Number(row["請求予定額"] || row["金額"] || 0) > 0;
   });
   const results = [];
+  const intermediateChecks = [];
   invoices.forEach(function(invoice, index) {
     const request = paymentEvidence_request({
       invoice_id: invoice["invoice_id"],
@@ -309,15 +326,20 @@ function monthlyIntegration902_payMember_(member, method, config, sessionId, ctx
     }, ctx);
     const post = paymentEvidence_post({ evidence_id: request.evidence_id }, ctx);
     results.push({ invoice_id: invoice["invoice_id"], request: request, record: record, post: post });
+    if (typeof afterEach === "function") {
+      const check = afterEach(index, invoices, results);
+      if (check) intermediateChecks.push(check);
+    }
   });
   return {
     ok: invoices.length > 0 && results.every(function(result) {
       return result.request.ok === true && result.record.ok === true && result.post.ok === true;
-    }),
+    }) && intermediateChecks.every(function(check) { return check.ok; }),
     member_id: member.member_id,
     payment_method: method,
     invoice_count: invoices.length,
     results: results,
+    intermediate_checks: intermediateChecks,
     message: invoices.length > 0 ? method + "入金を反映しました。" : "未払い請求がありません。"
   };
 }
