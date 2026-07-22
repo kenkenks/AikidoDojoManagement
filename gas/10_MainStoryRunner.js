@@ -10,7 +10,8 @@
 // TAG: STORY-MAIN001
 //
 
-function runner_story_main001() {
+// 旧集約Runner。公開入口は11_MainStoryRunner.jsのrunner_story_main001()へ統一した。
+function runner_story_main001_legacy() {
 
   Logger.log("========== STORY-MAIN001 START ==========");
 

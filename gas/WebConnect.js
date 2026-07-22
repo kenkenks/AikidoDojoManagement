@@ -120,6 +120,17 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "payment_reception_summary") {
+    const result = safelyExecute_(function() {
+      return paymentReception_getScopeSummary({
+        reception_date: params.reception_date || "",
+        location_id: params.location_id || "",
+        billing_block_id: params.billing_block_id || ""
+      }, ctx);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "attendance_session_info") {
     const result = safelyExecute_(function() {
       return getAttendanceSessionInfo(params, ctx);

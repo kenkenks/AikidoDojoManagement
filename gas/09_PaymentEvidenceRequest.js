@@ -66,6 +66,10 @@ function paymentEvidence_requestBatch(data, ctx) {
           member_id: payment.member_id || "",
           payment_method: payment.payment_method || "",
           amount: payment.amount,
+          location_id: payment.location_id || data.location_id || "",
+          billing_block_id: payment.billing_block_id || data.billing_block_id || "",
+          teacher_id: payment.teacher_id || data.teacher_id || "",
+          reception_session_id: payment.reception_session_id || data.reception_session_id || "",
           remarks: payment.remarks || "会費受付画面から要求作成"
         }, ctx);
 
@@ -165,6 +169,10 @@ function paymentEvidenceRequest_collect(input, ctx) {
     member_id: member_id,
     payment_method: payment_method,
     amount: amount,
+    location_id: normalizeId_(input.location_id),
+    billing_block_id: normalizeId_(input.billing_block_id),
+    teacher_id: normalizeId_(input.teacher_id),
+    reception_session_id: normalizeId_(input.reception_session_id),
     remarks: input.remarks || ""
   };
 }
@@ -184,6 +192,10 @@ function paymentEvidenceRequest_make(context, ctx) {
     member_id: context.member_id,
     payment_method: context.payment_method,
     amount: Number(context.amount || 0),
+    location_id: context.location_id || "",
+    billing_block_id: context.billing_block_id || "",
+    teacher_id: context.teacher_id || "",
+    reception_session_id: context.reception_session_id || "",
     status: "REQUESTED",
     evidence_code: "",
     requested_at: sup_now(ctx),

@@ -208,6 +208,12 @@
   </div>
 
   <div class="card">
+    <div>保持中の課金枠</div>
+    <div id="billingBlockId" class="warn">未設定</div>
+    <div id="billingBlockName" class="mini-summary"></div>
+  </div>
+
+  <div class="card">
     <div id="reader"></div>
 
     <button onclick="startScan()">読み取り開始</button>
@@ -239,8 +245,17 @@
     </div>
     <button type="button" onclick="copyExpectedToActual()">予定額を確認額へコピー</button>
     <div id="reconcileResult" class="reconcile-result">確認額を入力すると差額を表示します。</div>
-    <button onclick="sendPaymentsToGas()">集金完了</button>
+    <button id="completePaymentsButton" onclick="sendPaymentsToGas()" disabled>集金完了</button>
     <button onclick="postConfirmedPayments()">決済更新</button>
+  </div>
+
+  <div class="card summary">
+    <strong>本日・この課金枠の登録済み</strong>
+    <div>現金: <span id="registeredCashTotal">0</span>円</div>
+    <div>PayPay: <span id="registeredPaypayTotal">0</span>円</div>
+    <div>合計: <span id="registeredGrandTotal">0</span>円</div>
+    <div>入金件数: <span id="registeredPaymentCount">0</span>件</div>
+    <button onclick="loadRegisteredScopeSummary()">登録済みを再取得</button>
   </div>
 
   <div class="card">
@@ -277,6 +292,9 @@
 
     let currentLocationId = "";
     let currentTeacherId = "";
+    let currentBillingBlockId = "";
+    let currentBillingBlockName = "";
+    let receptionSessionId = "";
     let lastText = "";
     let lastReadTime = 0;
 
@@ -333,11 +351,20 @@
 
       const parsed = parseQrText(decodedText);
 
-      if (parsed.location_id) {
+      if (parsed.location_id || parsed.billing_block_id) {
+        if (parsed.location_id) {
         currentLocationId = parsed.location_id;
         document.getElementById("locationId").textContent = currentLocationId;
         document.getElementById("locationId").className = "ok";
         addLog("道場QR読取: " + currentLocationId);
+        }
+        if (parsed.billing_block_id) {
+          currentBillingBlockId = parsed.billing_block_id;
+          document.getElementById("billingBlockId").textContent = currentBillingBlockId;
+          document.getElementById("billingBlockId").className = "ok";
+          addLog("課金枠QR読取: " + currentBillingBlockId);
+        }
+        updateReceptionScope();
         beep();
         return;
       }
@@ -347,6 +374,7 @@
         document.getElementById("teacherId").textContent = currentTeacherId;
         document.getElementById("teacherId").className = "ok";
         addLog("先生QR読取: " + currentTeacherId);
+        updateReceptionScope();
         beep();
         return;
       }
@@ -378,7 +406,8 @@
         location_id: "",
         teacher_id: "",
         member_id: "",
-        plan_id: ""
+        plan_id: "",
+        billing_block_id: ""
       };
 
       try {
@@ -387,6 +416,7 @@
         result.member_id = url.searchParams.get("member_id") || "";
         result.teacher_id = url.searchParams.get("teacher_id") || "";
         result.plan_id = url.searchParams.get("plan_id") || "";
+        result.billing_block_id = url.searchParams.get("billing_block_id") || "";
         return result;
       } catch (e) {
         // URLでない場合は下へ
@@ -406,6 +436,10 @@
 
       if (text.startsWith("plan_id=")) {
         result.plan_id = text.replace("plan_id=", "").trim();
+      }
+
+      if (text.startsWith("billing_block_id=")) {
+        result.billing_block_id = text.replace("billing_block_id=", "").trim();
       }
 
       return result;
@@ -562,6 +596,71 @@
       document.getElementById("grandTotal").textContent = formatYen(cashTotal + paypayTotal);
       document.getElementById("paymentCount").textContent = paymentList.length;
       renderReconciliation();
+      updateCompletionButton();
+    }
+
+    function updateCompletionButton() {
+      const button = document.getElementById("completePaymentsButton");
+      if (!button) return;
+      button.disabled = !currentTeacherId || !currentLocationId || !currentBillingBlockId || paymentList.length === 0;
+    }
+
+    function updateReceptionScope() {
+      updateCompletionButton();
+      if (!currentLocationId || !currentBillingBlockId) return;
+
+      receptionSessionId = makeReceptionSessionId();
+      jsonp(GAS_URL, {
+        action: "attendance_session_info",
+        location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId
+      }).then(function(result) {
+        if (!result || result.ok !== true) {
+          currentBillingBlockName = "";
+          document.getElementById("billingBlockName").textContent = (result && result.message) || "課金枠を確認できませんでした。";
+          addLog("課金枠確認エラー: " + ((result && result.message) || "ok=false"));
+          return;
+        }
+        currentBillingBlockName = result.billing_block_name || currentBillingBlockId;
+        document.getElementById("billingBlockName").textContent = currentBillingBlockName;
+        addLog("課金枠確認完了: " + currentBillingBlockName);
+        loadRegisteredScopeSummary();
+      }).catch(function(error) {
+        addLog("課金枠確認失敗: " + (error.message || String(error)));
+      });
+    }
+
+    function loadRegisteredScopeSummary() {
+      if (!currentLocationId || !currentBillingBlockId) {
+        addLog("登録済み取得スキップ: 道場・課金枠が未設定です。");
+        return;
+      }
+      jsonp(GAS_URL, {
+        action: "payment_reception_summary",
+        reception_date: todayValue(),
+        location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId
+      }).then(function(result) {
+        if (!result || result.ok !== true) throw new Error((result && result.message) || "登録済み集計を取得できませんでした。");
+        document.getElementById("registeredCashTotal").textContent = formatYen(result.cash_total);
+        document.getElementById("registeredPaypayTotal").textContent = formatYen(result.paypay_total);
+        document.getElementById("registeredGrandTotal").textContent = formatYen(result.total_amount);
+        document.getElementById("registeredPaymentCount").textContent = Number(result.payment_count || 0);
+        addLog("登録済み集計取得: " + result.total_amount + "円 / " + result.payment_count + "件");
+      }).catch(function(error) {
+        addLog("登録済み集計取得失敗: " + (error.message || String(error)));
+      });
+    }
+
+    function makeReceptionSessionId() {
+      return ["PAYREC", todayValue().replace(/-/g, ""), currentLocationId, currentBillingBlockId]
+        .map(function(value) { return String(value || "").replace(/[^0-9A-Za-z_-]/g, "_"); })
+        .join("-");
+    }
+
+    function todayValue() {
+      const today = new Date();
+      return today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
     }
 
     function copyExpectedToActual() {
@@ -615,6 +714,11 @@
         return;
       }
 
+      if (!currentBillingBlockId) {
+        addLog("送信スキップ: billing_block_id未設定");
+        return;
+      }
+
       if (paymentList.length === 0) {
         addLog("送信スキップ: 受付済データなし");
         return;
@@ -629,7 +733,11 @@
           member_name: payment.memberName,
           plan_id: invoice.plan_id || payment.planId,
           amount: Number(invoice.amount || 0),
-          payment_method: payment.payType
+          payment_method: payment.payType,
+          location_id: currentLocationId,
+          billing_block_id: currentBillingBlockId,
+          teacher_id: currentTeacherId,
+          reception_session_id: receptionSessionId
         }))
       );
 
@@ -637,6 +745,8 @@
         mode: "payment_batch",
         teacher_id: currentTeacherId,
         location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId,
+        reception_session_id: receptionSessionId,
         payment_items: paymentItems,
         count: paymentItems.length,
         source: "payment_teacher.html"
@@ -654,6 +764,7 @@
         body: JSON.stringify(payload)
       }).then(() => {
         addLog("GAS一括送信要求完了");
+        window.setTimeout(loadRegisteredScopeSummary, 2500);
       }).catch(err => {
         addLog("GAS一括送信エラー: " + err);
       });
@@ -898,6 +1009,11 @@
       return;
     }
 
+    if (!currentTeacherId || !currentLocationId || !currentBillingBlockId) {
+      addLog("会費情報取得中止: 先生・道場・課金枠を先に読み取ってください。");
+      return;
+    }
+
     if (!planId) {
       addLog("会費情報取得中止: plan_id が空です。");
       return;
@@ -1024,6 +1140,27 @@
     });
   }
 
+  function initializeReceptionScopeFromUrl() {
+    const params = new URLSearchParams(location.search);
+    currentLocationId = params.get("location_id") || "";
+    currentTeacherId = params.get("teacher_id") || "";
+    currentBillingBlockId = params.get("billing_block_id") || "";
+
+    if (currentLocationId) {
+      document.getElementById("locationId").textContent = currentLocationId;
+      document.getElementById("locationId").className = "ok";
+    }
+    if (currentTeacherId) {
+      document.getElementById("teacherId").textContent = currentTeacherId;
+      document.getElementById("teacherId").className = "ok";
+    }
+    if (currentBillingBlockId) {
+      document.getElementById("billingBlockId").textContent = currentBillingBlockId;
+      document.getElementById("billingBlockId").className = "ok";
+    }
+    updateReceptionScope();
+  }
+
   //　未使用予備 
   function loadMemberForPayment_fetch(memberId, planId) {
     addLog("会費情報登録中(fetch getPaymentInfo): " + memberId + " / " + planId);
@@ -1083,6 +1220,8 @@
         addLog("fetch 会費情報取得失敗: " + (error.message || String(error)));
       });
   }
+
+  initializeReceptionScopeFromUrl();
 
 </script>
 </body>

@@ -111,6 +111,15 @@
 function paymentEvidence_acceptBatch(data, ctx) {
   ctx = ensureSheetContext(ctx);
 
+  const locationId = normalizeId_(data && data.location_id);
+  const billingBlockId = normalizeId_(data && data.billing_block_id);
+  const teacherId = normalizeId_(data && data.teacher_id);
+  if (!locationId || !billingBlockId || !teacherId) {
+    return { ok: false, message: "accept: 先生・道場・課金枠を指定してください。" };
+  }
+  validatePaymentMasterData_(ctx, teacherId, locationId, billingBlockId);
+  paymentReception_ensureSchema(ctx);
+
   sup_logDebug("paymentEvidence_recordBatch start", {
     result: JSON.stringify(data, null, 2)
   }, ctx);
@@ -170,4 +179,3 @@ function paymentEvidence_acceptBatch(data, ctx) {
     postResult: postResult
   };
 }
-

@@ -46,6 +46,31 @@ Runnerは単なるデバッグコードではなく、Storyを実行可能にす
 
 ---
 
+# STORY-902 月次高速Runner
+
+`STORY-902 一か月試験運用`に対して、次を実装する。
+
+- `runner_story_simulation_902()`
+- 月初、第1週、第2週、月中、第4週、月末、翌月初日のPhase実行
+- `ctx.settings`だけを利用した仮想日時切替
+- 出席、請求、現金、PayPay、未払い、審査費、家族会員のScenario
+- 期待値と実値を比較するSummary
+- Scenario専用IDによる再実行可能なPrepare/Cleanup
+- Phaseごとのシステム日時・対象月ログ
+
+画面上のタイムトリップ設定とシステム時刻表示は、本Runner通過後の画面スモーク開始前に実装する。
+
+## 先行修正
+
+会費受付が課金枠必須になったため、既存Runnerの`paymentEvidence_acceptBatch()`呼出しへ次を追加する。
+
+- `billing_block_id`
+- `reception_session_id`
+
+実在データを広い月単位で削除する既存Prepareは、STORY-902から再利用しない。
+
+---
+
 # 3. 開発方針
 
 本タスクでは、Runner Driven Development（RDD）を採用する。

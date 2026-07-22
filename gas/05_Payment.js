@@ -379,6 +379,10 @@ function payment_append(ctx, payment) {
     支払方法: payment.支払方法,
     入金額: payment.入金額,
     決済ID: payment.決済ID,
+    location_id: payment.location_id || "",
+    billing_block_id: payment.billing_block_id || "",
+    teacher_id: payment.teacher_id || "",
+    reception_session_id: payment.reception_session_id || "",
     備考: payment.備考
   }]);
 

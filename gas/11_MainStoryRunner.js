@@ -240,7 +240,9 @@ function runner_cash_story_c001() {
 
     const result = paymentEvidence_acceptBatch({
       teacher_id: "T001",
-      location_id: "L001",
+      location_id: "HONBU",
+      billing_block_id: "B_KYO_MON_1030_1230",
+      reception_session_id: "RUNNER-C001-" + normalizeMonth(sup_targetMonth(ctx)),
       payment_items: paymentItems,
       source: "runner_cash_story_c001"
     }, ctx);
@@ -342,4 +344,3 @@ function runner_cash_story_c001() {
 
   return summary;
 }
-

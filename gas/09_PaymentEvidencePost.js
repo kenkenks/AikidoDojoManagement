@@ -209,6 +209,10 @@ function paymentEvidencePost_make(context, ctx) {
     支払方法: paymentEvidence_toDisplayPaymentMethod_(evidence["payment_method"]),
     入金額: Number(evidence["amount"] || 0),
     決済ID: normalizeId_(evidence["evidence_id"]),
+    location_id: normalizeId_(evidence["location_id"]),
+    billing_block_id: normalizeId_(evidence["billing_block_id"]),
+    teacher_id: normalizeId_(evidence["teacher_id"] || evidence["confirmed_by"]),
+    reception_session_id: normalizeId_(evidence["reception_session_id"]),
     備考: evidence["remarks"] || "09_決済エビデンスから06へ反映"
   };
 }

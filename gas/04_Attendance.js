@@ -282,14 +282,26 @@ function validateAttendanceScope_(locationId, billingBlockId, ctx) {
 function calculateAttendanceChargeCount(memberId, targetMonth, ctx) {
   ctx = ensureSheetContext(ctx);
 
+  return attendanceCore_calculateChargeCountFromRows_(
+    memberId,
+    targetMonth,
+    getAttendances(ctx),
+    getBillingBlocks(ctx),
+    ctx
+  );
+}
+
+// Sheetに依存しない課金回数計算Core。月次高速Runnerも同じ計算を利用する。
+function attendanceCore_calculateChargeCountFromRows_(memberId, targetMonth, attendances, billingBlocks, ctx) {
+
   const target = normalizeMonth(targetMonth);
   const blockMap = {};
-  getBillingBlocks(ctx).forEach(block => {
+  (billingBlocks || []).forEach(block => {
     if (isActiveMasterRow_(block)) blockMap[normalizeId_(block["billing_block_id"])] = block;
   });
 
   const groups = {};
-  getAttendances(ctx).forEach(row => {
+  (attendances || []).forEach(row => {
     if (!isActiveMasterRow_(row)) return;
     if (normalizeMonth(row["target_month"]) !== target) return;
     if (normalizeId_(row["member_id"]) !== normalizeId_(memberId)) return;
