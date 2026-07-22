@@ -136,6 +136,15 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "post_receipt") {
+    const requestId = String(params.request_id || "").trim();
+    const cached = requestId ? CacheService.getScriptCache().get("WEB_POST_RECEIPT_" + requestId) : "";
+    const result = cached
+      ? JSON.parse(cached)
+      : { ok:false, completed:false, request_id:requestId, message:"処理完了を待っています。" };
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "payment_reception_summary") {
     const result = safelyExecute_(function() {
       return paymentReception_getScopeSummary({
@@ -251,6 +260,7 @@ function getMemberPaymentInfo_(memberId, plan_id, ctx) {
 // 例: https://script.google.com/macros/s/AKfycbx.../exec
 function doPost(e) {
   const ctx = createSheetContext();
+  let requestData = null;
 
   const result = safelyExecute_(function() {
     if (!e || !e.postData || !e.postData.contents) {
@@ -261,6 +271,7 @@ function doPost(e) {
       ? e.parameter.payload
       : e.postData.contents;
     const data = JSON.parse(jsonText);
+    requestData = data;
 
     if (data.mode === "diagnostic_ping") {
       const token = String(data.token || "").trim();
@@ -309,6 +320,17 @@ function doPost(e) {
       message: "QR実験ログへ保存しました。"
     };
   });
+
+  const requestId = requestData && String(requestData.request_id || "").trim();
+  if (requestId) {
+    CacheService.getScriptCache().put("WEB_POST_RECEIPT_" + requestId, JSON.stringify({
+      ok:result && result.ok === true,
+      completed:true,
+      request_id:requestId,
+      message:(result && result.message) || (result && result.ok === true ? "処理が完了しました。" : "処理に失敗しました。"),
+      errorName:(result && result.errorName) || ""
+    }), 600);
+  }
 
   return ContentService
     .createTextOutput(JSON.stringify(result))

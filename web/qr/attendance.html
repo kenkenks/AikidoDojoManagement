@@ -507,6 +507,7 @@
 
       const payload = {
         mode: "attendance_batch",
+        request_id: "ATTREQ-" + Date.now() + "-" + Math.floor(Math.random() * 100000),
         attendance_session_id: attendanceSessionId,
         attendance_date: currentAttendanceDate(),
         teacher_id: currentTeacherId,
@@ -535,8 +536,12 @@
       updateSendButton();
       addLog("出席登録を送信しています。");
       postJsonViaForm(GAS_URL, payload).then(function () {
-        addLog("同期要求が完了しました。保存結果を再確認します。");
-        return refreshAllMemberStates(expectedByMember);
+        addLog("送信しました。GASの処理完了を待っています。");
+        return waitForPostReceipt(payload.request_id, 1).then(function(receipt) {
+          if (!receipt.ok) throw new Error(receipt.message || "GASの出席処理に失敗しました。");
+          addLog("GASの処理完了を確認しました。保存結果を再確認します。");
+          return refreshAllMemberStates(expectedByMember);
+        });
       }).catch(function (error) {
         addLog("送信エラー: " + error, "error");
       }).finally(function() {
@@ -564,11 +569,21 @@
         form.appendChild(input);
         document.body.append(iframe, form);
         form.submit();
+        form.remove();
         window.setTimeout(function() {
-          form.remove();
-          iframe.remove();
           resolve();
-        }, 1500);
+        }, 100);
+        window.setTimeout(function() { iframe.remove(); }, 120000);
+      });
+    }
+
+    function waitForPostReceipt(requestId, attempt) {
+      return jsonp(GAS_URL, { action:"post_receipt", request_id:requestId }).then(function(receipt) {
+        if (receipt && receipt.completed) return receipt;
+        if (attempt >= 60) throw new Error("GASの処理完了を60秒以内に確認できませんでした。");
+        return new Promise(function(resolve) {
+          window.setTimeout(function() { resolve(waitForPostReceipt(requestId, attempt + 1)); }, 1000);
+        });
       });
     }
 
