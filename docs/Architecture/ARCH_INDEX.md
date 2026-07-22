@@ -34,6 +34,7 @@ Architecture文書一覧。
 |ARCH-010|（タイトル未取得）|UNKNOWN||
 |ARCH-011|（タイトル未取得）|UNKNOWN||
 |ARCH-012|Framework Maintenance|ACTIVE||
+|ARCH-013|私書箱方式イベント連動|設計済・実装保留||
 
 <!-- REALITYSYNC:ARCH_INDEX:END -->
 

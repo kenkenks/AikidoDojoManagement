@@ -224,8 +224,27 @@ function registerAttendanceBatchLocked_(data, ctx) {
 
   if (result && result.ok) {
     result.rank_updates = attendanceProgress_updateSelfDeclaredRanks_(data.attendance_items, ctx);
+    result.post_event = attendance_postEvent(result, data, ctx);
   }
   return result;
+}
+
+/**
+ * 出席登録のPostEvent入口。
+ *
+ * 私書箱方式のイベント原簿・購読・配送はTASK-FWK-020で実装保留中のため、
+ * 現在は外部書込みや会費処理を行わず、入口を通過した事実だけを返す。
+ */
+function attendance_postEvent(result, data, ctx) {
+  return {
+    ok: true,
+    posted: false,
+    deferred: true,
+    event_type: "ATTENDANCE_CHANGED",
+    source: "ATTENDANCE",
+    correlation_id: normalizeId_(data && data.attendance_session_id),
+    message: "私書箱方式のイベント配送は実装保留中です。"
+  };
 }
 
 function attendanceProgress_updateSelfDeclaredRanks_(items, ctx) {
