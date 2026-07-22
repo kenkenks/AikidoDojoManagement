@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>合気道 先生ページ - 会費状況</title>
+  <link rel="stylesheet" href="common.css">
+  <style>
+    .filters { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .filters .wide { grid-column:1 / -1; }
+    label { display:block; color:#555; font-size:13px; margin-bottom:4px; }
+    input { font-size:16px; padding:9px; }
+    .summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+    .summary-item { padding:10px; border-radius:9px; background:#f4f8fc; }
+    .summary-label { color:#555; font-size:13px; }
+    .summary-value { margin-top:3px; font-size:22px; font-weight:bold; }
+    .summary-item.total { grid-column:1 / -1; background:#dceefe; }
+    .status-row { padding:12px 0; border-bottom:1px solid #ddd; }
+    .status-row:last-child { border-bottom:0; }
+    .status-head { display:flex; justify-content:space-between; gap:8px; align-items:baseline; }
+    .member-name { font-size:18px; font-weight:bold; }
+    .status { padding:3px 7px; border-radius:999px; font-size:12px; font-weight:bold; }
+    .status.unpaid { color:#a12b20; background:#fde7e5; }
+    .status.paid { color:#176b45; background:#dff3e6; }
+    .status.exempt { color:#555; background:#eee; }
+    .amounts { display:grid; grid-template-columns:repeat(3, 1fr); gap:6px; margin-top:8px; }
+    .amount-cell { padding:7px; background:#f7f7f7; border-radius:7px; }
+    .amount-cell span { display:block; color:#666; font-size:11px; }
+    .amount-cell strong { display:block; margin-top:2px; font-size:15px; }
+    .sub { color:#666; font-size:13px; margin-top:7px; line-height:1.5; }
+    .payment-row { display:grid; grid-template-columns:1fr auto; gap:6px; padding:9px 0; border-bottom:1px solid #eee; }
+    .payment-row:last-child { border-bottom:0; }
+    .payment-main { min-width:0; }
+    .payment-amount { font-weight:bold; white-space:nowrap; }
+    .empty { color:#666; padding:10px 0; }
+    .error { color:#b3261e; font-weight:bold; }
+    .loading { color:#0b5cad; }
+    @media (min-width:700px) { body { max-width:820px; margin:0 auto; } }
+  </style>
+</head>
+<body class="teacher">
+  <h1>💰 会費状況</h1>
+  <p class="note"><a href="teacher_home.html">先生ホーム</a> ／ <a href="payment_teacher.html">会費受付</a></p>
+
+  <section class="card">
+    <h2>集計条件</h2>
+    <div class="filters">
+      <div><label for="dateFrom">入金日（開始）</label><input id="dateFrom" type="date"></div>
+      <div><label for="dateTo">入金日（終了）</label><input id="dateTo" type="date"></div>
+      <div class="wide"><label for="targetMonth">会員別状況の対象月</label><input id="targetMonth" type="month"></div>
+    </div>
+    <button onclick="loadStatus()">表示を更新</button>
+    <div id="message" class="note"></div>
+  </section>
+
+  <section class="card">
+    <h2>入金サマリー</h2>
+    <div class="summary-grid">
+      <div class="summary-item"><div class="summary-label">現金</div><div id="cashTotal" class="summary-value">0円</div></div>
+      <div class="summary-item"><div class="summary-label">PayPay</div><div id="paypayTotal" class="summary-value">0円</div></div>
+      <div class="summary-item total"><div class="summary-label">合計</div><div id="grandTotal" class="summary-value">0円</div><div id="paymentCount" class="sub">0件</div></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>会員別・月次状況</h2>
+    <div id="memberList"><div class="empty">読み込み中です。</div></div>
+  </section>
+
+  <section class="card">
+    <h2>期間内の入金一覧</h2>
+    <div id="paymentList"><div class="empty">読み込み中です。</div></div>
+  </section>
+
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
+
+    initializeFilters();
+    loadStatus();
+
+    function initializeFilters() {
+      const today = new Date();
+      const month = today.getFullYear() + "-" + pad2(today.getMonth() + 1);
+      document.getElementById("targetMonth").value = month;
+      document.getElementById("dateFrom").value = month + "-01";
+      document.getElementById("dateTo").value = toDateValue(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+    }
+
+    function loadStatus() {
+      const message = document.getElementById("message");
+      message.className = "note loading";
+      message.textContent = "読み込み中です。";
+
+      jsonp(GAS_URL, {
+        action: "teacher_payment_status",
+        date_from: document.getElementById("dateFrom").value,
+        date_to: document.getElementById("dateTo").value,
+        target_month: document.getElementById("targetMonth").value
+      }).then(function(result) {
+        if (!result || result.ok !== true) throw new Error((result && result.message) || "会費状況を取得できませんでした。");
+        renderSummary(result.summary || {});
+        renderMembers(result.members || []);
+        renderPayments(result.payments || []);
+        message.className = "note";
+        message.textContent = result.date_from + " ～ " + result.date_to + " ／ 月次 " + result.target_month;
+      }).catch(function(error) {
+        message.className = "note error";
+        message.textContent = error.message || String(error);
+      });
+    }
+
+    function renderSummary(summary) {
+      document.getElementById("cashTotal").textContent = formatYen(summary.cash_total) + "円";
+      document.getElementById("paypayTotal").textContent = formatYen(summary.paypay_total) + "円";
+      document.getElementById("grandTotal").textContent = formatYen(summary.total_amount) + "円";
+      document.getElementById("paymentCount").textContent = Number(summary.payment_count || 0) + "件";
+    }
+
+    function renderMembers(rows) {
+      const root = document.getElementById("memberList");
+      if (!rows.length) {
+        root.innerHTML = '<div class="empty">対象月の請求はありません。</div>';
+        return;
+      }
+      root.innerHTML = rows.map(function(row) {
+        const statusClass = row.status === "支払済" ? "paid" : (row.status === "免除" ? "exempt" : "unpaid");
+        const name = (row.member_names || []).join("・") || row.billing_group_id;
+        return `
+          <div class="status-row">
+            <div class="status-head"><div class="member-name">${escapeHtml(name)}</div><span class="status ${statusClass}">${escapeHtml(row.status)}</span></div>
+            <div class="amounts">
+              <div class="amount-cell"><span>請求</span><strong>${formatYen(row.billed_total)}円</strong></div>
+              <div class="amount-cell"><span>入金</span><strong>${formatYen(row.paid_total)}円</strong></div>
+              <div class="amount-cell"><span>未払い</span><strong>${formatYen(row.unpaid_amount)}円</strong></div>
+            </div>
+            <div class="sub">稽古課金回数 ${Number(row.lesson_count || 0)}回 ／ ${escapeHtml(row.invoice_summary || "請求明細なし")}</div>
+          </div>`;
+      }).join("");
+    }
+
+    function renderPayments(rows) {
+      const root = document.getElementById("paymentList");
+      if (!rows.length) {
+        root.innerHTML = '<div class="empty">指定期間の入金はありません。</div>';
+        return;
+      }
+      root.innerHTML = rows.map(function(row) {
+        const name = row.member_id || row.billing_group_id || "会員未設定";
+        return `<div class="payment-row"><div class="payment-main"><strong>${escapeHtml(name)}</strong><div class="sub">${escapeHtml(row.paid_at)} ／ ${escapeHtml(row.payment_method_label || row.payment_method)} ／ 対象月 ${escapeHtml(row.target_month)}</div></div><div class="payment-amount">${formatYen(row.amount)}円</div></div>`;
+      }).join("");
+    }
+
+    function jsonp(url, params) {
+      return new Promise(function(resolve, reject) {
+        const callbackName = "paymentStatusCallback_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+        const script = document.createElement("script");
+        const query = new URLSearchParams(params || {});
+        query.set("callback", callbackName);
+        window[callbackName] = function(data) { cleanup(); resolve(data); };
+        script.onerror = function() { cleanup(); reject(new Error("GASとの通信に失敗しました。")); };
+        function cleanup() { delete window[callbackName]; if (script.parentNode) script.parentNode.removeChild(script); }
+        script.src = url + "?" + query.toString();
+        document.body.appendChild(script);
+      });
+    }
+
+    function formatYen(value) { return Number(value || 0).toLocaleString("ja-JP"); }
+    function pad2(value) { return String(value).padStart(2, "0"); }
+    function toDateValue(date) { return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate()); }
+    function escapeHtml(value) { const div = document.createElement("div"); div.textContent = String(value == null ? "" : value); return div.innerHTML; }
+  </script>
+</body>
+</html>

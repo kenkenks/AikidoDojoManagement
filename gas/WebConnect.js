@@ -33,6 +33,10 @@
 //     → paymentEvidenceQuery_list()
 //     → 先生画面用CONFIRMED一覧取得
 //
+//   teacher_payment_status
+//     → paymentStatusTeacher_get()
+//     → 先生画面用の期間入金集計・会員別月次状況
+//
 // POST
 //   paypay_code_record
 //     → paypayCode_record()
@@ -100,6 +104,17 @@ function doGet(e) {
         status: params.status || "CONFIRMED",
         statuses: params.statuses || params.status || "CONFIRMED",
         payment_method: params.payment_method || ""
+      }, ctx);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
+  if (params.action === "teacher_payment_status") {
+    const result = safelyExecute_(function() {
+      return paymentStatusTeacher_get({
+        date_from: params.date_from || "",
+        date_to: params.date_to || "",
+        target_month: params.target_month || sup_targetMonth(ctx)
       }, ctx);
     });
     return createJsonOrJsonpOutput_(result, params.callback);
