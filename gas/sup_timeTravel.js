@@ -102,7 +102,7 @@ function sup_getTimeTravelSetting_(ctx) {
   }
 
   if (s.DEBUG_TARGET_MONTH) {
-    result.targetMonth = s.DEBUG_TARGET_MONTH;
+    result.targetMonth = normalizeMonth(s.DEBUG_TARGET_MONTH);
   }
 
   if (s.DEBUG !== undefined) {
@@ -181,11 +181,15 @@ function sup_timeTravel_writeSettings_(updates, ctx) {
     if (key) rowByKey[key] = row + 1;
   }
   Object.keys(updates).forEach(function(key) {
+    let targetRange;
     if (rowByKey[key]) {
-      sheet.getRange(rowByKey[key], 2).setValue(updates[key]);
+      targetRange = sheet.getRange(rowByKey[key], 2);
     } else {
-      sheet.appendRow([key, updates[key]]);
+      const newRow = sheet.getLastRow() + 1;
+      sheet.getRange(newRow, 1).setValue(key);
+      targetRange = sheet.getRange(newRow, 2);
     }
+    targetRange.setNumberFormat("@").setValue(String(updates[key]));
   });
 }
 

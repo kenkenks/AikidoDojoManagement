@@ -642,7 +642,7 @@
       return new Promise(function (resolve, reject) {
         const callbackName = "attendanceCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
         const script = document.createElement("script");
-        const query = new URLSearchParams(Object.assign({}, params, { callback: callbackName }));
+        const query = new URLSearchParams(Object.assign({}, params, { callback: callbackName, _ts: Date.now() }));
         const timeout = window.setTimeout(function () { cleanup(); reject(new Error("稽古枠の取得がタイムアウトしました。")); }, 15000);
         function cleanup() {
           window.clearTimeout(timeout);

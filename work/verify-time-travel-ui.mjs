@@ -26,6 +26,8 @@ for (const entrance of [
 
 assert.match(connect, /params\.action === "system_context"/);
 assert.match(gas, /if \(setting\.enabled && setting\.targetMonth\)/);
+assert.match(gas, /result\.targetMonth = normalizeMonth\(s\.DEBUG_TARGET_MONTH\)/);
+assert.match(gas, /setNumberFormat\("@"\)\.setValue\(String\(updates\[key\]\)\)/);
 assert.doesNotMatch(connect, /params\.action === "time_travel_save"/);
 
 for (const page of [
@@ -41,6 +43,8 @@ verifyInlineScripts("gas/time_travel.html");
 assert.match(read("web/qr/payment_status.html"), /dojo-system-context/);
 assert.match(read("web/qr/attendance.html"), /currentAttendanceDate\(\)/);
 assert.match(read("web/qr/attendanceCheck.html"), /currentAttendanceDate\(\)/);
+assert.match(read("web/qr/attendance.html"), /callback:\s*callbackName,\s*_ts:\s*Date\.now\(\)/);
+assert.match(read("web/qr/attendanceCheck.html"), /callback:\s*callbackName,\s*_ts:\s*Date\.now\(\)/);
 assert.match(read("web/qr/payment_teacher.html"), /DOJO_SYSTEM_CONTEXT/);
 
 console.log("PASS verify-time-travel-ui");
