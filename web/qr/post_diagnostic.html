@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POST疎通診断</title><link rel="stylesheet" href="common.css">
+</head>
+<body class="teacher">
+  <h1>POST疎通診断</h1>
+  <section class="card">
+    <p>出席処理やシート更新を行わず、HTMLからGASへPOSTが届くことだけを確認します。</p>
+    <button onclick="runDiagnostic()">POST疎通テストを実行</button>
+    <pre id="result" class="note">未実行</pre>
+  </section>
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
+    function runDiagnostic() {
+      const token = "PING-" + Date.now() + "-" + Math.floor(Math.random() * 100000);
+      show("送信中\n" + token);
+      postViaForm({ mode:"diagnostic_ping", token:token });
+      pollResult(token, 1);
+    }
+    function postViaForm(payload) {
+      const target = "postDiagnosticFrame";
+      let iframe = document.getElementById(target);
+      if (!iframe) {
+        iframe = document.createElement("iframe"); iframe.id = target; iframe.name = target; iframe.hidden = true;
+        document.body.appendChild(iframe);
+      }
+      const form = document.createElement("form");
+      form.method = "POST"; form.action = GAS_URL; form.target = target; form.hidden = true;
+      const input = document.createElement("input");
+      input.type = "hidden"; input.name = "payload"; input.value = JSON.stringify(payload);
+      form.appendChild(input); document.body.appendChild(form); form.submit(); form.remove();
+    }
+    function pollResult(token, attempt) {
+      window.setTimeout(function() {
+        jsonp({ action:"diagnostic_post_result", token:token }).then(function(data) {
+          if (data && data.ok && data.received) return show("PASS\n" + JSON.stringify(data, null, 2));
+          if (attempt < 10) return pollResult(token, attempt + 1);
+          show("FAIL\n10秒以内にPOST受信を確認できませんでした。\n" + token);
+        }).catch(function(error) { show("ERROR\n" + (error.message || String(error))); });
+      }, 1000);
+    }
+    function jsonp(params) {
+      return new Promise(function(resolve, reject) {
+        const callback = "postDiagnosticCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
+        const script = document.createElement("script");
+        const query = new URLSearchParams(Object.assign({}, params, { callback:callback, _ts:Date.now() }));
+        function cleanup() { delete window[callback]; script.remove(); }
+        window[callback] = function(data) { cleanup(); resolve(data); };
+        script.onerror = function() { cleanup(); reject(new Error("GASへ接続できませんでした。")); };
+        script.src = GAS_URL + "?" + query.toString(); document.head.appendChild(script);
+      });
+    }
+    function show(text) { document.getElementById("result").textContent = text; }
+  </script>
+  <script src="system_context.js"></script>
+</body>
+</html>

@@ -127,6 +127,15 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "diagnostic_post_result") {
+    const token = String(params.token || "").trim();
+    const cached = token ? CacheService.getScriptCache().get("DIAG_POST_" + token) : "";
+    const result = cached
+      ? JSON.parse(cached)
+      : { ok:false, received:false, token:token, message:"POST受信記録はまだありません。" };
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "payment_reception_summary") {
     const result = safelyExecute_(function() {
       return paymentReception_getScopeSummary({
@@ -252,6 +261,20 @@ function doPost(e) {
       ? e.parameter.payload
       : e.postData.contents;
     const data = JSON.parse(jsonText);
+
+    if (data.mode === "diagnostic_ping") {
+      const token = String(data.token || "").trim();
+      if (!token) throw new Error("diagnostic_ping: tokenがありません。");
+      const receipt = {
+        ok:true,
+        received:true,
+        token:token,
+        received_at:sup_formatDate_(ctx, "yyyy-MM-dd HH:mm:ss"),
+        message:"HTMLからのPOSTをGASで受信しました。"
+      };
+      CacheService.getScriptCache().put("DIAG_POST_" + token, JSON.stringify(receipt), 600);
+      return receipt;
+    }
 
     if (data.mode === "attendance_batch" || Array.isArray(data.attendance_items)) {
       return registerAttendanceBatch(data, ctx);
