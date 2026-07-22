@@ -3,7 +3,7 @@
 // 級段位・審査進捗
 // ========================================
 //
-// 01_会員マスタを正本とし、出席ログから現在の審査対象稽古日数を集計する。
+// 01_会員マスタを正本とし、出席ログから現在の審査対象稽古枠数を集計する。
 // 級段位の名称・順序は14_級段位マスタ、必要稽古数は15_審査基準マスタを正本とする。
 // 会員マスタの「審査可能稽古数」は個別上書き値として優先する。
 
@@ -55,6 +55,7 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       carried_count: attendanceProgress_toNonNegativeNumber_(member["繰越稽古数"]),
       required_count: requiredCount,
       required_count_source: overrideCount > 0 ? "会員個別" : (standardCount > 0 ? "審査基準マスタ" : "未設定"),
+      attendance_keys: {},
       attendance_dates: {}
     };
   });
@@ -66,6 +67,8 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
     if (!state) return;
     const dateText = formatAttendanceDate_(row["稽古日"], ctx);
     if (!dateText || (state.start_date && dateText < state.start_date)) return;
+    const slotId = normalizeId_(row["slot_id"]) || "LEGACY_NO_SLOT";
+    state.attendance_keys[dateText + "|" + slotId] = true;
     state.attendance_dates[dateText] = true;
   });
 
@@ -74,7 +77,7 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
     const state = states[memberId];
     const member = state.member;
     const attendanceDates = Object.keys(state.attendance_dates).sort();
-    const recordedCount = attendanceDates.length;
+    const recordedCount = Object.keys(state.attendance_keys).length;
     const trainingCount = state.carried_count + recordedCount;
     const remainingCount = state.required_count > 0
       ? Math.max(state.required_count - trainingCount, 0)

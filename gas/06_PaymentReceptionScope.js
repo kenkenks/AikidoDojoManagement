@@ -52,6 +52,26 @@ function paymentReception_getScopeSummary(data, ctx) {
   const total = rows.reduce(function(sum, row) {
     return sum + Number(row["入金額"] || row["金額"] || 0);
   }, 0);
+  const memberNames = {};
+  getMembers(ctx).forEach(function(member) {
+    memberNames[normalizeId_(member["member_id"])] = String(member["氏名"] || "");
+  });
+  const payments = rows.map(function(row) {
+    const memberId = normalizeId_(row["member_id"]);
+    const method = paymentEvidence_normalizePaymentMethod_(row["支払方法"]);
+    return {
+      payment_id: normalizeId_(row["payment_id"]),
+      member_id: memberId,
+      member_name: memberNames[memberId] || "",
+      billing_group_id: normalizeId_(row["billing_group_id"]),
+      invoice_id: normalizeId_(row["invoice_id"]),
+      target_month: normalizeMonth(row["target_month"]),
+      amount: Number(row["入金額"] || row["金額"] || 0),
+      payment_method: method,
+      payment_method_label: method === "CASH" ? "現金" : (method === "PAYPAY" ? "PayPay" : String(row["支払方法"] || "その他")),
+      paid_at: paymentStatusTeacher_formatDateTime_(row["日時"])
+    };
+  });
 
   return {
     ok: true,
@@ -62,7 +82,8 @@ function paymentReception_getScopeSummary(data, ctx) {
     paypay_total: paypayTotal,
     other_total: total - cashTotal - paypayTotal,
     total_amount: total,
-    payment_count: rows.length
+    payment_count: rows.length,
+    payments: payments
   };
 }
 

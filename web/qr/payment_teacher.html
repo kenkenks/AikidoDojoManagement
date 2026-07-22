@@ -145,6 +145,12 @@
       font-size: 14px;
       color: #333;
     }
+    .registered-payment-list { margin-top: 10px; }
+    .registered-payment-row { padding: 10px 0; border-top: 1px solid #eee; }
+    .registered-payment-head { display: flex; justify-content: space-between; gap: 8px; }
+    .registered-payment-name { font-weight: bold; }
+    .registered-payment-status { color: #176b45; font-weight: bold; white-space: nowrap; }
+    .registered-payment-detail { margin-top: 4px; color: #444; font-size: 14px; line-height: 1.5; }
     .reconcile-grid {
       display: grid;
       grid-template-columns: 1fr 130px;
@@ -256,6 +262,7 @@
     <div>合計: <span id="registeredGrandTotal">0</span>円</div>
     <div>入金件数: <span id="registeredPaymentCount">0</span>件</div>
     <button onclick="loadRegisteredScopeSummary()">登録済みを再取得</button>
+    <div id="registeredPaymentList" class="registered-payment-list"><div class="mini-summary">登録済み明細はありません。</div></div>
   </div>
 
   <div class="card">
@@ -646,10 +653,39 @@
         document.getElementById("registeredPaypayTotal").textContent = formatYen(result.paypay_total);
         document.getElementById("registeredGrandTotal").textContent = formatYen(result.total_amount);
         document.getElementById("registeredPaymentCount").textContent = Number(result.payment_count || 0);
+        renderRegisteredPayments(result.payments || []);
         addLog("登録済み集計取得: " + result.total_amount + "円 / " + result.payment_count + "件");
       }).catch(function(error) {
         addLog("登録済み集計取得失敗: " + (error.message || String(error)));
       });
+    }
+
+    function renderRegisteredPayments(payments) {
+      const root = document.getElementById("registeredPaymentList");
+      if (!root) return;
+      if (!Array.isArray(payments) || payments.length === 0) {
+        root.innerHTML = '<div class="mini-summary">登録済み明細はありません。</div>';
+        return;
+      }
+      root.innerHTML = payments.map(function(payment) {
+        const name = payment.member_name || "会員名未設定";
+        const member = payment.member_id ? "（" + payment.member_id + "）" : "";
+        const billing = payment.billing_group_id || "未設定";
+        const invoice = payment.invoice_id ? " ／ 請求 " + payment.invoice_id : "";
+        return `
+          <div class="registered-payment-row">
+            <div class="registered-payment-head">
+              <span class="registered-payment-name">${escapeHtml(name + member)}</span>
+              <span class="registered-payment-status">支払済</span>
+            </div>
+            <div class="registered-payment-detail">
+              請求グループ ${escapeHtml(billing)}${escapeHtml(invoice)}<br>
+              対象月 ${escapeHtml(payment.target_month || "未設定")} ／
+              ${escapeHtml(payment.payment_method_label || payment.payment_method || "不明")} ${formatYen(payment.amount)}円<br>
+              受付 ${escapeHtml(payment.paid_at || "時刻不明")}
+            </div>
+          </div>`;
+      }).join("");
     }
 
     function makeReceptionSessionId() {
