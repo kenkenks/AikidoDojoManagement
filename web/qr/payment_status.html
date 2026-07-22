@@ -77,6 +77,16 @@
 
     initializeFilters();
     loadStatus();
+    window.addEventListener("dojo-system-context", function(event) {
+      const context = event.detail || {};
+      if (!context.system_now || !context.target_month) return;
+      const month = context.target_month;
+      document.getElementById("targetMonth").value = month;
+      document.getElementById("dateFrom").value = month + "-01";
+      const parts = month.split("-");
+      document.getElementById("dateTo").value = toDateValue(new Date(Number(parts[0]), Number(parts[1]), 0));
+      loadStatus();
+    });
 
     function initializeFilters() {
       const today = new Date();
@@ -169,5 +179,6 @@
     function toDateValue(date) { return date.getFullYear() + "-" + pad2(date.getMonth() + 1) + "-" + pad2(date.getDate()); }
     function escapeHtml(value) { const div = document.createElement("div"); div.textContent = String(value == null ? "" : value); return div.innerHTML; }
   </script>
+  <script src="system_context.js"></script>
 </body>
 </html>

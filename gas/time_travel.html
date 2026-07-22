@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <style>
+    body { font-family:sans-serif; padding:16px; color:#222; }
+    .warning { padding:10px; background:#fff1d6; border:1px solid #e0a43a; border-radius:8px; line-height:1.5; }
+    label { display:block; margin-top:14px; font-weight:bold; }
+    input[type="datetime-local"], input[type="month"] { width:100%; box-sizing:border-box; padding:9px; font-size:16px; }
+    button { margin-top:16px; padding:10px 14px; font-size:15px; }
+    button.primary { color:#fff; background:#b65f00; border:1px solid #944e00; border-radius:7px; }
+    #status { margin-top:14px; white-space:pre-line; line-height:1.5; }
+  </style>
+</head>
+<body>
+  <div class="warning">この設定は全画面へ共通で反映されます。画面スモーク終了後は必ず「実時刻へ戻す」を実行してください。</div>
+  <label><input id="enabled" type="checkbox"> タイムトリップを有効にする</label>
+  <label for="systemNow">テスト日時</label>
+  <input id="systemNow" type="datetime-local" step="1">
+  <label for="targetMonth">対象月</label>
+  <input id="targetMonth" type="month">
+  <button class="primary" onclick="save()">設定を保存</button>
+  <button onclick="resetRealTime()">実時刻へ戻す</button>
+  <div id="status">読み込み中です。</div>
+  <script>
+    google.script.run.withSuccessHandler(render).withFailureHandler(showError).sup_timeTravel_getAdminSetting();
+    function render(data) {
+      document.getElementById("enabled").checked = data.enabled === true;
+      if (data.now) document.getElementById("systemNow").value = toLocalInput(data.now);
+      document.getElementById("targetMonth").value = data.target_month || "";
+      showEffective(data.effective);
+    }
+    function save() {
+      setStatus("保存中です。");
+      const value = document.getElementById("systemNow").value;
+      const input = {
+        enabled: document.getElementById("enabled").checked,
+        now: value ? new Date(value).toISOString() : "",
+        target_month: document.getElementById("targetMonth").value
+      };
+      google.script.run.withSuccessHandler(function(data) {
+        if (!data.ok) return setStatus(data.message);
+        showEffective(data.effective, data.message);
+      }).withFailureHandler(showError).sup_timeTravel_saveAdminSetting(input);
+    }
+    function resetRealTime() {
+      document.getElementById("enabled").checked = false;
+      setStatus("実時刻へ戻しています。");
+      google.script.run.withSuccessHandler(function(data) {
+        if (!data.ok) return setStatus(data.message);
+        showEffective(data.effective, data.message);
+      }).withFailureHandler(showError).sup_timeTravel_saveAdminSetting({ enabled:false });
+    }
+    function showEffective(effective, message) {
+      setStatus((message ? message + "\n" : "") +
+        "システム日時: " + effective.system_now + "\n" +
+        "対象月: " + effective.target_month + "\n" +
+        "状態: " + (effective.time_travel_enabled ? "テスト時刻" : "実時刻"));
+    }
+    function toLocalInput(iso) {
+      const date = new Date(iso);
+      const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+      return local.toISOString().slice(0, 19);
+    }
+    function setStatus(text) { document.getElementById("status").textContent = text; }
+    function showError(error) { setStatus(error.message || String(error)); }
+  </script>
+</body>
+</html>

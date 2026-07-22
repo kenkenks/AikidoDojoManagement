@@ -18,3 +18,5 @@ a.button { display:block; padding:14px; border-radius:10px; text-decoration:none
 input { width:100%; font-size:18px; padding:12px; border:1px solid #aaa; border-radius:8px; }
 button { font-size:16px; padding:10px 14px; margin-top:10px; border-radius:8px; border:1px solid #999; background:#fff; }
 button.primary.member { color:#fff; background:var(--member); border-color:var(--member); }
+.system-context { margin:-16px -16px 14px; padding:8px 16px; font-size:13px; text-align:center; background:#edf1f4; border-bottom:1px solid #c9d0d5; }
+.system-context.time-travel { color:#7a3e00; font-weight:bold; background:#fff1d6; border-bottom-color:#e0a43a; }

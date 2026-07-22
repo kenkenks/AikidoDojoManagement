@@ -120,6 +120,13 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "system_context") {
+    const result = safelyExecute_(function() {
+      return sup_timeTravel_getSystemContext(ctx);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "payment_reception_summary") {
     const result = safelyExecute_(function() {
       return paymentReception_getScopeSummary({

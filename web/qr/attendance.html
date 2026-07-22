@@ -109,7 +109,11 @@
     let submitting = false;
     let rankOptions = [];
 
-    document.getElementById("attendanceDate").textContent = localDateText(new Date());
+    document.getElementById("attendanceDate").textContent = currentAttendanceDate();
+    window.addEventListener("dojo-system-context", function() {
+      document.getElementById("attendanceDate").textContent = currentAttendanceDate();
+      if (currentLocationId) loadAttendanceSessionInfo();
+    });
     updateSendButton();
     loadRankOptions();
 
@@ -307,7 +311,7 @@
     function loadMemberAttendanceState(memberId, expectedState, quiet) {
       return jsonp(GAS_URL, {
         action: "member_attendance_state",
-        attendance_date: localDateText(new Date()),
+        attendance_date: currentAttendanceDate(),
         member_id: memberId,
         location_id: currentLocationId,
         billing_block_id: currentBillingBlockId
@@ -504,7 +508,7 @@
       const payload = {
         mode: "attendance_batch",
         attendance_session_id: attendanceSessionId,
-        attendance_date: localDateText(new Date()),
+        attendance_date: currentAttendanceDate(),
         teacher_id: currentTeacherId,
         location_id: currentLocationId,
         billing_block_id: currentBillingBlockId,
@@ -659,6 +663,11 @@
       return year + "-" + month + "-" + day;
     }
 
+    function currentAttendanceDate() {
+      const context = window.DOJO_SYSTEM_CONTEXT;
+      return context && context.system_now ? String(context.system_now).slice(0, 10) : localDateText(new Date());
+    }
+
     function createSessionId() {
       if (window.crypto && typeof window.crypto.randomUUID === "function") return "ASES-" + window.crypto.randomUUID();
       return "ASES-" + Date.now() + "-" + Math.random().toString(16).slice(2);
@@ -683,5 +692,6 @@
       if (navigator.vibrate) navigator.vibrate(100);
     }
   </script>
+  <script src="system_context.js"></script>
 </body>
 </html>
