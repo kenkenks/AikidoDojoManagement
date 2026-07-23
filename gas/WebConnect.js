@@ -189,6 +189,16 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "teacher_attendance_identity") {
+    const result = safelyExecute_(function() {
+      return teacherAttendance_resolveIdentity({
+        teacher_id:params.teacher_id || "",
+        member_id:params.member_id || ""
+      }, ctx);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "teacher_attendance_monthly_summary") {
     const result = safelyExecute_(function() {
       return teacherAttendance_getMonthlySummary({ target_month:params.target_month || sup_targetMonth(ctx) }, ctx);

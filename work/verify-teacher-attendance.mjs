@@ -15,7 +15,9 @@ const checks = [
   [context.includes("function getTeacherAttendances"), "先生出席DAOがある"],
   [web.includes('data.mode === "teacher_attendance_sync"'), "POST入口がある"],
   [web.includes('params.action === "teacher_attendance_state"'), "状態取得入口がある"],
+  [web.includes('params.action === "teacher_attendance_identity"'), "会員IDから先生IDを解決する入口がある"],
   [html.includes("先生出席を登録"), "専用画面がある"],
+  [html.includes("member_id") && html.includes("setTeacherIdentity"), "会員QRを先生IDへ解決する"],
   [html.includes("dateWithWeekday"), "日付に曜日を表示する"]
 ];
 

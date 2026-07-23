@@ -31,9 +31,10 @@
     let teacherId=session&&session.role==="TEACHER"?session.teacher_id:"";
     let locationId=new URLSearchParams(location.search).get("location_id")||"";
     let billingBlockId=new URLSearchParams(location.search).get("billing_block_id")||"";
-    let slots=[],selected=[],scanner=null,scanning=false;
-    renderKeys();loadMonthlySummary();if(locationId&&billingBlockId)loadState();
-    window.addEventListener("dojo-system-context",function(){renderKeys();loadMonthlySummary();if(locationId&&billingBlockId)loadState();});
+    let slots=[],selected=[],scanner=null,scanning=false,initialized=false;
+    renderKeys();
+    window.addEventListener("dojo-system-context",function(){initializeWithSystemContext()});
+    window.setTimeout(function(){if(!initialized)initializeWithSystemContext()},4000);
 
     function attendanceDate(){const c=window.DOJO_SYSTEM_CONTEXT;return c&&c.system_now?String(c.system_now).slice(0,10):localDate(new Date())}
     function targetMonth(){const c=window.DOJO_SYSTEM_CONTEXT;return c&&c.target_month?String(c.target_month).slice(0,7):attendanceDate().slice(0,7)}
@@ -43,8 +44,10 @@
     function set(id,value){const e=document.getElementById(id);e.textContent=value||"未設定";e.className=value?"ok":"warn"}
     function startScan(){if(scanning)return;scanner=scanner||new Html5Qrcode("reader");scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:250}},onQr,function(){}).then(function(){scanning=true}).catch(showError)}
     function stopScan(){if(!scanner||!scanning)return Promise.resolve();return scanner.stop().then(function(){scanning=false})}
-    function onQr(text){const p=parseQr(text);if(p.teacher_id){DojoVirtualSession.loginTeacher(p.teacher_id,"TEACHER_ATTENDANCE_QR");teacherId=p.teacher_id}else{if(p.location_id)locationId=p.location_id;if(p.billing_block_id)billingBlockId=p.billing_block_id}renderKeys();if(teacherId&&locationId&&billingBlockId)loadState()}
-    function parseQr(text){const r={teacher_id:"",location_id:"",billing_block_id:""};try{const u=new URL(text,location.href);Object.keys(r).forEach(function(k){r[k]=u.searchParams.get(k)||""})}catch(e){}if(!r.teacher_id&&!r.location_id&&!r.billing_block_id){const p=new URLSearchParams(String(text).replace(/^\?/,""));Object.keys(r).forEach(function(k){r[k]=p.get(k)||""})}return r}
+    function initializeWithSystemContext(){initialized=true;renderKeys();loadMonthlySummary();if(teacherId&&locationId&&billingBlockId)loadState()}
+    function onQr(text){const p=parseQr(text);if(p.teacher_id){setTeacherIdentity(p.teacher_id,"")}else if(p.member_id){setTeacherIdentity("",p.member_id)}else{if(p.location_id)locationId=p.location_id;if(p.billing_block_id)billingBlockId=p.billing_block_id;renderKeys();if(teacherId&&locationId&&billingBlockId)loadState()}}
+    function setTeacherIdentity(scannedTeacherId,scannedMemberId){show("先生情報を確認しています。");jsonp({action:"teacher_attendance_identity",teacher_id:scannedTeacherId,member_id:scannedMemberId}).then(function(r){if(!r.ok)throw new Error(r.message);teacherId=r.teacher_id;DojoVirtualSession.loginTeacher(teacherId,"TEACHER_ATTENDANCE_QR");renderKeys();show((r.teacher_name||teacherId)+" を先生として設定しました。","ok");if(locationId&&billingBlockId)return loadState()}).catch(showError)}
+    function parseQr(text){const r={teacher_id:"",member_id:"",location_id:"",billing_block_id:""};try{const u=new URL(text,location.href);Object.keys(r).forEach(function(k){r[k]=u.searchParams.get(k)||""})}catch(e){}if(!r.teacher_id&&!r.member_id&&!r.location_id&&!r.billing_block_id){const p=new URLSearchParams(String(text).replace(/^\?/,""));Object.keys(r).forEach(function(k){r[k]=p.get(k)||""})}return r}
     function loadState(){jsonp({action:"teacher_attendance_state",teacher_id:teacherId,attendance_date:attendanceDate(),location_id:locationId,billing_block_id:billingBlockId}).then(function(r){if(!r.ok)throw new Error(r.message);slots=r.slots||[];selected=r.selected_slot_ids||[];document.getElementById("role").value=r.role||"主先生";renderSlots();show("登録済みの先生出席を読み込みました。")}).catch(showError)}
     function renderSlots(){const root=document.getElementById("slots");root.innerHTML="";slots.forEach(function(slot){const b=document.createElement("button");b.className="slot"+(selected.indexOf(slot.slot_id)>=0?" selected":"");b.textContent=(slot.label||slot.slot_id)+"　"+slot.start_time+"–"+slot.end_time;b.onclick=function(){const i=selected.indexOf(slot.slot_id);if(i>=0)selected.splice(i,1);else selected.push(slot.slot_id);renderSlots();updateButton()};root.appendChild(b)});updateButton()}
     function updateButton(){document.getElementById("saveButton").disabled=!teacherId||!locationId||!billingBlockId||slots.length===0}

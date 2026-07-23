@@ -74,6 +74,41 @@ function teacherAttendance_getState(data, ctx) {
   };
 }
 
+function teacherAttendance_resolveIdentity(data, ctx) {
+  ctx = ensureSheetContext(ctx || createSheetContext());
+  teacherAttendance_ensureSchema(ctx);
+  data = data || {};
+  const teacherId = normalizeId_(data.teacher_id);
+  const memberId = normalizeId_(data.member_id);
+  let teacher = null;
+  if (teacherId) {
+    teacher = getTeachers(ctx).find(function(row) {
+      return normalizeId_(row["teacher_id"]) === teacherId && isActiveMasterRow_(row);
+    });
+  } else if (memberId) {
+    teacher = getTeachers(ctx).find(function(row) {
+      return normalizeId_(row["member_id"]) === memberId && isActiveMasterRow_(row);
+    });
+  }
+  if (!teacher) {
+    return {
+      ok:false,
+      teacher_id:teacherId,
+      member_id:memberId,
+      message:memberId
+        ? "この会員IDには有効な先生IDが紐づいていません: " + memberId
+        : "有効な先生が見つかりません。"
+    };
+  }
+  return {
+    ok:true,
+    teacher_id:normalizeId_(teacher["teacher_id"]),
+    member_id:normalizeId_(teacher["member_id"]),
+    teacher_name:teacherAttendance_teacherName_(teacher, ctx),
+    organization_role:String(teacher["組織役割"] || "先生")
+  };
+}
+
 function teacherAttendance_sync(data, ctx) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
