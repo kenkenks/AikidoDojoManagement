@@ -34,7 +34,11 @@
     let slots=[],selected=[],scanner=null,scanning=false,initialized=false;
     renderKeys();
     window.addEventListener("dojo-system-context",function(){initializeWithSystemContext()});
-    window.setTimeout(function(){if(!initialized)initializeWithSystemContext()},4000);
+    window.addEventListener("dojo-system-context-error",function(event){
+      initialized=false;
+      show((event.detail&&event.detail.message)||"システム時刻を取得できません。","error");
+      document.getElementById("saveButton").disabled=true;
+    });
 
     function attendanceDate(){const c=window.DOJO_SYSTEM_CONTEXT;return c&&c.system_now?String(c.system_now).slice(0,10):localDate(new Date())}
     function targetMonth(){const c=window.DOJO_SYSTEM_CONTEXT;return c&&c.target_month?String(c.target_month).slice(0,7):attendanceDate().slice(0,7)}
@@ -55,7 +59,7 @@
     function postForm(payload){const f=document.createElement("form"),i=document.createElement("input"),frame=document.createElement("iframe"),name="tattFrame"+Date.now();frame.name=name;frame.hidden=true;f.method="POST";f.action=GAS_URL;f.target=name;f.hidden=true;i.name="payload";i.value=JSON.stringify(payload);f.appendChild(i);document.body.append(frame,f);f.submit();setTimeout(function(){f.remove();frame.remove()},120000)}
     function waitReceipt(id,left){return jsonp({action:"post_receipt",request_id:id}).then(function(r){if(r.completed)return r;if(left<=0)throw new Error("登録完了の確認がタイムアウトしました。");return new Promise(function(resolve){setTimeout(resolve,1000)}).then(function(){return waitReceipt(id,left-1)})})}
     function loadMonthlySummary(){return jsonp({action:"teacher_attendance_monthly_summary",target_month:targetMonth()}).then(function(r){if(!r.ok)throw new Error(r.message);const root=document.getElementById("monthlySummary");if(!r.teachers.length){root.textContent="登録された先生出席はありません。";return}root.innerHTML=r.teachers.map(function(x){return '<div class="summary-row"><strong>'+esc(x.teacher_name||x.teacher_id)+'</strong><span>主 '+x.main_count+'回</span><span>副 '+x.sub_count+'回</span><span>計 '+x.total_count+'回</span></div>'}).join("")}).catch(showError)}
-    function jsonp(params){return new Promise(function(resolve,reject){const cb="tattCb"+Date.now()+Math.floor(Math.random()*10000),s=document.createElement("script"),timer=setTimeout(function(){clean();reject(new Error("GAS接続がタイムアウトしました。"))},15000);function clean(){clearTimeout(timer);delete window[cb];s.remove()}window[cb]=function(r){clean();resolve(r)};s.onerror=function(){clean();reject(new Error("GASへ接続できません。"))};s.src=GAS_URL+"?"+new URLSearchParams(Object.assign({},params,{callback:cb,_ts:Date.now()}));document.head.appendChild(s)})}
+    function jsonp(params){return new Promise(function(resolve,reject){const cb="tattCb"+Date.now()+Math.floor(Math.random()*10000),s=document.createElement("script");let scriptErrorObserved=false;const timer=setTimeout(function(){clean();reject(new Error(scriptErrorObserved?"GASから応答を受け取れませんでした。":"GAS接続がタイムアウトしました。"))},20000);function clean(){clearTimeout(timer);delete window[cb];s.remove()}window[cb]=function(r){clean();resolve(r)};s.onerror=function(){scriptErrorObserved=true};s.src=GAS_URL+"?"+new URLSearchParams(Object.assign({},params,{callback:cb,_ts:Date.now()}));document.head.appendChild(s)})}
     function show(text,kind){const e=document.getElementById("message");e.textContent=text;e.className=kind||"note"}
     function showError(error){show(error.message||String(error),"error")}
     function esc(v){return String(v||"").replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]})}

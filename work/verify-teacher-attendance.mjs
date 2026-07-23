@@ -3,6 +3,7 @@ import fs from "node:fs";
 const core = fs.readFileSync(new URL("../gas/16_TeacherAttendance.js", import.meta.url), "utf8");
 const web = fs.readFileSync(new URL("../gas/WebConnect.js", import.meta.url), "utf8");
 const html = fs.readFileSync(new URL("../web/qr/teacher_attendance.html", import.meta.url), "utf8");
+const systemContext = fs.readFileSync(new URL("../web/qr/system_context.js", import.meta.url), "utf8");
 const context = fs.readFileSync(new URL("../gas/sheetContext.js", import.meta.url), "utf8");
 
 const checks = [
@@ -18,7 +19,10 @@ const checks = [
   [web.includes('params.action === "teacher_attendance_identity"'), "会員IDから先生IDを解決する入口がある"],
   [html.includes("先生出席を登録"), "専用画面がある"],
   [html.includes("member_id") && html.includes("setTeacherIdentity"), "会員QRを先生IDへ解決する"],
-  [html.includes("dateWithWeekday"), "日付に曜日を表示する"]
+  [html.includes("dateWithWeekday"), "日付に曜日を表示する"],
+  [html.includes("scriptErrorObserved=true"), "iPhoneの先行script errorでJSONPを即終了しない"],
+  [!html.includes("initializeWithSystemContext()},4000"), "実時刻への4秒フォールバックを行わない"],
+  [systemContext.includes("scriptErrorObserved = true"), "システム時刻JSONPもiPhoneの先行errorを待機する"]
 ];
 
 const failed = checks.filter(([ok]) => !ok).map(([, message]) => message);

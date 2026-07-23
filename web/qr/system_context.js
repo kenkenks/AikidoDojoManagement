@@ -3,6 +3,17 @@
   const callbackName = "systemContextCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
   const script = document.createElement("script");
   const query = new URLSearchParams({ action:"system_context", callback:callbackName, _ts:Date.now() });
+  let scriptErrorObserved = false;
+  const timeout = window.setTimeout(function() {
+    cleanup();
+    window.dispatchEvent(new CustomEvent("dojo-system-context-error", {
+      detail: {
+        message: scriptErrorObserved
+          ? "システム時刻の取得中に通信エラーが発生しました。"
+          : "システム時刻の取得がタイムアウトしました。"
+      }
+    }));
+  }, 20000);
   script.src = GAS_URL + "?" + query.toString();
   window[callbackName] = function(data) {
     cleanup();
@@ -15,9 +26,14 @@
     document.body.insertBefore(banner, document.body.firstChild);
     window.dispatchEvent(new CustomEvent("dojo-system-context", { detail:data }));
   };
-  script.onerror = cleanup;
+  // iPhone Safariでは、JSONPコールバックが後から成功する場合でも
+  // script.onerrorが先に発生することがあるため、ここでは終了しない。
+  script.onerror = function() {
+    scriptErrorObserved = true;
+  };
   document.head.appendChild(script);
   function cleanup() {
+    window.clearTimeout(timeout);
     delete window[callbackName];
     if (script.parentNode) script.parentNode.removeChild(script);
   }
