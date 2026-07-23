@@ -10,7 +10,12 @@ const TEACHER_ROLE_LINK_HEADERS = ["member_id", "組織役割", "適用開始日
 
 function setupTeacherAttendance() {
   const result = teacherAttendance_ensureSchema(createSheetContext());
-  Browser.msgBox("先生出席のシート・先生役割列を確認しました。");
+  const message = "先生出席のシート・先生役割列を確認しました。";
+  Logger.log(JSON.stringify({
+    message: message,
+    result: result
+  }, null, 2));
+  SpreadsheetApp.getActiveSpreadsheet().toast(message, "先生出席セットアップ", 5);
   return result;
 }
 
