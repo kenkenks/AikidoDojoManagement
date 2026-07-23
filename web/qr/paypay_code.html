@@ -59,6 +59,7 @@
 
   <p class="note"><a href="member_home.html">会員ホームへ戻る</a></p>
 
+  <script src="virtual_session.js"></script>
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
 
@@ -66,7 +67,9 @@
 
     window.addEventListener("load", function() {
       const params = new URLSearchParams(window.location.search);
-      const memberId = params.get("member_id") || "";
+      const memberSession = DojoVirtualSession.get();
+      const memberId = params.get("member_id") ||
+        (memberSession && memberSession.role === "MEMBER" ? memberSession.member_id : "") || "";
       const planId = params.get("plan_id") || "";
 
       document.getElementById("memberId").value = memberId;

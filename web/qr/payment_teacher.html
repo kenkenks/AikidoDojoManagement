@@ -291,6 +291,7 @@
     <ul id="log"></ul>
   </div>
 
+  <script src="virtual_session.js"></script>
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
 
@@ -378,6 +379,7 @@
 
       if (parsed.teacher_id) {
         currentTeacherId = parsed.teacher_id;
+        DojoVirtualSession.loginTeacher(currentTeacherId, "SCREEN_QR");
         document.getElementById("teacherId").textContent = currentTeacherId;
         document.getElementById("teacherId").className = "ok";
         addLog("先生QR読取: " + currentTeacherId);
@@ -1180,9 +1182,12 @@
 
   function initializeReceptionScopeFromUrl() {
     const params = new URLSearchParams(location.search);
+    const teacherSession = DojoVirtualSession.get();
     currentLocationId = params.get("location_id") || "";
-    currentTeacherId = params.get("teacher_id") || "";
+    currentTeacherId = params.get("teacher_id") ||
+      (teacherSession && teacherSession.role === "TEACHER" ? teacherSession.teacher_id : "") || "";
     currentBillingBlockId = params.get("billing_block_id") || "";
+    if (params.get("teacher_id")) DojoVirtualSession.loginTeacher(currentTeacherId, "PAGE_URL");
 
     if (currentLocationId) {
       document.getElementById("locationId").textContent = currentLocationId;

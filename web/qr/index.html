@@ -1,14 +1,104 @@
 <!DOCTYPE html>
 <html lang="ja">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>合気道システム 入口</title><link rel="stylesheet" href="common.css"></head>
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>合気道システム 入口</title><link rel="stylesheet" href="common.css"><script src="https://unpkg.com/html5-qrcode"></script></head>
 <body class="portal">
   <h1>🥋 合気道システム</h1>
   <section class="card">
     <h2>入口</h2>
-    <div class="grid">
-      <a class="button member-link" href="member_home.html">🟩 会員入口</a>
-      <a class="button teacher-link" href="teacher_home.html">🟦 先生入口</a>
-    </div>
-    <p class="note">背景色で画面の役割を判別します。会員画面は緑系、先生画面は青系です。</p>
+    <div id="loginState" class="login-message">先生または会員のQRを読み取ってください。</div>
+    <button id="scanButton" onclick="startLoginScan()">QR読み取り開始</button>
+    <button id="stopButton" onclick="stopLoginScan()">停止</button>
+    <div id="loginReader"></div>
+    <p class="note">このログインは同じタブのページ間で保持されます。タブを閉じるか、ログアウトすると解除されます。</p>
   </section>
+  <script src="virtual_session.js"></script>
+  <script>
+    let loginQr = null;
+    let loginScanning = false;
+
+    renderLoginState();
+
+    function startLoginScan() {
+      if (loginScanning) return;
+      if (!window.Html5Qrcode) return showLoginMessage("QR読取機能を読み込めませんでした。", "error");
+      loginQr = loginQr || new Html5Qrcode("loginReader");
+      loginQr.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        handleLoginQr,
+        function() {}
+      ).then(function() { loginScanning = true; })
+       .catch(function(error) { showLoginMessage("カメラを開始できませんでした: " + error, "error"); });
+    }
+
+    function stopLoginScan() {
+      if (!loginQr || !loginScanning) return Promise.resolve();
+      return loginQr.stop().then(function() { loginScanning = false; });
+    }
+
+    function handleLoginQr(text) {
+      const identity = parseLoginQr(text);
+      if (!identity.teacher_id && !identity.member_id) {
+        showLoginMessage("先生・会員QRではありません。", "error");
+        return;
+      }
+      stopLoginScan().catch(function() {}).then(function() {
+        if (identity.teacher_id) {
+          DojoVirtualSession.loginTeacher(identity.teacher_id, "ENTRY_QR");
+          location.href = "teacher_home.html";
+        } else {
+          DojoVirtualSession.loginMember(identity.member_id, "ENTRY_QR");
+          location.href = "member_home.html";
+        }
+      });
+    }
+
+    function parseLoginQr(text) {
+      const result = { teacher_id: "", member_id: "" };
+      try {
+        const url = new URL(text, location.href);
+        result.teacher_id = String(url.searchParams.get("teacher_id") || "").trim();
+        result.member_id = String(url.searchParams.get("member_id") || "").trim();
+      } catch (error) {}
+      if (!result.teacher_id && !result.member_id) {
+        const params = new URLSearchParams(String(text || "").replace(/^\?/, ""));
+        result.teacher_id = String(params.get("teacher_id") || "").trim();
+        result.member_id = String(params.get("member_id") || "").trim();
+      }
+      return result;
+    }
+
+    function renderLoginState() {
+      const session = DojoVirtualSession.get();
+      if (!session) return;
+      const label = session.role === "TEACHER" ? "先生" : "会員";
+      document.getElementById("loginState").innerHTML =
+        '<div class="login-state"><strong>' + escapeHtml(label + " " + session.subject_id + " でログイン中") + '</strong>' +
+        '<span><button onclick="continueLogin()">続ける</button> <button onclick="logoutHere()">ログアウト</button></span></div>';
+      document.getElementById("loginState").className = "login-message ok";
+    }
+
+    function continueLogin() {
+      const session = DojoVirtualSession.get();
+      if (session) location.href = session.role === "TEACHER" ? "teacher_home.html" : "member_home.html";
+    }
+
+    function logoutHere() {
+      DojoVirtualSession.logout();
+      document.getElementById("loginState").textContent = "ログアウトしました。先生または会員のQRを読み取ってください。";
+      document.getElementById("loginState").className = "login-message";
+    }
+
+    function showLoginMessage(message, type) {
+      const target = document.getElementById("loginState");
+      target.textContent = message;
+      target.className = "login-message " + (type || "");
+    }
+
+    function escapeHtml(value) {
+      return String(value || "").replace(/[&<>"']/g, function(char) {
+        return ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[char];
+      });
+    }
+  </script>
 </body></html>

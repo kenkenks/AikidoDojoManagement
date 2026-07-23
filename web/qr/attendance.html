@@ -92,6 +92,7 @@
     <ul id="log"></ul>
   </section>
 
+  <script src="virtual_session.js"></script>
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
     const memberNameMap = { M001: "山田太郎", M002: "川本花子", M003: "佐藤一郎" };
@@ -108,6 +109,12 @@
     let attendanceSessionId = createSessionId();
     let submitting = false;
     let rankOptions = [];
+
+    const initialTeacherSession = DojoVirtualSession.get();
+    if (initialTeacherSession && initialTeacherSession.role === "TEACHER") {
+      currentTeacherId = initialTeacherSession.teacher_id;
+      renderKeys();
+    }
 
     document.getElementById("attendanceDate").textContent = currentAttendanceDate();
     window.addEventListener("dojo-system-context", function() {
@@ -174,6 +181,7 @@
       }
       if (parsed.teacher_id) {
         currentTeacherId = parsed.teacher_id;
+        DojoVirtualSession.loginTeacher(currentTeacherId, "SCREEN_QR");
         renderKeys();
         addLog("先生QR読取: " + currentTeacherId);
         beep();

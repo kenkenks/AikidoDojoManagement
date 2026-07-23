@@ -42,9 +42,12 @@
 
   <section class="card error" id="errorCard" hidden></section>
 
+  <script src="virtual_session.js"></script>
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
-    const initialMemberId = new URLSearchParams(location.search).get("member_id") || "";
+    const memberSession = DojoVirtualSession.get();
+    const initialMemberId = new URLSearchParams(location.search).get("member_id") ||
+      (memberSession && memberSession.role === "MEMBER" ? memberSession.member_id : "") || "";
     document.getElementById("memberId").value = initialMemberId;
     if (initialMemberId) loadSummary();
 

@@ -3,6 +3,7 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>会員ホーム</title><link rel="stylesheet" href="common.css"></head>
 <body class="member">
   <h1>🥋 会員ホーム</h1>
+  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><button onclick="logoutSession()">ログアウト</button></section>
   <section class="card">
     <h2>会員メニュー</h2>
     <div class="grid">
@@ -14,11 +15,20 @@
     </div>
   </section>
   <p class="note"><a href="index.html">入口へ戻る</a></p>
+  <script src="virtual_session.js"></script>
   <script>
-    const memberId = new URLSearchParams(location.search).get("member_id") || "";
+    const queryMemberId = new URLSearchParams(location.search).get("member_id") || "";
+    if (queryMemberId) DojoVirtualSession.loginMember(queryMemberId, "PAGE_URL");
+    const memberSession = DojoVirtualSession.get();
+    const memberId = memberSession && memberSession.role === "MEMBER" ? memberSession.member_id : queryMemberId;
     if (memberId) {
+      document.getElementById("loginIdentity").textContent = "会員 " + memberId + " でログイン中";
       document.getElementById("attendanceSummaryLink").href =
         "attendance_summary.html?member_id=" + encodeURIComponent(memberId);
+    }
+    function logoutSession() {
+      DojoVirtualSession.logout();
+      location.href = "index.html";
     }
   </script>
   <script src="system_context.js"></script>

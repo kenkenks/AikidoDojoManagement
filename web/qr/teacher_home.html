@@ -3,6 +3,7 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>先生ホーム</title><link rel="stylesheet" href="common.css"></head>
 <body class="teacher">
   <h1>🥋 先生ホーム</h1>
+  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><button onclick="logoutSession()">ログアウト</button></section>
   <section class="card">
     <h2>先生メニュー</h2>
     <div class="grid">
@@ -16,5 +17,18 @@
     </div>
   </section>
   <p class="note"><a href="index.html">入口へ戻る</a></p>
+  <script src="virtual_session.js"></script>
+  <script>
+    const queryTeacherId = new URLSearchParams(location.search).get("teacher_id") || "";
+    if (queryTeacherId) DojoVirtualSession.loginTeacher(queryTeacherId, "PAGE_URL");
+    const teacherSession = DojoVirtualSession.get();
+    if (teacherSession && teacherSession.role === "TEACHER") {
+      document.getElementById("loginIdentity").textContent = "先生 " + teacherSession.teacher_id + " でログイン中";
+    }
+    function logoutSession() {
+      DojoVirtualSession.logout();
+      location.href = "index.html";
+    }
+  </script>
   <script src="system_context.js"></script>
 </body></html>

@@ -121,6 +121,7 @@
     <ul id="log"></ul>
   </section>
 
+  <script src="virtual_session.js"></script>
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
     const memberNameMap = { M001: "山田太郎", M002: "川本花子", M003: "佐藤一郎" };
@@ -163,7 +164,10 @@
       const query = new URLSearchParams(window.location.search);
       currentLocationId = String(query.get("location_id") || "").trim();
       currentBillingBlockId = String(query.get("billing_block_id") || "").trim();
-      currentTeacherId = String(query.get("teacher_id") || "").trim();
+      const teacherSession = DojoVirtualSession.get();
+      currentTeacherId = String(query.get("teacher_id") ||
+        (teacherSession && teacherSession.role === "TEACHER" ? teacherSession.teacher_id : "") || "").trim();
+      if (query.get("teacher_id")) DojoVirtualSession.loginTeacher(currentTeacherId, "PAGE_URL");
       renderKeys();
 
       if (currentLocationId) {
@@ -237,6 +241,7 @@
       }
       if (parsed.teacher_id) {
         currentTeacherId = parsed.teacher_id;
+        DojoVirtualSession.loginTeacher(currentTeacherId, "SCREEN_QR");
         renderKeys();
         addLog("先生QR読取: " + currentTeacherId);
         beep();
