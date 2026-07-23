@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>先生出席</title><link rel="stylesheet" href="common.css"><script src="https://unpkg.com/html5-qrcode"></script>
+  <style>
+    .key-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}.key{padding:9px;background:#f7f7f7;border-radius:8px}.label{display:block;color:#666;font-size:12px}.ok{color:#176b45;font-weight:bold}.warn{color:#9b6100;font-weight:bold}select{width:100%;font-size:16px;padding:10px;border:1px solid #aaa;border-radius:8px;background:#fff}.slots{display:grid;gap:8px;margin:10px 0}.slot{width:100%;text-align:left}.slot.selected{color:#fff;background:#2a6fbb;border-color:#2a6fbb}.summary-row{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;padding:8px 0;border-top:1px solid #eee}.error{color:#b3261e;font-weight:bold}#reader{width:100%;max-width:420px;margin:auto}@media(max-width:520px){.key-grid{grid-template-columns:1fr}.summary-row{grid-template-columns:1fr auto}.summary-row span:first-child{grid-column:1/-1}}
+  </style>
+</head>
+<body class="teacher">
+  <h1>🥋 先生出席</h1>
+  <p><a href="teacher_home.html">先生ホーム</a> ／ <a href="index.html">入口</a></p>
+  <section class="card key-grid">
+    <div class="key"><span class="label">先生</span><span id="teacherId" class="warn">未ログイン</span></div>
+    <div class="key"><span class="label">稽古日</span><span id="attendanceDate"></span></div>
+    <div class="key"><span class="label">道場</span><span id="locationId" class="warn">未設定</span></div>
+    <div class="key"><span class="label">課金枠</span><span id="billingBlockId" class="warn">未設定</span></div>
+  </section>
+  <section class="card"><div id="reader"></div><button onclick="startScan()">QR読み取り開始</button><button onclick="stopScan()">停止</button><p class="note">道場QRと課金枠QRを読み取ってください。</p></section>
+  <section class="card">
+    <label>当日の担当区分</label><select id="role"><option>主先生</option><option>副先生</option></select>
+    <div id="slots" class="slots"><span class="note">道場・課金枠を設定してください。</span></div>
+    <button class="primary" id="saveButton" onclick="saveAttendance()" disabled>先生出席を登録</button>
+    <div id="message" class="note"></div>
+  </section>
+  <section class="card"><h2 id="summaryTitle">当月の先生出席</h2><div id="monthlySummary" class="note">読み込み中です。</div></section>
+  <script src="virtual_session.js"></script>
+  <script>
+    const GAS_URL="https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
+    const session=DojoVirtualSession.get();
+    let teacherId=session&&session.role==="TEACHER"?session.teacher_id:"";
+    let locationId=new URLSearchParams(location.search).get("location_id")||"";
+    let billingBlockId=new URLSearchParams(location.search).get("billing_block_id")||"";
+    let slots=[],selected=[],scanner=null,scanning=false;
+    renderKeys();loadMonthlySummary();if(locationId&&billingBlockId)loadState();
+    window.addEventListener("dojo-system-context",function(){renderKeys();loadMonthlySummary();if(locationId&&billingBlockId)loadState();});
+
+    function attendanceDate(){const c=window.DOJO_SYSTEM_CONTEXT;return c&&c.system_now?String(c.system_now).slice(0,10):localDate(new Date())}
+    function targetMonth(){const c=window.DOJO_SYSTEM_CONTEXT;return c&&c.target_month?String(c.target_month).slice(0,7):attendanceDate().slice(0,7)}
+    function dateWithWeekday(value){const d=new Date(value+"T00:00:00");return value+"（"+["日","月","火","水","木","金","土"][d.getDay()]+"）"}
+    function localDate(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+    function renderKeys(){set("teacherId",teacherId);set("locationId",locationId);set("billingBlockId",billingBlockId);document.getElementById("attendanceDate").textContent=dateWithWeekday(attendanceDate());document.getElementById("summaryTitle").textContent=targetMonth()+" 先生出席";updateButton()}
+    function set(id,value){const e=document.getElementById(id);e.textContent=value||"未設定";e.className=value?"ok":"warn"}
+    function startScan(){if(scanning)return;scanner=scanner||new Html5Qrcode("reader");scanner.start({facingMode:"environment"},{fps:10,qrbox:{width:250,height:250}},onQr,function(){}).then(function(){scanning=true}).catch(showError)}
+    function stopScan(){if(!scanner||!scanning)return Promise.resolve();return scanner.stop().then(function(){scanning=false})}
+    function onQr(text){const p=parseQr(text);if(p.teacher_id){DojoVirtualSession.loginTeacher(p.teacher_id,"TEACHER_ATTENDANCE_QR");teacherId=p.teacher_id}else{if(p.location_id)locationId=p.location_id;if(p.billing_block_id)billingBlockId=p.billing_block_id}renderKeys();if(teacherId&&locationId&&billingBlockId)loadState()}
+    function parseQr(text){const r={teacher_id:"",location_id:"",billing_block_id:""};try{const u=new URL(text,location.href);Object.keys(r).forEach(function(k){r[k]=u.searchParams.get(k)||""})}catch(e){}if(!r.teacher_id&&!r.location_id&&!r.billing_block_id){const p=new URLSearchParams(String(text).replace(/^\?/,""));Object.keys(r).forEach(function(k){r[k]=p.get(k)||""})}return r}
+    function loadState(){jsonp({action:"teacher_attendance_state",teacher_id:teacherId,attendance_date:attendanceDate(),location_id:locationId,billing_block_id:billingBlockId}).then(function(r){if(!r.ok)throw new Error(r.message);slots=r.slots||[];selected=r.selected_slot_ids||[];document.getElementById("role").value=r.role||"主先生";renderSlots();show("登録済みの先生出席を読み込みました。")}).catch(showError)}
+    function renderSlots(){const root=document.getElementById("slots");root.innerHTML="";slots.forEach(function(slot){const b=document.createElement("button");b.className="slot"+(selected.indexOf(slot.slot_id)>=0?" selected":"");b.textContent=(slot.label||slot.slot_id)+"　"+slot.start_time+"–"+slot.end_time;b.onclick=function(){const i=selected.indexOf(slot.slot_id);if(i>=0)selected.splice(i,1);else selected.push(slot.slot_id);renderSlots();updateButton()};root.appendChild(b)});updateButton()}
+    function updateButton(){document.getElementById("saveButton").disabled=!teacherId||!locationId||!billingBlockId||slots.length===0}
+    function saveAttendance(){const requestId="TATT-"+Date.now()+"-"+Math.floor(Math.random()*100000);postForm({mode:"teacher_attendance_sync",request_id:requestId,teacher_id:teacherId,attendance_date:attendanceDate(),location_id:locationId,billing_block_id:billingBlockId,role:document.getElementById("role").value,slot_ids:selected,source:"teacher_attendance.html"});show("登録処理を待っています。");waitReceipt(requestId,60).then(function(r){if(!r.ok)throw new Error(r.message);show("先生出席を登録しました。","ok");return loadState()}).then(loadMonthlySummary).catch(showError)}
+    function postForm(payload){const f=document.createElement("form"),i=document.createElement("input"),frame=document.createElement("iframe"),name="tattFrame"+Date.now();frame.name=name;frame.hidden=true;f.method="POST";f.action=GAS_URL;f.target=name;f.hidden=true;i.name="payload";i.value=JSON.stringify(payload);f.appendChild(i);document.body.append(frame,f);f.submit();setTimeout(function(){f.remove();frame.remove()},120000)}
+    function waitReceipt(id,left){return jsonp({action:"post_receipt",request_id:id}).then(function(r){if(r.completed)return r;if(left<=0)throw new Error("登録完了の確認がタイムアウトしました。");return new Promise(function(resolve){setTimeout(resolve,1000)}).then(function(){return waitReceipt(id,left-1)})})}
+    function loadMonthlySummary(){return jsonp({action:"teacher_attendance_monthly_summary",target_month:targetMonth()}).then(function(r){if(!r.ok)throw new Error(r.message);const root=document.getElementById("monthlySummary");if(!r.teachers.length){root.textContent="登録された先生出席はありません。";return}root.innerHTML=r.teachers.map(function(x){return '<div class="summary-row"><strong>'+esc(x.teacher_name||x.teacher_id)+'</strong><span>主 '+x.main_count+'回</span><span>副 '+x.sub_count+'回</span><span>計 '+x.total_count+'回</span></div>'}).join("")}).catch(showError)}
+    function jsonp(params){return new Promise(function(resolve,reject){const cb="tattCb"+Date.now()+Math.floor(Math.random()*10000),s=document.createElement("script"),timer=setTimeout(function(){clean();reject(new Error("GAS接続がタイムアウトしました。"))},15000);function clean(){clearTimeout(timer);delete window[cb];s.remove()}window[cb]=function(r){clean();resolve(r)};s.onerror=function(){clean();reject(new Error("GASへ接続できません。"))};s.src=GAS_URL+"?"+new URLSearchParams(Object.assign({},params,{callback:cb,_ts:Date.now()}));document.head.appendChild(s)})}
+    function show(text,kind){const e=document.getElementById("message");e.textContent=text;e.className=kind||"note"}
+    function showError(error){show(error.message||String(error),"error")}
+    function esc(v){return String(v||"").replace(/[&<>"']/g,function(c){return({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"})[c]})}
+  </script>
+  <script src="system_context.js"></script>
+</body></html>

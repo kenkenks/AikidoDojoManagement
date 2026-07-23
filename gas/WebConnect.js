@@ -177,6 +177,25 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "teacher_attendance_state") {
+    const result = safelyExecute_(function() {
+      return teacherAttendance_getState({
+        teacher_id:params.teacher_id || "",
+        attendance_date:params.attendance_date || "",
+        location_id:params.location_id || "",
+        billing_block_id:params.billing_block_id || ""
+      }, ctx);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
+  if (params.action === "teacher_attendance_monthly_summary") {
+    const result = safelyExecute_(function() {
+      return teacherAttendance_getMonthlySummary({ target_month:params.target_month || sup_targetMonth(ctx) }, ctx);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "attendance_progress_summary") {
     const result = safelyExecute_(function() {
       return attendanceProgress_getMemberSummary(params.member_id || "", ctx);
@@ -289,6 +308,10 @@ function doPost(e) {
 
     if (data.mode === "attendance_batch" || Array.isArray(data.attendance_items)) {
       return registerAttendanceBatch(data, ctx);
+    }
+
+    if (data.mode === "teacher_attendance_sync") {
+      return teacherAttendance_sync(data, ctx);
     }
 
     if (data.mode === "paypay_code_record") {

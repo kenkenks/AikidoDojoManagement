@@ -83,6 +83,10 @@ function getTeachers(ctx) {
   return getSheetRows(ctx, "11_先生マスタ");
 }
 
+function getTeacherAttendances(ctx) {
+  return getSheetRows(ctx, "16_先生出席ログ");
+}
+
 function getTrainingSlots(ctx) {
   return getSheetRows(ctx, "12_稽古枠マスタ");
 }
@@ -118,6 +122,10 @@ function invalidateAttendances(ctx) {
   invalidateSheetRows(ctx, "07_出席ログ");
 }
 
+function invalidateTeacherAttendances(ctx) {
+  invalidateSheetRows(ctx, "16_先生出席ログ");
+}
+
 function invalidateTrainingSlots(ctx) {
   invalidateSheetRows(ctx, "12_稽古枠マスタ");
 }
@@ -133,4 +141,3 @@ function invalidatePaymentEvidences(ctx) {
 function invalidateFeeStatusView(ctx) {
   invalidateSheetRows(ctx, "20_会費状態View");
 }
-
