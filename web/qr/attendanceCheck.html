@@ -162,16 +162,22 @@
 
     function initializeFromPageUrl() {
       const query = new URLSearchParams(window.location.search);
-      currentLocationId = String(query.get("location_id") || "").trim();
-      currentBillingBlockId = String(query.get("billing_block_id") || "").trim();
-      const teacherSession = DojoVirtualSession.get();
-      currentTeacherId = String(query.get("teacher_id") ||
-        (teacherSession && teacherSession.role === "TEACHER" ? teacherSession.teacher_id : "") || "").trim();
-      if (query.get("teacher_id")) DojoVirtualSession.loginTeacher(currentTeacherId, "PAGE_URL");
+      const session = DojoVirtualSession.get();
+      const context = session && session.context ? session.context : {};
+      const urlTeacherId = String(query.get("teacher_id") || "").trim();
+
+      currentLocationId = String(query.get("location_id") || context.location_id || "").trim();
+      currentBillingBlockId = String(query.get("billing_block_id") || context.billing_block_id || "").trim();
+      currentTeacherId = String(urlTeacherId ||
+        (session && session.role === "TEACHER" ? session.teacher_id : "") ||
+        context.teacher_id || "").trim();
+
+      if (urlTeacherId) DojoVirtualSession.loginTeacher(urlTeacherId, "PAGE_URL");
+      persistAttendanceContext();
       renderKeys();
 
       if (currentLocationId) {
-        addLog("URLの道場情報を読み込みました。");
+        addLog(query.get("location_id") ? "URLの道場情報を読み込みました。" : "Sessionの道場情報を復元しました。");
         loadAttendanceSessionInfo();
         return;
       }
@@ -181,6 +187,16 @@
       } else if (currentTeacherId) {
         addLog("先生を設定しました。続けて道場QRと課金枠QRを読み取ってください。", "warn");
       }
+    }
+
+    function persistAttendanceContext() {
+      const session = DojoVirtualSession.get();
+      if (!session) return null;
+      return DojoVirtualSession.setContext({
+        location_id: currentLocationId,
+        teacher_id: currentTeacherId,
+        billing_block_id: currentBillingBlockId
+      });
     }
 
     function startScan() {
@@ -222,6 +238,7 @@
         if (parsed.location_id) currentLocationId = parsed.location_id;
         if (parsed.billing_block_id) currentBillingBlockId = parsed.billing_block_id;
         currentSlots = [];
+        persistAttendanceContext();
         renderKeys();
         if (parsed.location_id && parsed.billing_block_id) {
           addLog("道場・課金枠QRを読み取りました。");
@@ -241,7 +258,11 @@
       }
       if (parsed.teacher_id) {
         currentTeacherId = parsed.teacher_id;
-        DojoVirtualSession.loginTeacher(currentTeacherId, "SCREEN_QR");
+        const currentSession = DojoVirtualSession.get();
+        if (!currentSession || currentSession.role !== "TEACHER" || currentSession.teacher_id !== currentTeacherId) {
+          DojoVirtualSession.loginTeacher(currentTeacherId, "SCREEN_QR");
+        }
+        persistAttendanceContext();
         renderKeys();
         addLog("先生QR読取: " + currentTeacherId);
         beep();
@@ -301,6 +322,7 @@
         if (data.requires_selection) {
           currentBillingBlockId = "";
           currentSlots = [];
+          persistAttendanceContext();
           clearCandidates(true);
           setKey("billingBlockId", "");
           updateSendButton();
@@ -312,6 +334,7 @@
         document.getElementById("blockChoiceCard").hidden = true;
         currentBillingBlockId = data.billing_block_id;
         currentSlots = data.slots || [];
+        persistAttendanceContext();
         document.getElementById("billingBlockId").textContent = data.billing_block_name;
         document.getElementById("billingBlockId").className = "ok";
         clearCandidates(true);
@@ -345,6 +368,7 @@
     function selectBillingBlock(billingBlockId) {
       if (!billingBlockId) return;
       currentBillingBlockId = billingBlockId;
+      persistAttendanceContext();
       renderKeys();
       loadAttendanceSessionInfo();
     }

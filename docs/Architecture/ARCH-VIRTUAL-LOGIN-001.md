@@ -35,3 +35,13 @@
 - ログアウト
 
 フレームワークの不具合調査と仕様追加は、まずこのランナーで再現・固定してから画面へ展開する。
+
+## Attendance画面への適用ルール
+
+- 画面起動時は URL パラメータを最優先とする。
+- URLに指定されていない `location_id`、`billing_block_id`、`teacher_id` は、同一タブのSession Contextから補完する。
+- QR読取、画面選択、現在時刻による課金枠自動確定の結果はSession Contextへ保存する。
+- Sessionが存在しない場合は従来どおりURL・QRのみで動作し、Context保存は行わない。
+- 同一先生の再読取ではログインSessionを作り直さず、保持中の道場・課金枠を維持する。
+- 別の先生へ切り替えた場合は新しいログイン主体としてSessionを作り直し、その時点の画面Contextだけを明示的に保存する。
+- `work/verify-attendance-session-context.mjs` で、URL優先・Session補完・確定値保存の接続を確認する。
