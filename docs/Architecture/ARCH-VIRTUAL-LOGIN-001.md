@@ -49,3 +49,15 @@ URLで別の先生を明示した場合、旧先生セッションの業務コ�
 セッションが存在しない場合は従来どおりURL・QRのみで動作する。
 
 `work/verify-payment-session-context.mjs` で、URL優先、同一先生Session補完、別先生への旧Context非継承、QR後のContext保存を確認する。
+
+## Story Runner
+
+`work/runner-story-session-001.mjs` は、Session Frameworkを利用する一連の画面操作を再現する。
+
+1. 先生 `T001` で仮想ログインする。
+2. Attendanceで道場・課金枠を確定し、Session Contextへ保存する。
+3. PaymentをURL指定なしで開き、同一先生のContextを継承する。
+4. URLで別先生 `T002` を指定し、旧先生のContextが流用されないことを確認する。
+5. LogoutでSessionを破棄する。
+
+Story Runnerは、各画面の実装関数を読み出して実行する。Sessionコアだけでなく、画面との接続が壊れた場合も検出対象とする。
