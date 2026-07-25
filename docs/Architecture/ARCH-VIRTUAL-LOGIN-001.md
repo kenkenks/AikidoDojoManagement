@@ -36,12 +36,16 @@
 
 フレームワークの不具合調査と仕様追加は、まずこのランナーで再現・固定してから画面へ展開する。
 
-## Attendance画面への適用ルール
+## 会費受付画面への適用
 
-- 画面起動時は URL パラメータを最優先とする。
-- URLに指定されていない `location_id`、`billing_block_id`、`teacher_id` は、同一タブのSession Contextから補完する。
-- QR読取、画面選択、現在時刻による課金枠自動確定の結果はSession Contextへ保存する。
-- Sessionが存在しない場合は従来どおりURL・QRのみで動作し、Context保存は行わない。
-- 同一先生の再読取ではログインSessionを作り直さず、保持中の道場・課金枠を維持する。
-- 別の先生へ切り替えた場合は新しいログイン主体としてSessionを作り直し、その時点の画面Contextだけを明示的に保存する。
-- `work/verify-attendance-session-context.mjs` で、URL優先・Session補完・確定値保存の接続を確認する。
+`payment_teacher.html` は次の優先順位で受付スコープを決定する。
+
+1. URLで明示された `location_id`、`teacher_id`、`billing_block_id`
+2. 同一先生セッションの業務コンテキスト
+3. 画面内で読み取ったQR
+
+URLで別の先生を明示した場合、旧先生セッションの業務コンテキストは補完に使用しない。
+道場・課金枠・先生QRで受付スコープが確定または変更された場合、現在画面に表示されている値をセッションへ保存する。
+セッションが存在しない場合は従来どおりURL・QRのみで動作する。
+
+`work/verify-payment-session-context.mjs` で、URL優先、同一先生Session補完、別先生への旧Context非継承、QR後のContext保存を確認する。
