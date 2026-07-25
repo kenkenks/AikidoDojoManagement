@@ -263,9 +263,9 @@
       loadMemberAttendanceState(memberId);
     }
 
-    function loadMemberAttendanceState(memberId, expectedSlotIds) {
+    function loadMemberAttendanceState(memberId, expectedSlotIds, savedOnly) {
       return jsonp(GAS_URL, {
-        action: "member_attendance_state",
+        action: savedOnly ? "attendance_saved_state" : "member_attendance_state",
         attendance_date: localDateText(new Date()),
         member_id: memberId,
         location_id: currentLocationId,
@@ -304,7 +304,8 @@
       return Promise.all(memberCandidates.map(function(candidate) {
         return loadMemberAttendanceState(
           candidate.member_id,
-          expectedByMember[candidate.member_id] || []
+          expectedByMember[candidate.member_id] || [],
+          true
         );
       })).then(function(results) {
         const failed = results.filter(function(result) { return !result.ok; });

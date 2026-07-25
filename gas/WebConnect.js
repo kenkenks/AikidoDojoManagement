@@ -170,6 +170,13 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "attendance_saved_state") {
+    const result = safelyExecute_(function() {
+      return getAttendanceSavedState(params, ctx);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "teacher_attendance_today") {
     const result = safelyExecute_(function() {
       return attendanceTeacherGetTodayOverview(params, ctx);

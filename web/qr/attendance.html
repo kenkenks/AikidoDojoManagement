@@ -324,9 +324,9 @@
       loadMemberAttendanceState(memberId);
     }
 
-    function loadMemberAttendanceState(memberId, expectedState, quiet) {
+    function loadMemberAttendanceState(memberId, expectedState, quiet, savedOnly) {
       return jsonp(GAS_URL, {
-        action: "member_attendance_state",
+        action: savedOnly ? "attendance_saved_state" : "member_attendance_state",
         attendance_date: currentAttendanceDate(),
         member_id: memberId,
         location_id: currentLocationId,
@@ -337,16 +337,18 @@
         if (!candidate) return { ok: false, matches: false, member_id: memberId };
         const actualSlotIds = normalizeSlotIds(data.selected_slot_ids || []);
         candidate.slot_ids = actualSlotIds;
-        candidate.member_name = data.member_name || "";
-        candidate.current_rank = data.current_rank || "";
-        candidate.next_rank = data.next_rank || "";
-        candidate.rank_changed = false;
-        candidate.training_count = Number(data.training_count || 0);
-        candidate.required_training_count = Number(data.required_training_count || 0);
-        candidate.remaining_training_count = data.remaining_training_count === null
-          ? null
-          : Number(data.remaining_training_count);
-        candidate.examination_ready = data.examination_ready === true;
+        candidate.current_rank = data.current_rank || candidate.current_rank || "";
+        if (!savedOnly) {
+          candidate.member_name = data.member_name || "";
+          candidate.next_rank = data.next_rank || "";
+          candidate.rank_changed = false;
+          candidate.training_count = Number(data.training_count || 0);
+          candidate.required_training_count = Number(data.required_training_count || 0);
+          candidate.remaining_training_count = data.remaining_training_count === null
+            ? null
+            : Number(data.remaining_training_count);
+          candidate.examination_ready = data.examination_ready === true;
+        }
         candidate.loaded = true;
         candidate.load_error = "";
         renderCandidates();
@@ -378,7 +380,8 @@
         return loadMemberAttendanceState(
           candidate.member_id,
           expectedByMember[candidate.member_id],
-          attempt > 1
+          attempt > 1,
+          true
         );
       })).then(function(results) {
         const failed = results.filter(function(result) { return !result.ok; });
