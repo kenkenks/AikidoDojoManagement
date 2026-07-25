@@ -321,7 +321,7 @@ function registerPaymentBatchLocked_(data) {
   const locationId = normalizeId_(data.location_id);
   const billingBlockId = normalizeId_(data.billing_block_id);
   const sessionId = normalizeId_(data.attendance_session_id) || ("ASES-" + Utilities.getUuid());
-  const attendanceDate = parseAttendanceDate_(data.attendance_date);
+  const attendanceDate = parseAttendanceDate_(data.attendance_date, ctx);
   const targetMonth = sup_formatTargetMonth_(attendanceDate);
   const items = Array.isArray(data.attendance_items) ? data.attendance_items : [];
 

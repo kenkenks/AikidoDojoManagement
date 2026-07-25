@@ -44,6 +44,34 @@ function debug_paymentStatusView_refresh() {
   return { ok: true, message: "処理終了" };
 }
 
+//
+// ================================
+// 先生用会費状況（参照・性能確認）
+// ================================
+//
+function debug_paymentStatusTeacher_get() {
+  const ctx = createSheetContext();
+  const targetMonth = sup_targetMonth(ctx);
+  const startedAt = Date.now();
+
+  const result = paymentStatusTeacher_get({
+    target_month: targetMonth
+  }, ctx);
+
+  perfLog("paymentStatusTeacher_get total", startedAt);
+  console.log("[DEBUG] debug_paymentStatusTeacher_get : " +
+    JSON.stringify({
+      target_month: targetMonth,
+      ok: result.ok,
+      payment_count: result.summary ? result.summary.payment_count : 0,
+      member_count: result.members ? result.members.length : 0,
+      message: result.message || ""
+    })
+  );
+
+  return result;
+}
+
 
 //
 // ================================

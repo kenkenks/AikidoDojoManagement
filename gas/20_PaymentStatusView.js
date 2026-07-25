@@ -15,7 +15,7 @@ function paymentStatusView_refresh(memberId, targetMonth, ctx) {
   const row =
     paymentStatusView_buildRow(memberId, targetMonth, viewContext);
 
-  paymentStatusView_update(memberId, targetMonth, row);
+  paymentStatusView_update(memberId, targetMonth, row, ctx);
 
   invalidateFeeStatusView(ctx);
 
@@ -426,12 +426,12 @@ function paymentStatusView_parseInvoiceItems_(value) {
 // Calc
 // ==============================
 function paymentStatusView_isAttendedToday(memberId, attendances, ctx) {
-  const today = sup_formatDate_(sup_today(ctx), "yyyy-MM-dd");
+  const today = sup_today(ctx);
 
   return attendances.some(a => {
     if (!isActiveMasterRow_(a) || !a["稽古日"]) return false;
 
-    const attendanceDate = formatAttendanceDate_(a["稽古日"]);
+    const attendanceDate = formatAttendanceDate_(a["稽古日"], ctx);
 
     return (
       String(a["member_id"]).trim() === String(memberId).trim() &&
