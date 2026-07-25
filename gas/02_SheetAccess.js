@@ -3,8 +3,8 @@
 
 function getRequiredSheet_(sheetName, ctx) {
   ctx = ensureSheetContext(ctx);
-  
-  const sheet = ctx.ss.getSheetByName(sheetName);
+
+  const sheet = getContextSheet_(ctx, sheetName);
   if (!sheet) {
     throw new Error("シートが見つかりません: " + sheetName);
   }
@@ -62,12 +62,12 @@ function appendAttendanceRows(attendanceRows, ctx) {
 function getActiveAttendanceKeySet(attendanceDate, ctx) {
   ctx = ensureSheetContext(ctx);
   
-  const dateText = formatAttendanceDate_(attendanceDate);
+  const dateText = formatAttendanceDate_(attendanceDate, ctx);
   const keys = {};
 
   getAttendances(ctx).forEach(row => {
     if (!isActiveMasterRow_(row)) return;
-    if (formatAttendanceDate_(row["稽古日"]) !== dateText) return;
+    if (formatAttendanceDate_(row["稽古日"], ctx) !== dateText) return;
 
     const memberId = normalizeId_(row["member_id"]);
     const slotId = normalizeId_(row["slot_id"]);
@@ -80,22 +80,19 @@ function getActiveAttendanceKeySet(attendanceDate, ctx) {
 function getActiveAttendanceRowsForScope(attendanceDate, memberId, locationId, billingBlockId, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const sheet = getRequiredSheet_("07_出席ログ", ctx);
-  assertHeaders_(sheet, [
+  const rows = getAttendances(ctx);
+  assertSheetRowHeaders_(ctx, "07_出席ログ", [
     "稽古日", "member_id", "location_id", "billing_block_id", "slot_id", "状態"
   ]);
 
-  const values = sheet.getDataRange().getValues();
-  const headers = values.shift();
-  const dateText = formatAttendanceDate_(attendanceDate);
+  const dateText = formatAttendanceDate_(attendanceDate, ctx);
 
-  return values.map((valuesRow, index) => {
-    const row = { _rowNumber: index + 2 };
-    headers.forEach((header, column) => row[header] = valuesRow[column]);
-    return row;
-  }).filter(row =>
+  // 07_出席ログは審査進捗でも参照する。
+  // 直接getDataRange()すると同一リクエスト内で二重読込みになるため、
+  // SheetContextのキャッシュを経由して一度だけ読み込む。
+  return rows.filter(row =>
     isActiveMasterRow_(row) &&
-    formatAttendanceDate_(row["稽古日"]) === dateText &&
+    formatAttendanceDate_(row["稽古日"], ctx) === dateText &&
     normalizeId_(row["member_id"]) === normalizeId_(memberId) &&
     normalizeId_(row["location_id"]) === normalizeId_(locationId) &&
     normalizeId_(row["billing_block_id"]) === normalizeId_(billingBlockId)

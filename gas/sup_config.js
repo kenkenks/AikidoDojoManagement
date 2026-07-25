@@ -6,7 +6,9 @@ const SUP_LOG = {
     LEVEL: "DEBUG",
     CONSOLE: true,
     LOGGER: false,
-    SHEET: true,
+    // Webリクエスト中のappendRowは十数秒待たされる場合がある。
+    // 応答経路ではコンソールログだけを使い、シートへの同期書込みは行わない。
+    SHEET: false,
     SHEET_NAME: "99_DebugLog"
 };
 
@@ -38,7 +40,9 @@ function sup_loadSettings(ctx) {
     return settings;
   }
 
-  const sheet = ctx.ss.getSheetByName("99_設定");
+  const sheet = ctx.sheetCache && ctx.sheetCache["99_設定"]
+    ? ctx.sheetCache["99_設定"]
+    : ctx.ss.getSheetByName("99_設定");
   if (!sheet) {
     return settings;
   }

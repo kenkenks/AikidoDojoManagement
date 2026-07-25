@@ -1,7 +1,10 @@
 function createSheetContext() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
   const ctx = {
-    ss: SpreadsheetApp.getActiveSpreadsheet(),
-    cache: {}
+    ss: ss,
+    cache: {},
+    headerCache: {},
+    sheetCache: createSheetObjectMap_(ss)
   };
 
   ctx.settings = sup_loadSettings(ctx);
@@ -20,6 +23,14 @@ function ensureSheetContext(ctx) {
     ctx.cache = {};
   }
 
+  if (!ctx.headerCache) {
+    ctx.headerCache = {};
+  }
+
+  if (!ctx.sheetCache) {
+    ctx.sheetCache = createSheetObjectMap_(ctx.ss);
+  }
+
   // ss/cache を作った後に、設定を一度だけ読む
   if (!ctx.settings) {
     ctx.settings = sup_loadSettings(ctx);
@@ -28,17 +39,54 @@ function ensureSheetContext(ctx) {
   return ctx;
 }
 
+function createSheetObjectMap_(ss) {
+  const startedAt = Date.now();
+  const result = {};
+  ss.getSheets().forEach(function(sheet) {
+    result[sheet.getName()] = sheet;
+  });
+  perfLog("load sheet object map", startedAt);
+  return result;
+}
+
+function getContextSheet_(ctx, sheetName) {
+  ctx = ensureSheetContext(ctx);
+  return ctx.sheetCache[sheetName] || null;
+}
+
 function getSheetRows(ctx, sheetName) {
   if (!ctx.cache[sheetName]) {
-    const sheet = ctx.ss.getSheetByName(sheetName);
-    ctx.cache[sheetName] = readSheet(sheet);
+    const sheet = getContextSheet_(ctx, sheetName);
+    if (!sheet) throw new Error("シートが見つかりません: " + sheetName);
+    const data = readSheetData_(sheet);
+    ctx.cache[sheetName] = data.rows;
+    ctx.headerCache[sheetName] = data.headers;
   }
   return ctx.cache[sheetName];
+}
+
+function assertSheetRowHeaders_(ctx, sheetName, requiredHeaders) {
+  getSheetRows(ctx, sheetName);
+  const headers = ctx.headerCache[sheetName] || [];
+  const headerMap = {};
+  headers.forEach(function(header, index) {
+    if (header) headerMap[header] = index;
+  });
+  const missing = requiredHeaders.filter(function(header) {
+    return headerMap[header] === undefined;
+  });
+  if (missing.length > 0) {
+    throw new Error(sheetName + " に必要な列がありません: " + missing.join(", "));
+  }
+  return { headers:headers, map:headerMap };
 }
 
 function invalidateSheetRows(ctx, sheetName) {
   if (ctx && ctx.cache) {
     delete ctx.cache[sheetName];
+  }
+  if (ctx && ctx.headerCache) {
+    delete ctx.headerCache[sheetName];
   }
 }
 
@@ -93,6 +141,14 @@ function getTrainingSlots(ctx) {
 
 function getBillingBlocks(ctx) {
   return getSheetRows(ctx, "13_課金枠マスタ");
+}
+
+function getRankMasterRows(ctx) {
+  return getSheetRows(ctx, "14_級段位マスタ");
+}
+
+function getExaminationStandardRows(ctx) {
+  return getSheetRows(ctx, "15_審査基準マスタ");
 }
 
 function getPaymentEvidences(ctx) {

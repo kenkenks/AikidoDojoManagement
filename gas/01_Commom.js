@@ -36,17 +36,21 @@ function filterBySheetByDate(memberId, rows, boolCol, boolValue) {
 }
 
 function readSheet(sheet) {
+  return readSheetData_(sheet).rows;
+}
+
+function readSheetData_(sheet) {
   const t0 = Date.now();
 
   const values = sheet.getDataRange().getValues();
-  const headers = values.shift();
+  const headers = (values.shift() || []).map(header => String(header).trim());
 
   perfLog(
     `readSheet ${sheet.getName()}`,
     t0
   );
 
-  return values
+  const rows = values
     .filter(row => row.some(cell => cell !== ""))
     .map(row => {
       const obj = {};
@@ -55,4 +59,9 @@ function readSheet(sheet) {
       });
       return obj;
     });
+
+  return {
+    headers: headers,
+    rows: rows
+  };
 }

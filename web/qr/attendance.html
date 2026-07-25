@@ -293,7 +293,15 @@
         addLog("送信確認中のため、会員追加を待ってください。", "warn");
         return;
       }
-      if (memberCandidates.some(function (candidate) { return candidate.member_id === memberId; })) {
+      const existing = memberCandidates.find(function (candidate) { return candidate.member_id === memberId; });
+      if (existing) {
+        if (!existing.loaded && existing.load_error) {
+          existing.load_error = "";
+          renderCandidates();
+          addLog("会員QR再読取: " + memberId + " の状態を再取得します。", "warn");
+          loadMemberAttendanceState(memberId);
+          return;
+        }
         addLog("二重スキャンを無視しました: " + memberId);
         return;
       }
@@ -472,6 +480,19 @@
           status.className = candidate.load_error ? "error" : "warn";
           status.textContent = candidate.load_error || "登録済み状態を読み込み中…";
           row.appendChild(status);
+          if (candidate.load_error) {
+            const retry = document.createElement("button");
+            retry.type = "button";
+            retry.textContent = "再取得";
+            retry.disabled = submitting;
+            retry.onclick = function () {
+              candidate.load_error = "";
+              renderCandidates();
+              addLog(candidate.member_id + " の状態を再取得します。", "warn");
+              loadMemberAttendanceState(candidate.member_id);
+            };
+            row.appendChild(retry);
+          }
         }
 
         const slots = document.createElement("div");
@@ -687,7 +708,16 @@
         const callbackName = "attendanceCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
         const script = document.createElement("script");
         const query = new URLSearchParams(Object.assign({}, params, { callback: callbackName, _ts: Date.now() }));
-        const timeout = window.setTimeout(function () { cleanup(); reject(new Error("稽古枠の取得がタイムアウトしました。")); }, 15000);
+        const actionLabel = {
+          attendance_session_info: "稽古枠",
+          member_attendance_state: "会員状態",
+          attendance_rank_options: "級・段一覧",
+          post_receipt: "登録結果"
+        }[params.action] || "GAS応答";
+        const timeout = window.setTimeout(function () {
+          cleanup();
+          reject(new Error(actionLabel + "の取得がタイムアウトしました。再取得してください。"));
+        }, 30000);
         function cleanup() {
           window.clearTimeout(timeout);
           delete window[callbackName];

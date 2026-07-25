@@ -54,7 +54,9 @@ function debug_attendance_getMemberState() {
   };
 
   //============ テスト対象
+  const stateStartedAt = Date.now();
   const result = getMemberAttendanceState(params, ctx);
+  perfLog("getMemberAttendanceState total", stateStartedAt);
   //============
 
   sup_logDebug("debug_attendance_getMemberState", {

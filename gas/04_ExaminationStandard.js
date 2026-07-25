@@ -86,10 +86,9 @@ const EXAMINATION_STANDARD_INITIAL_ROWS = [
 
 function rankMaster_getOptions(ctx) {
   ctx = ensureSheetContext(ctx);
-  const sheet = ctx.ss.getSheetByName(RANK_MASTER_SHEET_NAME);
-  if (!sheet || sheet.getLastRow() < 2) return [];
-  assertHeaders_(sheet, RANK_MASTER_HEADERS);
-  return rankMaster_rowsToObjects_(sheet).filter(isActiveMasterRow_).map(function(row) {
+  const rows = getRankMasterRows(ctx);
+  assertSheetRowHeaders_(ctx, RANK_MASTER_SHEET_NAME, RANK_MASTER_HEADERS);
+  return rows.filter(isActiveMasterRow_).map(function(row) {
     return {
       rank_id: normalizeId_(row["rank_id"]),
       display_name: String(row["表示名"] || "").trim(),
@@ -107,23 +106,12 @@ function rankMaster_getOptionMap(ctx) {
   return result;
 }
 
-function rankMaster_rowsToObjects_(sheet) {
-  const values = sheet.getDataRange().getValues();
-  const headers = values.shift();
-  return values.map(function(valuesRow) {
-    const row = {};
-    headers.forEach(function(header, index) { row[String(header).trim()] = valuesRow[index]; });
-    return row;
-  });
-}
-
 function examinationStandard_getMap(ctx) {
   ctx = ensureSheetContext(ctx);
-  const sheet = ctx.ss.getSheetByName(EXAMINATION_STANDARD_SHEET_NAME);
-  if (!sheet || sheet.getLastRow() < 2) return {};
-  assertHeaders_(sheet, EXAMINATION_STANDARD_HEADERS);
+  const rows = getExaminationStandardRows(ctx);
+  assertSheetRowHeaders_(ctx, EXAMINATION_STANDARD_SHEET_NAME, EXAMINATION_STANDARD_HEADERS);
   const standards = {};
-  rankMaster_rowsToObjects_(sheet).forEach(function(row) {
+  rows.forEach(function(row) {
     const currentRank = String(row["現在級段位"] || "").trim();
     if (!currentRank || !isActiveMasterRow_(row)) return;
     standards[currentRank] = {
