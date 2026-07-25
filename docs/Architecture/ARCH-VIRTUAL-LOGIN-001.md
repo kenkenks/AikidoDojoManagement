@@ -61,3 +61,18 @@ URLで別の先生を明示した場合、旧先生セッションの業務コ�
 5. LogoutでSessionを破棄する。
 
 Story Runnerは、各画面の実装関数を読み出して実行する。Sessionコアだけでなく、画面との接続が壊れた場合も検出対象とする。
+
+## GAS Story Runner
+
+仮想Sessionの保存先はブラウザの `sessionStorage` であるため、GAS Runnerはログイン・Context保持・主体切替・Logoutを直接操作しない。
+
+Session Storyは次の2本を対として扱う。
+
+- `work/runner-story-session-001.mjs`
+  - Browser責任範囲を検証する。
+  - Login、Context保存、画面間継承、主体切替、Logoutを担当する。
+- `runner_story_session_001()`
+  - GAS責任範囲を検証する。
+  - 同じ `teacher_id`、`location_id`、`billing_block_id` を使い、Attendance、Payment、PaymentStatusのWebConnect連携を担当する。
+
+Browser RunnerとGAS Runnerの両方がPASSした場合、Session FrameworkからGAS APIまでのStoryが成立したものとする。
