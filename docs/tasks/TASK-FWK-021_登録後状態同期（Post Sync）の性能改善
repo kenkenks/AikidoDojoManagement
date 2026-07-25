@@ -1,0 +1,41 @@
+ID      : TASK-FWK-021
+TITLE   : 登録後状態同期（Post Sync）の性能改善
+
+STATUS  : 保留
+PRIORITY: LOW
+
+TAGS:
+- framework
+- performance
+- attendance
+- post-sync
+- optimization
+
+RELATED:
+- TASK-FWK-020
+- SheetContext Performance
+
+あるいは、このプロジェクトの既存ルールに合わせるなら、
+
+TAGS:
+- Framework
+- Attendance
+- Performance
+
+程度でも十分です。
+
+この課題はフレームワーク横断の話なので、
+
+framework
+performance
+
+は必須に近いですね。
+
+さらに、
+
+attendance
+post-sync
+
+を付けておけば、後で「出席系」「登録後同期」で検索したときにも見つけやすくなります。
+
+既存のタスクファイルのタグ形式（TAGS:やCATEGORY:など）に合わせて記録するのが一番きれいなので、そのフォーマットに合わせて追加しましょう。
