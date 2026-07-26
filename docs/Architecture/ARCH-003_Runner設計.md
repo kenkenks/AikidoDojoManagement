@@ -460,3 +460,24 @@ function paymentRunnerJudgeRequest_(requestResult) {
   // SKIPPED_PAID
   // SKIPPED_EXEMPT
 }
+---
+
+# 15. Runner Contractと入口パターン
+
+Runnerは内部関数の正常系だけでなく、
+実際の利用入口から渡される代表入力パターンを保証する。
+
+内部API Runnerと入口パターンRunnerは責務が異なる。
+
+```text
+内部API Runner
+Request → Record → Post
+
+入口パターンRunner
+Browser Entry → Service Entry → Expected Boundary State
+```
+
+入口パターンRunnerでは、期待状態への到達に加えて、
+後続責務へ越境していないこともVerifyする。
+
+詳細は `ARCH-014 Runner契約・入口パターン設計` を参照する。
