@@ -16,7 +16,16 @@
     let loginQr = null;
     let loginScanning = false;
 
+    applyLocationContextFromUrl();
     renderLoginState();
+
+
+    function applyLocationContextFromUrl() {
+      const params = new URLSearchParams(location.search);
+      const locationId = String(params.get("location_id") || "").trim();
+      if (!locationId) return;
+      DojoVirtualSession.setEntryContext({ location_id: locationId });
+    }
 
     function startLoginScan() {
       if (loginScanning) return;

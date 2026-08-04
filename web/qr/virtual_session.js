@@ -2,6 +2,7 @@
   "use strict";
 
   const STORAGE_KEY = "aikido_dojo_virtual_session_v1";
+  const PENDING_CONTEXT_KEY = "aikido_dojo_virtual_pending_context_v1";
   const ROLES = ["TEACHER", "MEMBER"];
   const CONTEXT_KEYS = ["location_id", "teacher_id", "billing_block_id"];
 
@@ -20,6 +21,41 @@
       context[key] = normalize(source[key]);
     });
     return context;
+  }
+
+
+  function readPendingContext() {
+    try {
+      const value = sessionStorage.getItem(PENDING_CONTEXT_KEY);
+      if (!value) return normalizeContext({});
+      return normalizeContext(JSON.parse(value));
+    } catch (error) {
+      sessionStorage.removeItem(PENDING_CONTEXT_KEY);
+      return normalizeContext({});
+    }
+  }
+
+  function writePendingContext(patch) {
+    if (!patch || typeof patch !== "object") {
+      throw new Error("保留コンテキストが不正です。");
+    }
+    Object.keys(patch).forEach(function(key) {
+      if (CONTEXT_KEYS.indexOf(key) < 0) {
+        throw new Error("セッション保持対象外の項目です: " + key);
+      }
+    });
+    const pending = readPendingContext();
+    CONTEXT_KEYS.forEach(function(key) {
+      if (Object.prototype.hasOwnProperty.call(patch, key)) {
+        pending[key] = normalize(patch[key]);
+      }
+    });
+    sessionStorage.setItem(PENDING_CONTEXT_KEY, JSON.stringify(pending));
+    return pending;
+  }
+
+  function clearPendingContext() {
+    sessionStorage.removeItem(PENDING_CONTEXT_KEY);
   }
 
   function isValidSession(session) {
@@ -77,7 +113,8 @@
       throw new Error("仮想ログインの役割またはIDが不正です。");
     }
     const timestamp = nowIso();
-    return write({
+    const pendingContext = readPendingContext();
+    const stored = write({
       role: normalizedRole,
       subject_id: normalizedId,
       teacher_id: normalizedRole === "TEACHER" ? normalizedId : "",
@@ -85,8 +122,10 @@
       logged_in_at: timestamp,
       last_accessed_at: timestamp,
       source: normalize(source) || "QR",
-      context: {}
+      context: pendingContext
     });
+    clearPendingContext();
+    return stored;
   }
 
   function logout() {
@@ -126,6 +165,13 @@
     return write(session);
   }
 
+
+  function setEntryContext(patch) {
+    const session = read();
+    if (session) return setContext(patch);
+    return writePendingContext(patch);
+  }
+
   function clearContext() {
     const session = read();
     if (!session) return null;
@@ -139,6 +185,8 @@
     loginTeacher: function(teacherId, source) { return login("TEACHER", teacherId, source); },
     loginMember: function(memberId, source) { return login("MEMBER", memberId, source); },
     setContext: setContext,
+    setEntryContext: setEntryContext,
+    getPendingContext: readPendingContext,
     clearContext: clearContext,
     logout: logout,
     touch: touch

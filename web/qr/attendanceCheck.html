@@ -162,17 +162,23 @@
 
     function initializeFromPageUrl() {
       const query = new URLSearchParams(window.location.search);
-      const session = DojoVirtualSession.get();
-      const context = session && session.context ? session.context : {};
       const urlTeacherId = String(query.get("teacher_id") || "").trim();
 
+      if (urlTeacherId) {
+        DojoVirtualSession.loginTeacher(urlTeacherId, "PAGE_URL");
+      }
+
+      const session = DojoVirtualSession.get();
+      if (!session || session.role !== "TEACHER") {
+        window.location.replace("./index.html");
+        return;
+      }
+
+      const context = session.context || {};
       currentLocationId = String(query.get("location_id") || context.location_id || "").trim();
       currentBillingBlockId = String(query.get("billing_block_id") || context.billing_block_id || "").trim();
-      currentTeacherId = String(urlTeacherId ||
-        (session && session.role === "TEACHER" ? session.teacher_id : "") ||
-        context.teacher_id || "").trim();
+      currentTeacherId = String(urlTeacherId || session.teacher_id || context.teacher_id || "").trim();
 
-      if (urlTeacherId) DojoVirtualSession.loginTeacher(urlTeacherId, "PAGE_URL");
       persistAttendanceContext();
       renderKeys();
 

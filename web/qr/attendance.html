@@ -126,6 +126,7 @@
       const session = DojoVirtualSession.get();
       const context = session && session.context ? session.context : {};
       const urlTeacherId = String(query.get("teacher_id") || "").trim();
+      const urlMemberId = String(query.get("member_id") || "").trim();
 
       currentLocationId = String(query.get("location_id") || context.location_id || "").trim();
       currentBillingBlockId = String(query.get("billing_block_id") || context.billing_block_id || "").trim();
@@ -135,7 +136,10 @@
 
       if (urlTeacherId) {
         DojoVirtualSession.loginTeacher(urlTeacherId, "PAGE_URL");
+      } else if (urlMemberId) {
+        DojoVirtualSession.loginMember(urlMemberId, "PAGE_URL");
       }
+
       persistAttendanceContext();
       renderKeys();
 
