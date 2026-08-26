@@ -245,8 +245,11 @@
     }
 
     function planLabel(row) {
-      const amount = Number(row.cap_amount || row.unit_price || 0);
-      return row.plan_id + "｜" + row.plan_name + (amount ? "（" + amount.toLocaleString("ja-JP") + "円）" : "");
+      const amount = row.fee_type === "回数料金"
+        ? Number(row.unit_price || 0)
+        : Number(row.cap_amount || 0);
+      return row.plan_id + "｜" + row.plan_name +
+        (amount ? "（" + amount.toLocaleString("ja-JP") + "円）" : "");
     }
 
     function renderSummary() {

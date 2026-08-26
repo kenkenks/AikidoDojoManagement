@@ -1,34 +1,20 @@
-# QR修正版
+# QR料金表示修正
 
-## 修正内容
+原因:
+QR生成画面の料金プラン選択ラベルが
+`cap_amount || unit_price`
+の順で金額表示していたため、
+回数料金でも上限金額（月額相当）が表示されていた。
 
-1. 都度払いの金額
-   - 誤: `cap_amount` を優先
-   - 正: `unit_price` を使用
+修正:
+- `会費タイプ=回数料金` → `unit_price`
+- それ以外 → `cap_amount`
 
-   月謝:
-   - `cap_amount`
+例:
+- P002 一般都度 → 1,500円
+- P004 子供都度 → 1,500円
+- P006 大学生都度 → 1,500円
+- P001 一般月謝 → 7,500円
 
-   都度払い:
-   - `unit_price`
-
-2. 道場表示名
-   - `合心館` → `桜風館`
-
-3. URL
-   - 変更なし
-   - `aishinkankyoto.jp` 等の既存URLはそのまま
-
-## 対象ファイル
-- `web/qr/qr_generator.html`
-- `web/qr/qr_generator.js`
-- `web/qr/sheets/member-card.html`
-- `web/qr/sheets/payment-monthly.html`
-- `web/qr/sheets/payment-onetime.html`
-- `web/qr/sheets/dojo.html`
-- `web/qr/sheets/teacher.html`
-
-## 確認ポイント
-- 一般/子供/大学生の都度払いが1回単価になること
-- 月謝は従来どおり月額になること
-- 各帳票の表示上に旧名称「合心館」が残っていないこと
+桜風館表記は維持。
+URL変更なし。
