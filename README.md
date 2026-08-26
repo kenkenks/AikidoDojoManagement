@@ -1,23 +1,40 @@
-# QR Generator Step 3 - 会員カードプレビュー接続
+# QR Generator Functional Prototype - 残り4種類
 
-## 変更
+会員カードのE2E確認完了後、同じ発行フローを4種類へ展開。
+
+## QRターゲットURL
+既存スプレッドシート `00_QR閲覧` の運用メモを正としている。
+
+- 会員カード: `/attendance?member_id=...`
+- 月謝: `/paypay_code?member_id=...&plan_id=...`
+- 都度支払い: `/paypay_code?member_id=...&plan_id=...`
+- 道場: `/?location_id=...`
+- 先生: `/attendanceCheck?teacher_id=...`
+
+## 変更ファイル
+- `web/qr/qr_generator.js`
+  - 上記既存ルートに確定
 - `web/qr/qr_generator.html`
-  - 会員カード選択時の「プレビューへ」を実装
-  - 選択した `member_id` / `member_name` をプレビューへ渡す
-  - 月謝・都度・道場・先生は次工程までプレビューを無効化
-- `web/qr/sheets/member-card.html`
-  - 生成画面から渡された会員情報を表示
-  - 既存 `qr_generator.js` でQR画像を生成
-  - 「QR生成へ戻る」「印刷」を追加
-  - 編集用入力欄を廃止してプレビュー専用化
+  - 5種類すべて「プレビューへ」を有効化
+- `web/qr/sheets/payment-monthly.html`
+- `web/qr/sheets/payment-onetime.html`
+- `web/qr/sheets/dojo.html`
+- `web/qr/sheets/teacher.html`
 
-## 確認手順
-1. 先生ホーム → QR生成
-2. 「会員カード」を選択
-3. 会員を選択
-4. 「プレビューへ」
-5. 氏名・会員ID・QRが表示される
-6. QRを実機で読み取る
-7. ブラウザ印刷プレビューを確認
+## 今回の完了確認
+各QRについて:
+1. QR生成画面で対象を選択
+2. プレビューへ
+3. QR画像表示
+4. 印刷ボタン動作
+5. スマホ実機で読み取り
+6. 既存の想定画面へ遷移
 
-※ QRに埋め込むデータ形式は既存 `qr_generator.js` を変更していません。
+## 意図的に未完成
+- 帳票デザイン
+- 表示項目の最終決定
+- ロゴ
+- PDF専用出力
+- 道場名などの最終表記調整
+
+これらはFunctional Prototype完了後のSheet Design Phaseで扱う。

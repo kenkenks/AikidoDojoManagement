@@ -97,7 +97,7 @@
     <h2>3. 選択内容</h2>
     <div id="selectionSummary" class="summary">マスタ読込後に表示します。</div>
     <button id="previewButton" class="next-button" type="button" disabled>プレビューへ</button>
-    <p class="note">会員カードはプレビュー・印刷まで確認できます。その他のQRは順次接続します。</p>
+    <p class="note">5種類ともFunctional Prototypeとしてプレビュー・印刷できます。帳票デザインは後工程で調整します。</p>
   </section>
 
   <script src="virtual_session.js"></script>
@@ -226,20 +226,69 @@
 
       document.getElementById("selectionSummary").innerHTML = lines.join("<br>");
       const previewButton = document.getElementById("previewButton");
-      previewButton.disabled = !(qrType === "MEMBER_CARD" && isSelectionComplete());
-      previewButton.textContent = qrType === "MEMBER_CARD" ? "プレビューへ" : "プレビュー（順次対応）";
+      previewButton.disabled = !isSelectionComplete();
+      previewButton.textContent = "プレビューへ";
     }
 
     function openPreview() {
-      if (!options || qrType !== "MEMBER_CARD") return;
-      const member = selectedRow(options.members || [], "member_id", valueOf("memberSelect"));
-      if (!member) return;
+      if (!options || !isSelectionComplete()) return;
 
-      const query = new URLSearchParams({
-        member_id: member.member_id,
-        member_name: member.member_name || ""
-      });
-      location.href = "sheets/member-card.html?" + query.toString();
+      let page = "";
+      const query = new URLSearchParams();
+
+      if (qrType === "MEMBER_CARD") {
+        const member = selectedRow(options.members || [], "member_id", valueOf("memberSelect"));
+        if (!member) return;
+        page = "member-card.html";
+        query.set("member_id", member.member_id);
+        query.set("member_name", member.member_name || "");
+      }
+
+      if (qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME") {
+        const member = selectedRow(options.members || [], "member_id", valueOf("memberSelect"));
+        const planRows = qrType === "PAYMENT_MONTHLY"
+          ? (options.monthly_plans || [])
+          : (options.onetime_plans || []);
+        const plan = selectedRow(planRows, "plan_id", valueOf("planSelect"));
+        if (!member || !plan) return;
+
+        page = qrType === "PAYMENT_MONTHLY"
+          ? "payment-monthly.html"
+          : "payment-onetime.html";
+        query.set("member_id", member.member_id);
+        query.set("member_name", member.member_name || "");
+        query.set("plan_id", plan.plan_id);
+        query.set("plan_name", plan.plan_name || "");
+        query.set("amount", String(Number(plan.cap_amount || plan.unit_price || 0)));
+      }
+
+      if (qrType === "DOJO") {
+        const locationRow = selectedRow(
+          options.locations || [],
+          "location_id",
+          valueOf("locationSelect")
+        );
+        if (!locationRow) return;
+        page = "dojo.html";
+        query.set("location_id", locationRow.location_id);
+        query.set("location_name", locationRow.location_name || "");
+      }
+
+      if (qrType === "TEACHER") {
+        const teacher = selectedRow(
+          options.teachers || [],
+          "teacher_id",
+          valueOf("teacherSelect")
+        );
+        if (!teacher) return;
+        page = "teacher.html";
+        query.set("teacher_id", teacher.teacher_id);
+        query.set("teacher_name", teacher.teacher_name || "");
+        query.set("role_name", teacher.role_name || "");
+      }
+
+      if (!page) return;
+      location.href = "sheets/" + page + "?" + query.toString();
     }
 
     function isSelectionComplete() {

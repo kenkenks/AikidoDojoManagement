@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>月謝 QR</title>
+  <style>
+    :root {
+      --border:#d8a054;
+      --surface:#fff7e9;
+      --text:#263238;
+      --muted:#68757b;
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; padding:24px;
+      font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+      background:#f5f5f5; color:var(--text);
+    }
+    .toolbar {
+      max-width:760px; margin:0 auto 16px;
+      display:flex; align-items:center; gap:12px;
+    }
+    .toolbar a { color:#245b50; font-weight:600; text-decoration:none; margin-right:auto; }
+    .toolbar button { padding:9px 16px; cursor:pointer; }
+    .sheet {
+      width:min(94vw, 560px); margin:0 auto;
+      border:1px solid var(--border); border-radius:14px;
+      background:var(--surface); padding:22px;
+    }
+    .title { font-size:20px; font-weight:800; padding-bottom:12px; border-bottom:1px solid var(--border); }
+    .subtitle { color:var(--muted); font-size:12px; margin-top:4px; }
+    .content {
+      display:grid; grid-template-columns:minmax(0,1fr) 190px;
+      gap:22px; align-items:center; margin-top:18px;
+    }
+    .name { font-size:23px; font-weight:800; margin-bottom:16px; overflow-wrap:anywhere; }
+    .item { margin:9px 0; }
+    .label { color:var(--muted); font-size:11px; }
+    .value { font-size:15px; font-weight:700; overflow-wrap:anywhere; }
+    .qr { display:flex; justify-content:center; align-items:center; }
+    .qr img { width:180px; height:180px; background:#fff; }
+    .error { max-width:760px; margin:12px auto; color:#9b1c1c; }
+    @media (max-width:520px) {
+      .content { grid-template-columns:1fr; }
+      .qr { order:-1; }
+    }
+    @media print {
+      @page { size:auto; margin:10mm; }
+      body { padding:0; background:#fff; }
+      .toolbar,.error { display:none!important; }
+      .sheet { width:100%; border-radius:0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <a href="../qr_generator.html">← QR生成へ戻る</a>
+    <button type="button" onclick="window.print()">印刷</button>
+  </div>
+  <main class="sheet">
+    <div class="title">月謝</div>
+    <div class="subtitle">月謝支払い用QR</div>
+    <div class="content">
+      <section id="details"></section>
+      <div class="qr"><img id="qrImage" alt="月謝 QR"></div>
+    </div>
+  </main>
+  <div id="error" class="error" role="alert"></div>
+
+  <script src="../qr_generator.js"></script>
+  <script>
+    (function() {
+      "use strict";
+      const params = new URLSearchParams(location.search);
+      const error = document.getElementById("error");
+      const details = document.getElementById("details");
+
+      function requiredParam(name) {
+        const value = (params.get(name) || "").trim();
+        if (!value) throw new Error(name + " が指定されていません。");
+        return value;
+      }
+      function esc(value) {
+        const div = document.createElement("div");
+        div.textContent = String(value == null ? "" : value);
+        return div.innerHTML;
+      }
+      function item(label, value) {
+        return '<div class="item"><div class="label">' + esc(label) +
+               '</div><div class="value">' + esc(value || "—") + '</div></div>';
+      }
+
+      try {
+        
+        const memberId = requiredParam("member_id");
+        const memberName = (params.get("member_name") || "").trim();
+        const planId = requiredParam("plan_id");
+        const planName = (params.get("plan_name") || "").trim();
+        const amount = Number(params.get("amount") || 0);
+        const documentId = memberId;
+        let detailHtml = '<div class="name">' + esc(memberName || "（氏名未設定）") + '</div>';
+        detailHtml += item("会員ID", memberId);
+        detailHtml += item("料金プラン", planName || planId);
+        if (amount) detailHtml += item("金額", amount.toLocaleString("ja-JP") + "円");
+
+        details.innerHTML = detailHtml;
+
+        const qr = DojoQrGenerator.buildQr(
+          DojoQrGenerator.QR_TYPES.PAYMENT_MONTHLY,
+          { member_id:memberId, plan_id:planId },
+          { image: { size:"320x320" } }
+        );
+        const image = document.getElementById("qrImage");
+        image.src = qr.imageUrl;
+        image.dataset.targetUrl = qr.targetUrl;
+        image.addEventListener("error", function() {
+          error.textContent = "QR画像を取得できませんでした。";
+        });
+        document.title = "月謝 " + documentId;
+      } catch (e) {
+        document.getElementById("qrImage").removeAttribute("src");
+        error.textContent = e && e.message ? e.message : String(e);
+      }
+    })();
+  </script>
+</body>
+</html>
