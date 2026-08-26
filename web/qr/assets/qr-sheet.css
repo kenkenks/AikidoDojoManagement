@@ -204,3 +204,130 @@ body {
     transform: none !important;
   }
 }
+
+
+/* ========================================
+   Small payment label: 50mm x 50mm
+   ======================================== */
+:root {
+  --sf-label-w: 50mm;
+  --sf-label-h: 50mm;
+  --sf-monthly: #a36f2f;
+}
+.qr-sheet--label {
+  width: var(--sf-label-w);
+  height: var(--sf-label-h);
+  border-radius: 1.8mm;
+}
+.qr-sheet--label::before {
+  width: 1.8mm;
+  background: var(--sf-monthly);
+}
+.qr-sheet--label .sheet-inner {
+  padding: 3.2mm 3.3mm 3mm 5mm;
+  grid-template-rows: auto auto 1fr;
+}
+.label-head {
+  display: grid;
+  grid-template-columns: 7mm 1fr;
+  gap: 2mm;
+  align-items: center;
+  padding-bottom: 2.1mm;
+  border-bottom: .22mm solid var(--sf-line);
+}
+.label-icon {
+  width: 7mm;
+  height: 7mm;
+  display: grid;
+  place-items: center;
+  border: .3mm solid var(--sf-monthly);
+  border-radius: 1.4mm;
+  color: var(--sf-monthly);
+}
+.label-icon svg { width: 4.8mm; height: 4.8mm; }
+.label-dojo {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: 3.5mm;
+  font-weight: 700;
+  letter-spacing: .12em;
+  line-height: 1;
+}
+.label-kind {
+  margin-top: .7mm;
+  color: var(--sf-monthly);
+  font-size: 1.9mm;
+  font-weight: 800;
+  letter-spacing: .08em;
+}
+.label-meta {
+  padding-top: 2.3mm;
+}
+.label-member {
+  font-size: 3.3mm;
+  line-height: 1.25;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.label-plan {
+  margin-top: .8mm;
+  font-size: 2.1mm;
+  color: var(--sf-muted);
+  font-weight: 700;
+}
+.label-amount {
+  margin-top: .5mm;
+  font-size: 2.4mm;
+  font-weight: 800;
+}
+.label-description {
+  margin-top: .4mm;
+  font-size: 1.8mm;
+  color: var(--sf-muted);
+  line-height: 1.35;
+}
+.label-qr-zone {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 0;
+}
+.label-qr-frame {
+  width: 28mm;
+  height: 28mm;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: .22mm solid #e4e8e6;
+  border-radius: 1.2mm;
+}
+.label-qr-frame img {
+  width: 24mm;
+  height: 24mm;
+  display: block;
+  background: #fff;
+}
+@media print {
+  @page { size: 50mm 50mm; margin: 0; }
+  html, body {
+    width: var(--sf-label-w);
+    height: var(--sf-label-h);
+  }
+}
+
+
+/* ========================================
+   One-time payment label
+   ======================================== */
+:root {
+  --sf-onetime: #9a8734;
+}
+.qr-sheet--onetime::before {
+  background: var(--sf-onetime);
+}
+.qr-sheet--onetime .label-icon {
+  border-color: var(--sf-onetime);
+  color: var(--sf-onetime);
+}
+.qr-sheet--onetime .label-kind {
+  color: var(--sf-onetime);
+}
