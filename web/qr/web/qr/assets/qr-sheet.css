@@ -313,3 +313,21 @@ body {
     height: var(--sf-label-h);
   }
 }
+
+
+/* ========================================
+   One-time payment label
+   ======================================== */
+:root {
+  --sf-onetime: #9a8734;
+}
+.qr-sheet--onetime::before {
+  background: var(--sf-onetime);
+}
+.qr-sheet--onetime .label-icon {
+  border-color: var(--sf-onetime);
+  color: var(--sf-onetime);
+}
+.qr-sheet--onetime .label-kind {
+  color: var(--sf-onetime);
+}
