@@ -342,3 +342,14 @@ body {
     transform:none !important;
   }
 }
+
+
+/* Teacher v3 — vertical fit correction */
+.qr-sheet--teacher .member-block { padding-top: 4mm; }
+.qr-sheet--teacher .member-name { margin-top: .7mm; }
+.qr-sheet--teacher .teacher-role { margin-top: .8mm; }
+.qr-sheet--teacher .member-id {
+  margin-top: 1mm;
+  padding-bottom: 3.5mm;
+}
+.qr-sheet--teacher .qr-zone { align-content: center; }
