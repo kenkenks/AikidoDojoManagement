@@ -3,140 +3,71 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>会員カード QR</title>
-  <style>
-    :root {
-      --card-width: 86mm;
-      --card-height: 54mm;
-      --border: #4f6f67;
-      --surface: #eef8f4;
-      --text: #20312d;
-      --muted: #60736e;
-    }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 24px;
-      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-      color: var(--text);
-      background: #f5f5f5;
-    }
-    .toolbar {
-      max-width: 720px;
-      margin: 0 auto 16px;
-      display: flex;
-      gap: 8px;
-      align-items: end;
-      flex-wrap: wrap;
-    }
-    .toolbar label { font-size: 12px; color: #555; }
-    .toolbar input {
-      display: block;
-      min-width: 180px;
-      margin-top: 4px;
-      padding: 7px 9px;
-    }
-    .toolbar button { padding: 8px 14px; cursor: pointer; }
-    .toolbar a { color:#245b50; font-weight:600; text-decoration:none; margin-right:auto; }
-    .sheet {
-      width: var(--card-width);
-      height: var(--card-height);
-      margin: 0 auto;
-      padding: 5mm;
-      border: 1px solid var(--border);
-      border-radius: 3mm;
-      background: var(--surface);
-      display: grid;
-      grid-template-columns: 1fr 31mm;
-      grid-template-rows: auto 1fr auto;
-      column-gap: 4mm;
-      overflow: hidden;
-    }
-    .title {
-      grid-column: 1 / 3;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: .08em;
-      border-bottom: 1px solid rgba(79,111,103,.35);
-      padding-bottom: 2mm;
-    }
-    .member {
-      align-self: center;
-      min-width: 0;
-    }
-    .member-name {
-      font-size: 18px;
-      font-weight: 700;
-      margin-bottom: 3mm;
-      overflow-wrap: anywhere;
-    }
-    .member-id-label {
-      font-size: 9px;
-      color: var(--muted);
-    }
-    .member-id {
-      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
-      font-size: 13px;
-      font-weight: 700;
-    }
-    .qr-wrap {
-      grid-column: 2;
-      grid-row: 2 / 4;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .qr-wrap img {
-      width: 29mm;
-      height: 29mm;
-      display: block;
-      background: #fff;
-    }
-    .footer {
-      grid-column: 1;
-      font-size: 9px;
-      color: var(--muted);
-      align-self: end;
-    }
-    .error {
-      max-width: 720px;
-      margin: 12px auto;
-      color: #9b1c1c;
-      font-size: 13px;
-    }
-    @media print {
-      @page { size: 86mm 54mm; margin: 0; }
-      body { padding: 0; background: #fff; }
-      .toolbar, .error { display: none !important; }
-      .sheet { margin: 0; border-radius: 0; }
-    }
-  </style>
+  <title>桜風館 会員カード</title>
+  <link rel="stylesheet" href="../assets/qr-sheet.css">
 </head>
 <body>
-  <div class="toolbar">
+  <nav class="preview-toolbar" aria-label="プレビュー操作">
     <a href="../qr_generator.html">← QR生成へ戻る</a>
     <button type="button" onclick="window.print()">印刷</button>
+  </nav>
+
+  <div class="preview-stage">
+    <main class="qr-sheet" aria-label="桜風館 会員カード">
+      <div class="sheet-inner">
+        <header class="sheet-head">
+          <div class="function-icon" aria-hidden="true">
+            <!-- 仮アイコン。SVGなので後から差し替え可能 -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <circle cx="9" cy="7" r="3"></circle>
+              <path d="M3.5 18c.6-4 2.6-6 5.5-6s4.9 2 5.5 6"></path>
+              <path d="m15 14 2.1 2.1L21 12.2"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="dojo-name">桜風館</div>
+            <div class="sheet-kind">MEMBER / ATTENDANCE</div>
+          </div>
+        </header>
+
+        <section class="member-block">
+          <div class="eyebrow">会員カード</div>
+          <div id="memberName" class="member-name">山田 太郎</div>
+          <div class="member-id">会員ID&nbsp; <strong id="memberId">M001</strong></div>
+        </section>
+
+        <section class="qr-zone" aria-label="出席受付QR">
+          <div class="qr-frame">
+            <img id="qrImage" alt="出席受付QR">
+          </div>
+        </section>
+
+        <footer class="sheet-foot">
+          <div class="usage">
+            稽古の出席受付
+            <small>受付時にこのQRコードを読み取ってください。</small>
+          </div>
+          <svg class="mark" viewBox="0 0 48 48" aria-label="桜の印">
+            <!-- 仮の桜マーク -->
+            <g fill="none" stroke="currentColor" stroke-width="1.6">
+              <path d="M24 23C13 18 13 8 24 5c11 3 11 13 0 18Z"/>
+              <path d="M25 24c5-11 15-9 17 2-5 10-14 8-17-2Z"/>
+              <path d="M23 25c11 3 10 14 0 18-10-4-11-15 0-18Z"/>
+              <path d="M22 24c-5 11-15 9-17-2 5-10 14-8 17 2Z"/>
+              <circle cx="24" cy="24" r="2.4"/>
+            </g>
+          </svg>
+        </footer>
+      </div>
+    </main>
   </div>
 
-  <main id="memberCard" class="sheet" aria-label="会員カード">
-    <div class="title">会員カード</div>
-    <section class="member">
-      <div id="memberName" class="member-name">山田太郎</div>
-      <div class="member-id-label">会員ID</div>
-      <div id="memberId" class="member-id">M001</div>
-    </section>
-    <div class="qr-wrap">
-      <img id="qrImage" alt="会員カードQR">
-    </div>
-    <div class="footer">桜風館</div>
-  </main>
   <div id="error" class="error" role="alert"></div>
 
   <script src="../qr_generator.js"></script>
   <script>
     (function () {
       "use strict";
-
       const params = new URLSearchParams(location.search);
       const memberId = (params.get("member_id") || "").trim();
       const memberName = (params.get("member_name") || "").trim();
@@ -144,22 +75,20 @@
 
       try {
         if (!memberId) throw new Error("member_id が指定されていません。");
-
         const qr = DojoQrGenerator.buildQr(
           DojoQrGenerator.QR_TYPES.MEMBER_CARD,
           { member_id: memberId },
-          { image: { size: "320x320" } }
+          { image: { size: "480x480", ecc: "M" } }
         );
-
         document.getElementById("memberId").textContent = memberId;
         document.getElementById("memberName").textContent = memberName || "（氏名未設定）";
-        const qrImage = document.getElementById("qrImage");
-        qrImage.src = qr.imageUrl;
-        qrImage.dataset.targetUrl = qr.targetUrl;
-        qrImage.addEventListener("error", function () {
+        const image = document.getElementById("qrImage");
+        image.src = qr.imageUrl;
+        image.dataset.targetUrl = qr.targetUrl;
+        image.addEventListener("error", function () {
           error.textContent = "QR画像を取得できませんでした。ネットワーク接続を確認してください。";
         });
-        document.title = "会員カード " + memberId;
+        document.title = "桜風館 会員カード " + memberId;
       } catch (e) {
         document.getElementById("qrImage").removeAttribute("src");
         error.textContent = e && e.message ? e.message : String(e);

@@ -1,30 +1,24 @@
-# QR料金プラン「説明」表示パッチ
+# Phase B: Sheet Design / Member Card Release Design v1
 
-## マスター
-`03_料金マスタ` に追加された `説明` 列を使用する。
+最初のデザイン検証用として、会員カードだけをRelease Design v1へ変更。
 
-## 共通処理
-- GAS: `説明` → `description`
-- QR生成画面: 選択されたプランの `description` をプレビューへ渡す
-- 月謝/都度プレビュー: `description` が空でなければ「説明」として表示
-- 空欄なら何も表示しない
+## 方針
+- A7縦 74 × 105 mm
+- 印刷時は物理サイズ固定
+- PC/スマホはプレビュー表示のみレスポンシブ
+- 白地主体。ベタ背景を避け、左端2.2mmのアクセントのみ
+- 桜風館表記
+- 仮SVGの「会員/出席」機能アイコン
+- 仮SVGの桜マーク
+- QRは37mm、白いquiet zoneを含む43mm枠内
+- 外部CSSフレームワークなし
+- 共通CSS `web/qr/assets/qr-sheet.css` を新設
 
-家族専用の if は追加していない。
+## 確認してほしい点
+1. PCでの第一印象（リリース品に見えるか）
+2. スマホで横にはみ出さず確認できるか
+3. A7印刷時の実寸・文字サイズ
+4. QR実機読取
+5. 色・余白・桜マーク・機能アイコンの方向性
 
-例:
-- P011 表示名: 家族3名
-- 説明: 家族3名分
-- 金額: 11,000円
-
-表示:
-料金プラン  家族3名
-金額        11,000円
-説明        家族3名分
-
-## 変更ファイル
-- gas/21_QrGeneratorOptions.js
-- web/qr/qr_generator.html
-- web/qr/sheets/payment-monthly.html
-- web/qr/sheets/payment-onetime.html
-
-GAS変更後は clasp push / 再デプロイが必要。
+このv1でデザイン言語を調整後、月謝・都度・道場・先生へ展開する。
