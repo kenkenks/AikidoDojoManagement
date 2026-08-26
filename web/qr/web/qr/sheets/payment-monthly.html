@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>桜風館 月謝QR</title>
+  <link rel="stylesheet" href="../assets/qr-sheet.css">
+</head>
+<body>
+  <nav class="preview-toolbar" aria-label="プレビュー操作">
+    <a href="../qr_generator.html">← QR生成へ戻る</a>
+    <button type="button" onclick="window.print()">印刷</button>
+  </nav>
+
+  <div class="preview-stage">
+    <main class="qr-sheet qr-sheet--label" aria-label="桜風館 月謝QR">
+      <div class="sheet-inner">
+        <header class="label-head">
+          <div class="label-icon" aria-hidden="true">
+            <!-- 月謝袋/支払いを示す仮SVG -->
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
+              <path d="M4 6h16v12H4z"></path>
+              <path d="m4 8 8 5 8-5"></path>
+              <path d="M8.2 4.5h7.6"></path>
+            </svg>
+          </div>
+          <div>
+            <div class="label-dojo">桜風館</div>
+            <div class="label-kind">月謝 QR</div>
+          </div>
+        </header>
+
+        <section class="label-meta">
+          <div id="memberName" class="label-member">山田 太郎</div>
+          <div id="planName" class="label-plan">一般月謝</div>
+          <div id="amount" class="label-amount">7,500円</div>
+          <div id="description" class="label-description"></div>
+        </section>
+
+        <section class="label-qr-zone" aria-label="月謝支払いQR">
+          <div class="label-qr-frame">
+            <img id="qrImage" alt="月謝支払いQR">
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div id="error" class="error" role="alert"></div>
+
+  <script src="../qr_generator.js"></script>
+  <script>
+    (function () {
+      "use strict";
+      const params = new URLSearchParams(location.search);
+      const memberId = (params.get("member_id") || "").trim();
+      const memberName = (params.get("member_name") || "").trim();
+      const planId = (params.get("plan_id") || "").trim();
+      const planName = (params.get("plan_name") || "").trim();
+      const description = (params.get("description") || "").trim();
+      const amount = Number(params.get("amount") || 0);
+      const error = document.getElementById("error");
+
+      try {
+        if (!memberId) throw new Error("member_id が指定されていません。");
+        if (!planId) throw new Error("plan_id が指定されていません。");
+
+        const qr = DojoQrGenerator.buildQr(
+          DojoQrGenerator.QR_TYPES.PAYMENT_MONTHLY,
+          { member_id: memberId, plan_id: planId },
+          { image: { size: "420x420", ecc: "M" } }
+        );
+
+        document.getElementById("memberName").textContent =
+          memberName || "（氏名未設定）";
+        document.getElementById("planName").textContent =
+          planName || planId;
+        document.getElementById("amount").textContent =
+          amount ? amount.toLocaleString("ja-JP") + "円" : "";
+        document.getElementById("description").textContent = description;
+        document.getElementById("description").style.display =
+          description ? "block" : "none";
+
+        const image = document.getElementById("qrImage");
+        image.src = qr.imageUrl;
+        image.dataset.targetUrl = qr.targetUrl;
+        image.addEventListener("error", function () {
+          error.textContent = "QR画像を取得できませんでした。";
+        });
+
+        document.title = "桜風館 月謝QR " + memberId;
+      } catch (e) {
+        document.getElementById("qrImage").removeAttribute("src");
+        error.textContent = e && e.message ? e.message : String(e);
+      }
+    })();
+  </script>
+</body>
+</html>
