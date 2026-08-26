@@ -15,46 +15,41 @@
   <div class="preview-stage">
     <main class="qr-sheet qr-sheet--teacher" aria-label="桜風館 先生カード">
       <div class="sheet-inner">
-        <header class="teacher-head">
-          <div class="teacher-icon" aria-hidden="true">
-            <!-- 指導者 / 先生を示す仮SVG -->
+        <header class="sheet-head">
+          <div class="function-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
-              <circle cx="8.5" cy="7" r="3"></circle>
-              <path d="M3.5 18c.7-4 2.6-6 5-6 2.5 0 4.4 2 5 6"></path>
-              <path d="M15.5 7.5h5"></path>
-              <path d="M18 5v5"></path>
-              <path d="M15.5 14.5h5"></path>
+              <circle cx="9" cy="7" r="3"></circle>
+              <path d="M3.5 18c.6-4 2.6-6 5.5-6s4.9 2 5.5 6"></path>
+              <path d="M15.5 6.5h5"></path>
+              <path d="M18 4v5"></path>
+              <path d="M15.5 14h5"></path>
             </svg>
           </div>
-
           <div>
             <div class="dojo-name">桜風館</div>
-            <div class="teacher-kind">TEACHER / INSTRUCTOR</div>
+            <div class="sheet-kind">TEACHER / INSTRUCTOR</div>
           </div>
         </header>
 
-        <section class="teacher-block">
+        <section class="member-block">
           <div class="eyebrow">先生カード</div>
-          <div id="teacherName" class="teacher-name">山田 先生</div>
+          <div id="teacherName" class="member-name">山田 太郎</div>
           <div id="roleName" class="teacher-role"></div>
-          <div class="teacher-id">
-            先生ID&nbsp; <strong id="teacherId">T001</strong>
-          </div>
+          <div class="member-id">先生ID&nbsp; <strong id="teacherId">T001</strong></div>
         </section>
 
-        <section class="teacher-qr-zone" aria-label="先生QR">
-          <div class="teacher-qr-frame">
+        <section class="qr-zone" aria-label="先生QR">
+          <div class="qr-frame">
             <img id="qrImage" alt="先生QR">
           </div>
         </section>
 
-        <footer class="teacher-foot">
-          <div class="teacher-usage">
+        <footer class="sheet-foot">
+          <div class="usage">
             先生用QR
-            <small>先生として道場システムを開始するときに使用します。</small>
+            <small>先生として道場システムを開始するときに読み取ります。</small>
           </div>
-
-          <svg class="teacher-mark" viewBox="0 0 48 48" aria-label="桜の印">
+          <svg class="mark" viewBox="0 0 48 48" aria-label="桜の印">
             <g fill="none" stroke="currentColor" stroke-width="1.6">
               <path d="M24 23C13 18 13 8 24 5c11 3 11 13 0 18Z"/>
               <path d="M25 24c5-11 15-9 17 2-5 10-14 8-17-2Z"/>
@@ -74,7 +69,6 @@
   <script>
     (function () {
       "use strict";
-
       const params = new URLSearchParams(location.search);
       const teacherId = (params.get("teacher_id") || "").trim();
       const teacherName = (params.get("teacher_name") || "").trim();
@@ -83,28 +77,22 @@
 
       try {
         if (!teacherId) throw new Error("teacher_id が指定されていません。");
-
         const qr = DojoQrGenerator.buildQr(
           DojoQrGenerator.QR_TYPES.TEACHER,
           { teacher_id: teacherId },
           { image: { size: "480x480", ecc: "M" } }
         );
-
         document.getElementById("teacherId").textContent = teacherId;
-        document.getElementById("teacherName").textContent =
-          teacherName || "（先生名未設定）";
-
-        const roleElement = document.getElementById("roleName");
-        roleElement.textContent = roleName;
-        roleElement.style.display = roleName ? "block" : "none";
-
+        document.getElementById("teacherName").textContent = teacherName || "（先生名未設定）";
+        const role = document.getElementById("roleName");
+        role.textContent = roleName;
+        role.style.display = roleName ? "block" : "none";
         const image = document.getElementById("qrImage");
         image.src = qr.imageUrl;
         image.dataset.targetUrl = qr.targetUrl;
         image.addEventListener("error", function () {
           error.textContent = "QR画像を取得できませんでした。";
         });
-
         document.title = "桜風館 先生カード " + teacherId;
       } catch (e) {
         document.getElementById("qrImage").removeAttribute("src");

@@ -17,7 +17,6 @@
       <div class="sheet-inner">
         <header class="dojo-head">
           <div class="dojo-icon" aria-hidden="true">
-            <!-- 道場 / 場所を示す仮SVG -->
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7">
               <path d="M4 10.5 12 4l8 6.5"></path>
               <path d="M6.5 9.5V20h11V9.5"></path>
@@ -34,8 +33,10 @@
         <section class="dojo-message">
           <div class="dojo-eyebrow">稽古受付</div>
           <div class="dojo-title">まず、この道場QRを<br>読み取ってください</div>
-          <div id="locationName" class="dojo-name-display">桜風館</div>
-          <div class="dojo-id-display">道場ID&nbsp; <strong id="locationId">L001</strong></div>
+          <div class="dojo-meta">
+            <div id="locationName" class="dojo-name-display">桜風館</div>
+            <div class="dojo-id-display">道場ID&nbsp; <strong id="locationId">L001</strong></div>
+          </div>
         </section>
 
         <section class="dojo-qr-zone" aria-label="道場QR">
@@ -49,7 +50,6 @@
             出席受付の最初に読み取ります。
             <small>読み取り後、会員カードなど次のQRへ進んでください。</small>
           </div>
-
           <svg class="dojo-mark" viewBox="0 0 48 48" aria-label="桜の印">
             <g fill="none" stroke="currentColor" stroke-width="1.6">
               <path d="M24 23C13 18 13 8 24 5c11 3 11 13 0 18Z"/>
@@ -70,32 +70,25 @@
   <script>
     (function () {
       "use strict";
-
       const params = new URLSearchParams(location.search);
       const locationId = (params.get("location_id") || "").trim();
       const locationName = (params.get("location_name") || "").trim();
       const error = document.getElementById("error");
-
       try {
         if (!locationId) throw new Error("location_id が指定されていません。");
-
         const qr = DojoQrGenerator.buildQr(
           DojoQrGenerator.QR_TYPES.DOJO,
           { location_id: locationId },
           { image: { size: "900x900", ecc: "M" } }
         );
-
         document.getElementById("locationId").textContent = locationId;
-        document.getElementById("locationName").textContent =
-          locationName || "桜風館";
-
+        document.getElementById("locationName").textContent = locationName || "桜風館";
         const image = document.getElementById("qrImage");
         image.src = qr.imageUrl;
         image.dataset.targetUrl = qr.targetUrl;
         image.addEventListener("error", function () {
           error.textContent = "QR画像を取得できませんでした。";
         });
-
         document.title = "桜風館 道場QR " + locationId;
       } catch (e) {
         document.getElementById("qrImage").removeAttribute("src");

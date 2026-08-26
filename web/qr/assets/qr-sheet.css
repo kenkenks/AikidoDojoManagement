@@ -2,12 +2,21 @@
   --sf-ink: #202725;
   --sf-muted: #66706c;
   --sf-line: #c8d6d1;
-  --sf-member: #497b6c;
   --sf-paper: #fff;
   --sf-screen: #eef1f0;
+  --sf-member: #497b6c;
+  --sf-monthly: #a36f2f;
+  --sf-onetime: #9a8734;
+  --sf-dojo: #65777a;
+  --sf-teacher: #62798a;
   --sf-a7-w: 74mm;
   --sf-a7-h: 105mm;
+  --sf-label-w: 50mm;
+  --sf-label-h: 50mm;
+  --sf-a5-w: 148mm;
+  --sf-a5-h: 210mm;
 }
+
 * { box-sizing: border-box; }
 html, body { margin: 0; }
 body {
@@ -18,7 +27,7 @@ body {
   background: var(--sf-screen);
 }
 .preview-toolbar {
-  width: min(100%, 620px);
+  width: min(100%, 760px);
   margin: 0 auto 14px;
   display: flex;
   gap: 10px;
@@ -45,6 +54,14 @@ body {
   justify-content: center;
   width: 100%;
 }
+.error {
+  width: min(100%, 760px);
+  margin: 12px auto;
+  color: #9b1c1c;
+  font-size: 13px;
+}
+
+/* ---------- common A7 card ---------- */
 .qr-sheet {
   position: relative;
   width: var(--sf-a7-w);
@@ -55,6 +72,7 @@ body {
   border: .35mm solid #bcc8c4;
   border-radius: 2.6mm;
   box-shadow: 0 7px 24px rgba(25, 40, 35, .12);
+  page: a7;
 }
 .qr-sheet::before {
   content: "";
@@ -67,7 +85,7 @@ body {
   height: 100%;
   padding: 6mm 6mm 5mm 8mm;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto minmax(0,1fr) auto;
 }
 .sheet-head {
   display: grid;
@@ -168,592 +186,159 @@ body {
   color: var(--sf-member);
   opacity: .88;
 }
-.error {
-  width: min(100%, 620px);
-  margin: 12px auto;
-  color: #9b1c1c;
-  font-size: 13px;
-}
-@media screen and (max-width: 360px) {
-  .preview-stage {
-    justify-content: flex-start;
-    overflow-x: auto;
-    padding-bottom: 8px;
-  }
-  .qr-sheet {
-    transform: scale(.9);
-    transform-origin: top left;
-    margin-right: calc(-1 * var(--sf-a7-w) * .1);
-    margin-bottom: calc(-1 * var(--sf-a7-h) * .1);
-  }
-}
-@media print {
-  @page { size: A7 portrait; margin: 0; }
-  html, body {
-    width: var(--sf-a7-w);
-    height: var(--sf-a7-h);
-    padding: 0;
-    background: #fff;
-  }
-  .preview-toolbar, .error { display: none !important; }
-  .preview-stage { display: block; }
-  .qr-sheet {
-    margin: 0;
-    border-radius: 0;
-    box-shadow: none;
-    transform: none !important;
-  }
-}
 
-
-/* ========================================
-   Small payment label: 50mm x 50mm
-   ======================================== */
-:root {
-  --sf-label-w: 50mm;
-  --sf-label-h: 50mm;
-  --sf-monthly: #a36f2f;
-}
+/* ---------- payment label ---------- */
 .qr-sheet--label {
   width: var(--sf-label-w);
   height: var(--sf-label-h);
   border-radius: 1.8mm;
+  page: label50;
 }
-.qr-sheet--label::before {
-  width: 1.8mm;
-  background: var(--sf-monthly);
-}
-.qr-sheet--label .sheet-inner {
-  padding: 3.2mm 3.3mm 3mm 5mm;
-  display: grid;
-  grid-template-rows: auto 1fr;
-}
-.label-head {
-  display: grid;
-  grid-template-columns: 7mm 1fr;
-  gap: 2mm;
-  align-items: center;
-  padding-bottom: 2.1mm;
-  border-bottom: .22mm solid var(--sf-line);
-}
-.label-icon {
-  width: 7mm;
-  height: 7mm;
-  display: grid;
-  place-items: center;
-  border: .3mm solid var(--sf-monthly);
-  border-radius: 1.4mm;
-  color: var(--sf-monthly);
-}
-.label-icon svg { width: 4.8mm; height: 4.8mm; }
-.label-dojo {
-  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
-  font-size: 3.5mm;
-  font-weight: 700;
-  letter-spacing: .12em;
-  line-height: 1;
-}
-.label-kind {
-  margin-top: .7mm;
-  color: var(--sf-monthly);
-  font-size: 1.9mm;
-  font-weight: 800;
-  letter-spacing: .08em;
-}
-.label-meta {
-  padding-top: 2.3mm;
-}
-.label-member {
-  font-size: 3.3mm;
-  line-height: 1.25;
-  font-weight: 800;
-  overflow-wrap: anywhere;
-}
-.label-plan {
-  margin-top: .8mm;
-  font-size: 2.1mm;
-  color: var(--sf-muted);
-  font-weight: 700;
-}
-.label-amount {
-  margin-top: .5mm;
-  font-size: 2.4mm;
-  font-weight: 800;
-}
-.label-description {
-  margin-top: .4mm;
-  font-size: 1.8mm;
-  color: var(--sf-muted);
-  line-height: 1.35;
-}
-.label-qr-zone {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  min-height: 0;
-}
-.label-qr-frame {
-  width: 28mm;
-  height: 28mm;
-  display: grid;
-  place-items: center;
-  background: #fff;
-  border: .22mm solid #e4e8e6;
-  border-radius: 1.2mm;
-}
-.label-qr-frame img {
-  width: 24mm;
-  height: 24mm;
-  display: block;
-  background: #fff;
-}
-@media print {
-  @page { size: 50mm 50mm; margin: 0; }
-  html, body {
-    width: var(--sf-label-w);
-    height: var(--sf-label-h);
-  }
-}
-
-
-/* ========================================
-   One-time payment label
-   ======================================== */
-:root {
-  --sf-onetime: #9a8734;
-}
-.qr-sheet--onetime::before {
-  background: var(--sf-onetime);
-}
-.qr-sheet--onetime .label-icon {
-  border-color: var(--sf-onetime);
-  color: var(--sf-onetime);
-}
-.qr-sheet--onetime .label-kind {
-  color: var(--sf-onetime);
-}
-
-
-/* Payment label v2: information and QR are explicitly separated. */
-.label-body {
-  min-height: 0;
-  padding-top: 2.4mm;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 25.5mm;
-  gap: 2.2mm;
-  align-items: center;
-}
-.label-info {
-  min-width: 0;
-  align-self: center;
-}
-.label-body .label-meta {
-  padding-top: 0;
-}
-.label-body .label-qr-zone {
-  min-height: 0;
-  display: grid;
-  place-items: center;
-}
-.label-body .label-qr-frame {
-  width: 25.5mm;
-  height: 25.5mm;
-}
-.label-body .label-qr-frame img {
-  width: 22mm;
-  height: 22mm;
-}
-.label-body .label-member {
-  font-size: 3.1mm;
-}
-.label-body .label-plan {
-  margin-top: 1mm;
-  font-size: 2mm;
-}
-.label-body .label-amount {
-  margin-top: 1mm;
-  font-size: 2.45mm;
-  line-height: 1.2;
-}
-.label-body .label-description {
-  margin-top: .8mm;
-  font-size: 1.75mm;
-  line-height: 1.3;
-}
-
-
-/* ========================================
-   Payment label v3 — fit correction
-   ======================================== */
+.qr-sheet--label::before { width: 1.8mm; background: var(--sf-monthly); }
+.qr-sheet--onetime::before { background: var(--sf-onetime); }
 .qr-sheet--label .sheet-inner {
   height: 100%;
   padding: 3mm 3mm 2.8mm 4.7mm;
   display: grid;
-  grid-template-rows: 11mm minmax(0, 1fr);
-  row-gap: 0;
+  grid-template-rows: 11mm minmax(0,1fr);
 }
-.qr-sheet--label .label-head {
+.label-head {
   height: 11mm;
-  min-height: 11mm;
-  padding-bottom: 1.8mm;
-}
-.qr-sheet--label .label-body {
-  min-height: 0;
-  height: 100%;
-  padding-top: 1.6mm;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 24.5mm;
-  gap: 1.8mm;
+  grid-template-columns: 7mm 1fr;
+  gap: 2mm;
   align-items: center;
-  overflow: hidden;
+  padding-bottom: 1.8mm;
+  border-bottom: .22mm solid var(--sf-line);
 }
-.qr-sheet--label .label-info {
-  min-width: 0;
-  align-self: center;
+.label-icon {
+  width: 7mm; height: 7mm;
+  display: grid; place-items: center;
+  border: .3mm solid var(--sf-monthly);
+  border-radius: 1.4mm;
+  color: var(--sf-monthly);
 }
-.qr-sheet--label .label-qr-zone {
-  min-height: 0;
-  height: 100%;
+.qr-sheet--onetime .label-icon { border-color: var(--sf-onetime); color: var(--sf-onetime); }
+.label-icon svg { width: 4.8mm; height: 4.8mm; }
+.label-dojo {
+  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
+  font-size: 3.5mm; font-weight: 700; letter-spacing: .12em; line-height: 1;
+}
+.label-kind {
+  margin-top: .7mm; color: var(--sf-monthly);
+  font-size: 1.9mm; font-weight: 800; letter-spacing: .08em;
+}
+.qr-sheet--onetime .label-kind { color: var(--sf-onetime); }
+.label-body {
+  min-height: 0; height: 100%; padding-top: 1.6mm;
   display: grid;
-  place-items: center;
-  align-content: center;
-  overflow: hidden;
+  grid-template-columns: minmax(0,1fr) 24.5mm;
+  gap: 1.8mm; align-items: center; overflow: hidden;
 }
-.qr-sheet--label .label-qr-frame {
-  width: 24.5mm;
-  height: 24.5mm;
-  display: grid;
-  place-items: center;
-  margin: 0;
-}
-.qr-sheet--label .label-qr-frame img {
-  width: 21.5mm;
-  height: 21.5mm;
-}
-.qr-sheet--label .label-member {
-  font-size: 3mm;
-  line-height: 1.18;
-}
-.qr-sheet--label .label-plan {
-  margin-top: .8mm;
-  font-size: 1.95mm;
-}
-.qr-sheet--label .label-amount {
-  margin-top: .8mm;
-  font-size: 2.25mm;
-  line-height: 1.15;
-}
-.qr-sheet--label .label-description {
-  margin-top: .6mm;
-  font-size: 1.7mm;
-  line-height: 1.25;
-}
+.label-info { min-width: 0; align-self: center; }
+.label-meta { padding-top: 0; }
+.label-member { font-size: 3mm; line-height: 1.18; font-weight: 800; overflow-wrap: anywhere; }
+.label-plan { margin-top: .8mm; font-size: 1.95mm; color: var(--sf-muted); font-weight: 700; }
+.label-amount { margin-top: .8mm; font-size: 2.25mm; line-height: 1.15; font-weight: 800; }
+.label-description { margin-top: .6mm; font-size: 1.7mm; color: var(--sf-muted); line-height: 1.25; }
+.label-qr-zone { min-height: 0; height: 100%; display: grid; place-items: center; align-content: center; overflow: hidden; }
+.label-qr-frame { width: 24.5mm; height: 24.5mm; display: grid; place-items: center; background:#fff; border:.22mm solid #e4e8e6; border-radius:1.2mm; }
+.label-qr-frame img { width: 21.5mm; height: 21.5mm; display:block; background:#fff; }
 
-
-/* ========================================
-   Dojo poster: A5 portrait
-   ======================================== */
-:root {
-  --sf-a5-w: 148mm;
-  --sf-a5-h: 210mm;
-  --sf-dojo: #5f6f73;
-}
-
+/* ---------- dojo A5 poster ---------- */
 .qr-sheet--dojo {
   width: var(--sf-a5-w);
   height: var(--sf-a5-h);
   border-radius: 3mm;
+  page: a5;
 }
-
-.qr-sheet--dojo::before {
-  width: 3mm;
-  background: var(--sf-dojo);
-}
-
+.qr-sheet--dojo::before { width: 3mm; background: var(--sf-dojo); }
 .qr-sheet--dojo .sheet-inner {
   height: 100%;
   padding: 10mm 11mm 9mm 14mm;
   display: grid;
-  grid-template-rows: auto auto 1fr auto;
+  grid-template-rows: auto auto minmax(0,1fr) auto;
 }
-
 .dojo-head {
-  display: grid;
-  grid-template-columns: 17mm 1fr;
-  gap: 5mm;
-  align-items: center;
-  padding-bottom: 7mm;
-  border-bottom: .35mm solid var(--sf-line);
+  display:grid; grid-template-columns:17mm 1fr; gap:5mm; align-items:center;
+  padding-bottom:7mm; border-bottom:.35mm solid var(--sf-line);
 }
-
 .dojo-icon {
-  width: 17mm;
-  height: 17mm;
-  display: grid;
-  place-items: center;
-  border: .5mm solid var(--sf-dojo);
-  border-radius: 50%;
-  color: var(--sf-dojo);
+  width:17mm; height:17mm; display:grid; place-items:center;
+  border:.5mm solid var(--sf-dojo); border-radius:50%; color:var(--sf-dojo);
 }
-
-.dojo-icon svg {
-  width: 10mm;
-  height: 10mm;
-}
-
+.dojo-icon svg { width:10mm; height:10mm; }
 .dojo-brand {
-  font-family: "Yu Mincho", "Hiragino Mincho ProN", serif;
-  font-size: 10mm;
-  font-weight: 700;
-  letter-spacing: .18em;
-  line-height: 1;
+  font-family:"Yu Mincho","Hiragino Mincho ProN",serif;
+  font-size:10mm; font-weight:700; letter-spacing:.18em; line-height:1;
 }
-
-.dojo-kind {
-  margin-top: 2mm;
-  color: var(--sf-dojo);
-  font-size: 4mm;
-  font-weight: 800;
-  letter-spacing: .12em;
-}
-
-.dojo-message {
-  padding-top: 9mm;
-  text-align: center;
-}
-
-.dojo-eyebrow {
-  color: var(--sf-muted);
-  font-size: 3.3mm;
-  font-weight: 700;
-  letter-spacing: .14em;
-}
-
-.dojo-title {
-  margin-top: 2.5mm;
-  font-size: 8mm;
-  line-height: 1.3;
-  font-weight: 800;
-}
-
-.dojo-name-display {
-  margin-top: 3mm;
-  font-size: 5.5mm;
-  font-weight: 700;
-}
-
-.dojo-id-display {
-  margin-top: 1.5mm;
-  color: var(--sf-muted);
-  font-size: 3mm;
-}
-
+.dojo-kind { margin-top:2mm; color:var(--sf-dojo); font-size:4mm; font-weight:800; letter-spacing:.12em; }
+.dojo-message { padding-top:8mm; text-align:center; }
+.dojo-eyebrow { color:var(--sf-muted); font-size:3.2mm; font-weight:700; letter-spacing:.14em; }
+.dojo-title { margin-top:2.2mm; font-size:7.4mm; line-height:1.28; font-weight:800; }
+.dojo-meta { margin-top:5mm; }
+.dojo-name-display { font-size:5.2mm; font-weight:700; }
+.dojo-id-display { margin-top:1.6mm; color:var(--sf-muted); font-size:3mm; }
 .dojo-qr-zone {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  min-height: 0;
+  min-height:0; padding-top:5mm;
+  display:grid; place-items:center; align-content:center;
 }
-
 .dojo-qr-frame {
-  width: 92mm;
-  height: 92mm;
-  display: grid;
-  place-items: center;
-  background: #fff;
-  border: .4mm solid #dfe5e3;
-  border-radius: 4mm;
+  width:86mm; height:86mm; display:grid; place-items:center;
+  background:#fff; border:.4mm solid #dfe5e3; border-radius:4mm;
 }
-
-.dojo-qr-frame img {
-  width: 80mm;
-  height: 80mm;
-  display: block;
-  background: #fff;
-}
-
+.dojo-qr-frame img { width:76mm; height:76mm; display:block; background:#fff; }
 .dojo-foot {
-  padding-top: 7mm;
-  border-top: .35mm solid var(--sf-line);
-  display: grid;
-  grid-template-columns: 1fr 18mm;
-  gap: 5mm;
-  align-items: end;
+  padding-top:6mm; border-top:.35mm solid var(--sf-line);
+  display:grid; grid-template-columns:1fr 18mm; gap:5mm; align-items:end;
 }
+.dojo-instruction { font-size:4mm; line-height:1.6; font-weight:700; }
+.dojo-instruction small { display:block; margin-top:1mm; color:var(--sf-muted); font-size:2.8mm; line-height:1.5; font-weight:500; }
+.dojo-mark { width:18mm; height:18mm; color:var(--sf-dojo); opacity:.88; }
 
-.dojo-instruction {
-  font-size: 4mm;
-  line-height: 1.6;
-  font-weight: 700;
-}
-
-.dojo-instruction small {
-  display: block;
-  margin-top: 1mm;
-  color: var(--sf-muted);
-  font-size: 2.8mm;
-  line-height: 1.5;
-  font-weight: 500;
-}
-
-.dojo-mark {
-  width: 18mm;
-  height: 18mm;
-  color: var(--sf-dojo);
-  opacity: .88;
-}
-
-@media screen and (max-width: 640px) {
-  .preview-stage {
-    justify-content: flex-start;
-    overflow-x: auto;
-  }
-
-  .qr-sheet--dojo {
-    transform: scale(.62);
-    transform-origin: top left;
-    margin-right: calc(-1 * var(--sf-a5-w) * .38);
-    margin-bottom: calc(-1 * var(--sf-a5-h) * .38);
-  }
-}
-
-@media print {
-  @page { size: A5 portrait; margin: 0; }
-
-  html, body {
-    width: var(--sf-a5-w);
-    height: var(--sf-a5-h);
-    padding: 0;
-    background: #fff;
-  }
-
-  .qr-sheet--dojo {
-    transform: none !important;
-    width: var(--sf-a5-w);
-    height: var(--sf-a5-h);
-  }
-}
-
-
-/* ========================================
-   Teacher card: A7 portrait
-   ======================================== */
-:root {
-  --sf-teacher: #65798a;
-}
-
-.qr-sheet--teacher::before {
-  background: var(--sf-teacher);
-}
-
-.teacher-head {
-  display: grid;
-  grid-template-columns: 10mm 1fr;
-  gap: 3mm;
-  align-items: center;
-  padding-bottom: 4mm;
-  border-bottom: .25mm solid var(--sf-line);
-}
-
-.teacher-icon {
-  width: 10mm;
-  height: 10mm;
-  display: grid;
-  place-items: center;
-  border: .35mm solid var(--sf-teacher);
-  border-radius: 50%;
-  color: var(--sf-teacher);
-}
-
-.teacher-icon svg {
-  width: 6.5mm;
-  height: 6.5mm;
-}
-
-.teacher-kind {
-  margin-top: 1.2mm;
-  color: var(--sf-teacher);
-  font-size: 2.5mm;
-  font-weight: 800;
-  letter-spacing: .12em;
-}
-
-.teacher-block {
-  padding-top: 5mm;
-}
-
-.teacher-name {
-  margin-top: 1mm;
-  font-size: 6.2mm;
-  line-height: 1.25;
-  font-weight: 750;
-  overflow-wrap: anywhere;
-}
-
+/* ---------- teacher A7 card; deliberately reuses member structure ---------- */
+.qr-sheet--teacher::before { background: var(--sf-teacher); }
+.qr-sheet--teacher .function-icon { border-color:var(--sf-teacher); color:var(--sf-teacher); }
+.qr-sheet--teacher .sheet-kind { color:var(--sf-teacher); }
+.qr-sheet--teacher .mark { color:var(--sf-teacher); }
 .teacher-role {
-  margin-top: 1.5mm;
-  color: var(--sf-teacher);
-  font-size: 2.7mm;
-  font-weight: 800;
+  margin-top:1.5mm;
+  color:var(--sf-teacher);
+  font-size:2.7mm;
+  font-weight:800;
 }
 
-.teacher-id {
-  margin-top: 2mm;
-  color: var(--sf-muted);
-  font-size: 2.6mm;
-  letter-spacing: .04em;
+/* ---------- responsive preview ---------- */
+@media screen and (max-width: 640px) {
+  .preview-stage { justify-content:flex-start; overflow-x:auto; padding-bottom:8px; }
+  .qr-sheet--dojo {
+    transform:scale(.62);
+    transform-origin:top left;
+    margin-right:calc(-1 * var(--sf-a5-w) * .38);
+    margin-bottom:calc(-1 * var(--sf-a5-h) * .38);
+  }
+}
+@media screen and (max-width: 360px) {
+  .qr-sheet:not(.qr-sheet--dojo):not(.qr-sheet--label) {
+    transform:scale(.9);
+    transform-origin:top left;
+    margin-right:calc(-1 * var(--sf-a7-w) * .1);
+    margin-bottom:calc(-1 * var(--sf-a7-h) * .1);
+  }
 }
 
-.teacher-qr-zone {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  min-height: 0;
-}
-
-.teacher-qr-frame {
-  width: 43mm;
-  height: 43mm;
-  display: grid;
-  place-items: center;
-  background: #fff;
-  border: .25mm solid #e2e7e5;
-  border-radius: 2mm;
-}
-
-.teacher-qr-frame img {
-  width: 37mm;
-  height: 37mm;
-  display: block;
-  background: #fff;
-}
-
-.teacher-foot {
-  display: grid;
-  grid-template-columns: 1fr 9mm;
-  gap: 3mm;
-  align-items: end;
-  padding-top: 3mm;
-  border-top: .25mm solid var(--sf-line);
-}
-
-.teacher-usage {
-  font-size: 2.55mm;
-  line-height: 1.5;
-  font-weight: 700;
-}
-
-.teacher-usage small {
-  display: block;
-  margin-top: .5mm;
-  color: var(--sf-muted);
-  font-size: 2.05mm;
-  font-weight: 500;
-}
-
-.teacher-mark {
-  width: 9mm;
-  height: 9mm;
-  color: var(--sf-teacher);
-  opacity: .88;
+/* ---------- print: named physical pages ---------- */
+@page a7 { size: 74mm 105mm; margin:0; }
+@page label50 { size:50mm 50mm; margin:0; }
+@page a5 { size:A5 portrait; margin:0; }
+@media print {
+  html, body { padding:0; background:#fff; }
+  .preview-toolbar, .error { display:none !important; }
+  .preview-stage { display:block; }
+  .qr-sheet {
+    margin:0;
+    border-radius:0;
+    box-shadow:none;
+    transform:none !important;
+  }
 }

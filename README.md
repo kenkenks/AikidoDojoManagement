@@ -1,30 +1,22 @@
-# Phase B: Sheet Design / Teacher Card v1
+# Phase B: Dojo / Teacher v2 + CSS consolidation
 
-先生QRをA7縦カードとしてRelease Design化。
+## Teacher
+- A7 member card skeleton reused exactly
+- no separate large teacher icon layout
+- teacher accent only changes color
+- name / role / teacher_id / QR / footer follow member hierarchy
 
-## サイズ
-- A7縦: 74 × 105 mm
-- 会員カードと同一規格
-- 印刷時は物理寸法固定
+## Dojo
+- A5 poster retained
+- location name and ID grouped in `.dojo-meta`
+- 5mm separation before QR zone
+- QR frame 86mm, QR body 76mm
+- prevents metadata/QR overlap
 
-## デザイン
-- 白地主体
-- 左アクセントは青灰系
-- 桜風館
-- 指導者/先生の仮SVGアイコン
-- 先生名
-- 役職（空欄なら非表示）
-- 先生ID
-- QR 37mm
-- 桜の仮マーク
-
-## QR
-- teacher_id
-- TEACHER
-- `/attendanceCheck?teacher_id=...`
-
-## 次工程
-先生カード表示確認後、
-- 道場QRの上部情報とQRの重なり調整
-- 共通CSS整理
-をまとめて行う。
+## CSS
+- consolidated one `qr-sheet.css` covers:
+  - member A7
+  - teacher A7
+  - payment 50x50
+  - dojo A5
+- named print pages avoid @page rules overwriting each other
