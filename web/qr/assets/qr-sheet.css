@@ -380,3 +380,71 @@ body {
   font-size: 1.75mm;
   line-height: 1.3;
 }
+
+
+/* ========================================
+   Payment label v3 — fit correction
+   ======================================== */
+.qr-sheet--label .sheet-inner {
+  height: 100%;
+  padding: 3mm 3mm 2.8mm 4.7mm;
+  display: grid;
+  grid-template-rows: 11mm minmax(0, 1fr);
+  row-gap: 0;
+}
+.qr-sheet--label .label-head {
+  height: 11mm;
+  min-height: 11mm;
+  padding-bottom: 1.8mm;
+}
+.qr-sheet--label .label-body {
+  min-height: 0;
+  height: 100%;
+  padding-top: 1.6mm;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 24.5mm;
+  gap: 1.8mm;
+  align-items: center;
+  overflow: hidden;
+}
+.qr-sheet--label .label-info {
+  min-width: 0;
+  align-self: center;
+}
+.qr-sheet--label .label-qr-zone {
+  min-height: 0;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  overflow: hidden;
+}
+.qr-sheet--label .label-qr-frame {
+  width: 24.5mm;
+  height: 24.5mm;
+  display: grid;
+  place-items: center;
+  margin: 0;
+}
+.qr-sheet--label .label-qr-frame img {
+  width: 21.5mm;
+  height: 21.5mm;
+}
+.qr-sheet--label .label-member {
+  font-size: 3mm;
+  line-height: 1.18;
+}
+.qr-sheet--label .label-plan {
+  margin-top: .8mm;
+  font-size: 1.95mm;
+}
+.qr-sheet--label .label-amount {
+  margin-top: .8mm;
+  font-size: 2.25mm;
+  line-height: 1.15;
+}
+.qr-sheet--label .label-description {
+  margin-top: .6mm;
+  font-size: 1.7mm;
+  line-height: 1.25;
+}
