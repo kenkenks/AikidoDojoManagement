@@ -313,7 +313,10 @@
         query.set("member_name", member.member_name || "");
         query.set("plan_id", plan.plan_id);
         query.set("plan_name", plan.plan_name || "");
-        query.set("amount", String(Number(plan.cap_amount || plan.unit_price || 0)));
+        const amount = qrType === "PAYMENT_MONTHLY"
+          ? Number(plan.cap_amount || 0)
+          : Number(plan.unit_price || 0);
+        query.set("amount", String(amount));
       }
 
       if (qrType === "DOJO") {

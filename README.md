@@ -1,35 +1,34 @@
-# QR料金プラン候補制限パッチ
+# QR修正版
 
-## 前提マスター
-シート名:
-`03_料金プラン選択ルール`
+## 修正内容
 
-列:
-- `member_type`
-- `selectable_plan_id`
+1. 都度払いの金額
+   - 誤: `cap_amount` を優先
+   - 正: `unit_price` を使用
 
-例:
-- 一般 / P001
-- 一般 / P002
-- 子供 / P003
-- 子供 / P004
-- 家族３ / P011
-- ビジター / P020
+   月謝:
+   - `cap_amount`
 
-## 動作
-1. QR生成画面で会員を選択
-2. `01_会員マスタ.区分` を取得
-3. `03_料金プラン選択ルール` から、その区分の許可plan_id集合を取得
-4. QR種別（月謝/都度）の `会費タイプ` とAND条件で絞る
-5. 候補だけを料金プランプルダウンに表示
+   都度払い:
+   - `unit_price`
 
-候補が1件でも「自動決定ルール」ではなく、
-マスターによる候補制限の結果として1件になります。
+2. 道場表示名
+   - `合心館` → `桜風館`
 
-## 変更ファイル
-- `gas/sheetContext.js`
-- `gas/21_QrGeneratorOptions.js`
+3. URL
+   - 変更なし
+   - `aishinkankyoto.jp` 等の既存URLはそのまま
+
+## 対象ファイル
 - `web/qr/qr_generator.html`
+- `web/qr/qr_generator.js`
+- `web/qr/sheets/member-card.html`
+- `web/qr/sheets/payment-monthly.html`
+- `web/qr/sheets/payment-onetime.html`
+- `web/qr/sheets/dojo.html`
+- `web/qr/sheets/teacher.html`
 
-## GAS反映
-GAS側2ファイルを `clasp push` 後、Webアプリを再デプロイしてください。
+## 確認ポイント
+- 一般/子供/大学生の都度払いが1回単価になること
+- 月謝は従来どおり月額になること
+- 各帳票の表示上に旧名称「合心館」が残っていないこと
