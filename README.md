@@ -1,23 +1,23 @@
-# QR生成入口パッチ
+# QR Generator Step 2 - 対象選択UI
 
-最新版ZIPを基準に、先生側のQR生成導線だけを追加する最小パッチ。
+最新版ZIPを正として作成。
 
 ## 変更
-
-- `web/qr/teacher_home.html`
-  - 先生メニューに `🔳 QR生成` を追加
-  - `qr_generator.html` へ遷移
-
+- `gas/21_QrGeneratorOptions.js`
+  - 有効な会員・料金プラン・道場・先生を返す
+  - 月謝は `会費タイプ=月会費`
+  - 都度支払いは `会費タイプ=回数料金`
+- `gas/WebConnect.js`
+  - `action=qr_generator_options` を追加
 - `web/qr/qr_generator.html`
-  - 新規ページ
-  - 先生セッションのみ利用可能
-  - 5種類のQR選択ボタンを表示
-  - 現段階では対象選択・QR生成・プレビューは未実装
+  - 5種類の選択
+  - 会員／プラン／道場／先生の対象選択
+  - 選択内容サマリー
+  - 先生セッション必須
 
-## 重要
+## この段階の非対象
+- QR画像生成
+- HTML帳票プレビュー
+- 印刷
 
-- `/attendance` は変更しない
-- `member_home.html` は変更しない
-- QR生成責務は先生側に限定する
-
-次工程で、QR種類ごとの対象選択UIを実装する。
+次工程で「プレビューへ」ボタンにQR生成・帳票表示を接続する。

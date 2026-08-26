@@ -120,6 +120,13 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "qr_generator_options") {
+    const result = safelyExecute_(function() {
+      return qrGenerator_getOptions(ctx);
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "system_context") {
     const result = safelyExecute_(function() {
       return sup_timeTravel_getSystemContext(ctx);

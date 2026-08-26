@@ -5,71 +5,285 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QR生成</title>
   <link rel="stylesheet" href="common.css">
+  <style>
+    .type-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px; }
+    .type-button {
+      border:1px solid #b8c4cf;
+      background:#fff;
+      color:#203040;
+      border-radius:10px;
+      padding:13px 10px;
+      font-size:15px;
+      font-weight:bold;
+      cursor:pointer;
+    }
+    .type-button.active { outline:3px solid #97b8d3; background:#eef6fc; }
+    .type-button.member.active { outline-color:#99cdbb; background:#eef9f4; }
+    .type-button.monthly.active { outline-color:#e8b46f; background:#fff6e8; }
+    .type-button.onetime.active { outline-color:#e4cf72; background:#fffbea; }
+    .type-button.admin.active { outline-color:#b9bec4; background:#f2f3f4; }
+
+    .field { margin:12px 0; }
+    .field label { display:block; color:#555; font-size:13px; margin-bottom:5px; }
+    .field select {
+      width:100%;
+      padding:10px;
+      font-size:16px;
+      background:#fff;
+    }
+    .hidden { display:none !important; }
+    .loading { color:#0b5cad; }
+    .error { color:#b3261e; font-weight:bold; }
+    .summary {
+      border-left:5px solid #97b8d3;
+      background:#f7fafc;
+      padding:11px 13px;
+      line-height:1.7;
+      border-radius:7px;
+    }
+    .summary strong { display:inline-block; min-width:7em; }
+    .next-button { width:100%; margin-top:10px; }
+    @media (min-width:700px) {
+      body { max-width:760px; margin:0 auto; }
+      .type-grid { grid-template-columns:repeat(5, minmax(0, 1fr)); }
+    }
+  </style>
 </head>
 <body class="teacher">
   <h1>🔳 QR生成</h1>
+  <p class="note"><a href="teacher_home.html">先生ホームへ戻る</a></p>
 
   <section class="card login-state">
-    <strong id="loginIdentity">未ログイン</strong>
-    <button onclick="logoutSession()">ログアウト</button>
+    <strong id="loginIdentity">先生情報を確認中...</strong>
   </section>
 
   <section class="card">
-    <h2>QR種類</h2>
-    <p class="note">
-      発行するQRの種類を選択してください。<br>
-      対象選択・プレビュー・印刷は、この画面から順次実装します。
-    </p>
-    <div class="grid">
-      <button type="button" class="qr-type" data-qr-type="MEMBER_CARD">👤 会員カード</button>
-      <button type="button" class="qr-type" data-qr-type="PAYMENT_MONTHLY">💴 月謝</button>
-      <button type="button" class="qr-type" data-qr-type="PAYMENT_ONETIME">🪙 都度支払い</button>
-      <button type="button" class="qr-type" data-qr-type="DOJO">🏯 道場</button>
-      <button type="button" class="qr-type" data-qr-type="TEACHER">🥋 先生</button>
+    <h2>1. QRの種類</h2>
+    <div class="type-grid">
+      <button class="type-button member active" data-type="MEMBER_CARD">会員カード</button>
+      <button class="type-button monthly" data-type="PAYMENT_MONTHLY">月謝</button>
+      <button class="type-button onetime" data-type="PAYMENT_ONETIME">都度支払い</button>
+      <button class="type-button admin" data-type="DOJO">道場</button>
+      <button class="type-button admin" data-type="TEACHER">先生</button>
     </div>
   </section>
 
-  <section class="card" id="selectionState" hidden>
-    <h2>選択中</h2>
-    <p id="selectedQrType" class="note"></p>
-    <p class="note">次工程で、この領域に対象選択UIを追加します。</p>
+  <section class="card">
+    <h2>2. 発行対象</h2>
+    <div id="loadMessage" class="note loading">マスタを読み込み中です。</div>
+
+    <div id="memberField" class="field hidden">
+      <label for="memberSelect">会員</label>
+      <select id="memberSelect"></select>
+    </div>
+
+    <div id="planField" class="field hidden">
+      <label for="planSelect">料金プラン</label>
+      <select id="planSelect"></select>
+    </div>
+
+    <div id="locationField" class="field hidden">
+      <label for="locationSelect">道場</label>
+      <select id="locationSelect"></select>
+    </div>
+
+    <div id="teacherField" class="field hidden">
+      <label for="teacherSelect">先生</label>
+      <select id="teacherSelect"></select>
+    </div>
   </section>
 
-  <p class="note"><a href="teacher_home.html">先生ホームへ戻る</a></p>
+  <section class="card">
+    <h2>3. 選択内容</h2>
+    <div id="selectionSummary" class="summary">マスタ読込後に表示します。</div>
+    <button id="previewButton" class="next-button" type="button" disabled>プレビューへ</button>
+    <p class="note">この段階では対象選択までを実装しています。QR画像・帳票プレビューは次工程で接続します。</p>
+  </section>
 
   <script src="virtual_session.js"></script>
   <script>
-    const queryTeacherId = new URLSearchParams(location.search).get("teacher_id") || "";
-    if (queryTeacherId) DojoVirtualSession.loginTeacher(queryTeacherId, "PAGE_URL");
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
+    let qrType = "MEMBER_CARD";
+    let options = null;
 
     const teacherSession = DojoVirtualSession.get();
     if (!teacherSession || teacherSession.role !== "TEACHER") {
-      location.href = "index.html";
+      document.getElementById("loginIdentity").textContent = "先生ログインが必要です。";
+      document.getElementById("loadMessage").className = "note error";
+      document.getElementById("loadMessage").textContent = "先生ホームから開いてください。";
     } else {
       document.getElementById("loginIdentity").textContent =
         "先生 " + teacherSession.teacher_id + " でログイン中";
+      loadOptions();
     }
 
-    const QR_LABELS = {
-      MEMBER_CARD: "会員カード",
-      PAYMENT_MONTHLY: "月謝",
-      PAYMENT_ONETIME: "都度支払い",
-      DOJO: "道場",
-      TEACHER: "先生"
-    };
-
-    document.querySelectorAll(".qr-type").forEach((button) => {
-      button.addEventListener("click", () => {
-        const qrType = button.dataset.qrType;
-        document.getElementById("selectedQrType").textContent =
-          "QR種類: " + (QR_LABELS[qrType] || qrType);
-        document.getElementById("selectionState").hidden = false;
+    document.querySelectorAll(".type-button").forEach(function(button) {
+      button.addEventListener("click", function() {
+        qrType = button.dataset.type;
+        document.querySelectorAll(".type-button").forEach(function(item) {
+          item.classList.toggle("active", item === button);
+        });
+        renderFields();
       });
     });
 
-    function logoutSession() {
-      DojoVirtualSession.logout();
-      location.href = "index.html";
+    ["memberSelect", "planSelect", "locationSelect", "teacherSelect"].forEach(function(id) {
+      document.getElementById(id).addEventListener("change", renderSummary);
+    });
+
+    function loadOptions() {
+      jsonp(GAS_URL, { action:"qr_generator_options" })
+        .then(function(result) {
+          if (!result || result.ok !== true) {
+            throw new Error((result && result.message) || "QR生成用マスタを取得できませんでした。");
+          }
+          options = result;
+          populateSelect(
+            "memberSelect",
+            result.members || [],
+            "member_id",
+            function(row) { return row.member_id + "｜" + (row.member_name || "氏名未設定") + (row.member_type ? "（" + row.member_type + "）" : ""); }
+          );
+          populateSelect(
+            "locationSelect",
+            result.locations || [],
+            "location_id",
+            function(row) { return row.location_id + "｜" + row.location_name; }
+          );
+          populateSelect(
+            "teacherSelect",
+            result.teachers || [],
+            "teacher_id",
+            function(row) { return row.teacher_id + "｜" + row.teacher_name + (row.role_name ? "（" + row.role_name + "）" : ""); }
+          );
+
+          const currentTeacherId = teacherSession && teacherSession.teacher_id;
+          if (currentTeacherId) document.getElementById("teacherSelect").value = currentTeacherId;
+
+          document.getElementById("loadMessage").className = "note";
+          document.getElementById("loadMessage").textContent =
+            "会員 " + (result.members || []).length + "名 ／ 月謝 " + (result.monthly_plans || []).length +
+            "件 ／ 都度 " + (result.onetime_plans || []).length + "件 ／ 道場 " +
+            (result.locations || []).length + "件 ／ 先生 " + (result.teachers || []).length + "名";
+          renderFields();
+        })
+        .catch(function(error) {
+          document.getElementById("loadMessage").className = "note error";
+          document.getElementById("loadMessage").textContent = error.message || String(error);
+        });
+    }
+
+    function renderFields() {
+      if (!options) return;
+      setVisible("memberField", qrType === "MEMBER_CARD" || qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME");
+      setVisible("planField", qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME");
+      setVisible("locationField", qrType === "DOJO");
+      setVisible("teacherField", qrType === "TEACHER");
+
+      if (qrType === "PAYMENT_MONTHLY") {
+        populateSelect("planSelect", options.monthly_plans || [], "plan_id", planLabel);
+      } else if (qrType === "PAYMENT_ONETIME") {
+        populateSelect("planSelect", options.onetime_plans || [], "plan_id", planLabel);
+      }
+      renderSummary();
+    }
+
+    function planLabel(row) {
+      const amount = Number(row.cap_amount || row.unit_price || 0);
+      return row.plan_id + "｜" + row.plan_name + (amount ? "（" + amount.toLocaleString("ja-JP") + "円）" : "");
+    }
+
+    function renderSummary() {
+      if (!options) return;
+      const typeLabels = {
+        MEMBER_CARD:"会員カード",
+        PAYMENT_MONTHLY:"月謝",
+        PAYMENT_ONETIME:"都度支払い",
+        DOJO:"道場",
+        TEACHER:"先生"
+      };
+      const lines = ["<strong>QR種別</strong>" + escapeHtml(typeLabels[qrType])];
+
+      if (qrType === "MEMBER_CARD" || qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME") {
+        const member = selectedRow(options.members || [], "member_id", valueOf("memberSelect"));
+        lines.push("<strong>会員</strong>" + escapeHtml(member ? member.member_id + "｜" + member.member_name : "未選択"));
+      }
+      if (qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME") {
+        const rows = qrType === "PAYMENT_MONTHLY" ? (options.monthly_plans || []) : (options.onetime_plans || []);
+        const plan = selectedRow(rows, "plan_id", valueOf("planSelect"));
+        lines.push("<strong>プラン</strong>" + escapeHtml(plan ? plan.plan_id + "｜" + plan.plan_name : "未選択"));
+      }
+      if (qrType === "DOJO") {
+        const location = selectedRow(options.locations || [], "location_id", valueOf("locationSelect"));
+        lines.push("<strong>道場</strong>" + escapeHtml(location ? location.location_id + "｜" + location.location_name : "未選択"));
+      }
+      if (qrType === "TEACHER") {
+        const teacher = selectedRow(options.teachers || [], "teacher_id", valueOf("teacherSelect"));
+        lines.push("<strong>先生</strong>" + escapeHtml(teacher ? teacher.teacher_id + "｜" + teacher.teacher_name : "未選択"));
+      }
+
+      document.getElementById("selectionSummary").innerHTML = lines.join("<br>");
+      document.getElementById("previewButton").disabled = !isSelectionComplete();
+    }
+
+    function isSelectionComplete() {
+      if (!options) return false;
+      if (qrType === "MEMBER_CARD") return !!valueOf("memberSelect");
+      if (qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME") return !!valueOf("memberSelect") && !!valueOf("planSelect");
+      if (qrType === "DOJO") return !!valueOf("locationSelect");
+      if (qrType === "TEACHER") return !!valueOf("teacherSelect");
+      return false;
+    }
+
+    function populateSelect(id, rows, valueKey, labelBuilder) {
+      const select = document.getElementById(id);
+      const previous = select.value;
+      select.innerHTML = rows.map(function(row) {
+        return '<option value="' + escapeHtml(row[valueKey]) + '">' + escapeHtml(labelBuilder(row)) + '</option>';
+      }).join("");
+      if (previous && rows.some(function(row) { return String(row[valueKey]) === previous; })) {
+        select.value = previous;
+      }
+    }
+
+    function selectedRow(rows, key, value) {
+      return rows.find(function(row) { return String(row[key]) === String(value); }) || null;
+    }
+
+    function valueOf(id) { return document.getElementById(id).value || ""; }
+    function setVisible(id, visible) { document.getElementById(id).classList.toggle("hidden", !visible); }
+    function escapeHtml(value) {
+      const div = document.createElement("div");
+      div.textContent = String(value == null ? "" : value);
+      return div.innerHTML;
+    }
+
+    function jsonp(url, params) {
+      return new Promise(function(resolve, reject) {
+        const callbackName = "qrGeneratorCallback_" + Date.now() + "_" + Math.floor(Math.random() * 100000);
+        const script = document.createElement("script");
+        const query = new URLSearchParams(params || {});
+        query.set("callback", callbackName);
+        query.set("_ts", Date.now());
+        let scriptErrorObserved = false;
+        const timer = window.setTimeout(function() {
+          cleanup();
+          reject(new Error(scriptErrorObserved ? "GASとの通信に失敗しました。" : "GAS接続がタイムアウトしました。"));
+        }, 20000);
+
+        window[callbackName] = function(data) {
+          cleanup();
+          resolve(data);
+        };
+        script.onerror = function() { scriptErrorObserved = true; };
+        function cleanup() {
+          window.clearTimeout(timer);
+          delete window[callbackName];
+          if (script.parentNode) script.parentNode.removeChild(script);
+        }
+        script.src = url + "?" + query.toString();
+        document.head.appendChild(script);
+      });
     }
   </script>
   <script src="system_context.js"></script>
