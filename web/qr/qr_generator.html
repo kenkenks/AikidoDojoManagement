@@ -80,6 +80,7 @@
     <div id="planField" class="field hidden">
       <label for="planSelect">料金プラン</label>
       <select id="planSelect"></select>
+      <div id="planRuleMessage" class="note"></div>
     </div>
 
     <div id="locationField" class="field hidden">
@@ -127,7 +128,10 @@
       });
     });
 
-    ["memberSelect", "planSelect", "locationSelect", "teacherSelect"].forEach(function(id) {
+    document.getElementById("memberSelect").addEventListener("change", function() {
+      renderFields();
+    });
+    ["planSelect", "locationSelect", "teacherSelect"].forEach(function(id) {
       document.getElementById(id).addEventListener("change", renderSummary);
     });
 
@@ -183,11 +187,61 @@
       setVisible("teacherField", qrType === "TEACHER");
 
       if (qrType === "PAYMENT_MONTHLY") {
-        populateSelect("planSelect", options.monthly_plans || [], "plan_id", planLabel);
+        populateAllowedPlans("月会費");
       } else if (qrType === "PAYMENT_ONETIME") {
-        populateSelect("planSelect", options.onetime_plans || [], "plan_id", planLabel);
+        populateAllowedPlans("回数料金");
+      } else {
+        document.getElementById("planRuleMessage").textContent = "";
       }
       renderSummary();
+    }
+
+    function populateAllowedPlans(feeType) {
+      const member = selectedRow(
+        options.members || [],
+        "member_id",
+        valueOf("memberSelect")
+      );
+      const message = document.getElementById("planRuleMessage");
+
+      if (!member) {
+        populateSelect("planSelect", [], "plan_id", planLabel);
+        message.textContent = "会員を選択してください。";
+        return;
+      }
+
+      const allowedIds = new Set(
+        (options.plan_selection_rules || [])
+          .filter(function(rule) {
+            return String(rule.member_type || "").trim() ===
+                   String(member.member_type || "").trim();
+          })
+          .map(function(rule) {
+            return String(rule.selectable_plan_id || "").trim();
+          })
+      );
+
+      const candidates = (options.plans || []).filter(function(plan) {
+        return plan.fee_type === feeType && allowedIds.has(String(plan.plan_id));
+      });
+
+      populateSelect("planSelect", candidates, "plan_id", planLabel);
+
+      if (candidates.length === 0) {
+        message.textContent =
+          "区分「" + (member.member_type || "未設定") +
+          "」で選択可能な" + feeType + "プランがありません。";
+        message.className = "note error";
+      } else if (candidates.length === 1) {
+        message.textContent =
+          "区分「" + member.member_type + "」の候補は1件です。";
+        message.className = "note";
+      } else {
+        message.textContent =
+          "区分「" + member.member_type + "」の候補を" +
+          candidates.length + "件に制限しています。";
+        message.className = "note";
+      }
     }
 
     function planLabel(row) {

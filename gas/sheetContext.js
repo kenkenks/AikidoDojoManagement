@@ -101,6 +101,10 @@ function getFees(ctx) {
   return getSheetRows(ctx, "03_料金マスタ");
 }
 
+function getPlanSelectionRules(ctx) {
+  return getSheetRows(ctx, "03_料金プラン選択ルール");
+}
+
 function getMonthlySelections(ctx) {
   return getSheetRows(ctx, "04_月次選択");
 }

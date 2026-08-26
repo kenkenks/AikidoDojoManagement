@@ -10,7 +10,8 @@
 // TAG: MEMBER
 //
 // RESPONSIBILITY
-// 先生用QR生成画面へ、発行対象となる有効マスタ一覧を返す。
+// 先生用QR生成画面へ、発行対象となる有効マスタ一覧と
+// 会員区分ごとの料金プラン選択ルールを返す。
 // QR生成・帳票表示そのものはブラウザ側の責務とする。
 
 function qrGenerator_getOptions(ctx) {
@@ -43,6 +44,23 @@ function qrGenerator_getOptions(ctx) {
       };
     })
     .filter(function(row) { return !!row.plan_id; });
+
+  assertSheetRowHeaders_(
+    ctx,
+    "03_料金プラン選択ルール",
+    ["member_type", "selectable_plan_id"]
+  );
+
+  const planSelectionRules = getPlanSelectionRules(ctx)
+    .map(function(row) {
+      return {
+        member_type: String(row["member_type"] || "").trim(),
+        selectable_plan_id: normalizeId_(row["selectable_plan_id"])
+      };
+    })
+    .filter(function(row) {
+      return !!row.member_type && !!row.selectable_plan_id;
+    });
 
   const locations = getLocations(ctx)
     .filter(isActiveMasterRow_)
@@ -86,6 +104,7 @@ function qrGenerator_getOptions(ctx) {
     plans: plans,
     monthly_plans: plans.filter(function(row) { return row.fee_type === "月会費"; }),
     onetime_plans: plans.filter(function(row) { return row.fee_type === "回数料金"; }),
+    plan_selection_rules: planSelectionRules,
     locations: locations,
     teachers: teachers
   };
