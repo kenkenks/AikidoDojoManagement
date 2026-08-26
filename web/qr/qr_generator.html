@@ -306,8 +306,10 @@
       const amount = row.fee_type === "回数料金"
         ? Number(row.unit_price || 0)
         : Number(row.cap_amount || 0);
+      const description = String(row.description || "").trim();
       return row.plan_id + "｜" + row.plan_name +
-        (amount ? "（" + amount.toLocaleString("ja-JP") + "円）" : "");
+        (amount ? "（" + amount.toLocaleString("ja-JP") + "円）" : "") +
+        (description ? "｜" + description : "");
     }
 
     function renderSummary() {
@@ -374,6 +376,7 @@
         query.set("member_name", member.member_name || "");
         query.set("plan_id", plan.plan_id);
         query.set("plan_name", plan.plan_name || "");
+        query.set("description", plan.description || "");
         const amount = qrType === "PAYMENT_MONTHLY"
           ? Number(plan.cap_amount || 0)
           : Number(plan.unit_price || 0);

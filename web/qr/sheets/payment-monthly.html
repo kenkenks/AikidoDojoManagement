@@ -97,12 +97,14 @@
         const memberName = (params.get("member_name") || "").trim();
         const planId = requiredParam("plan_id");
         const planName = (params.get("plan_name") || "").trim();
+        const description = (params.get("description") || "").trim();
         const amount = Number(params.get("amount") || 0);
         const documentId = memberId;
         let detailHtml = '<div class="name">' + esc(memberName || "（氏名未設定）") + '</div>';
         detailHtml += item("会員ID", memberId);
         detailHtml += item("料金プラン", planName || planId);
         if (amount) detailHtml += item("金額", amount.toLocaleString("ja-JP") + "円");
+        if (description) detailHtml += item("説明", description);
 
         details.innerHTML = detailHtml;
 
