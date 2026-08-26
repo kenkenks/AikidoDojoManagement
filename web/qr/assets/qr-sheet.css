@@ -225,7 +225,8 @@ body {
 }
 .qr-sheet--label .sheet-inner {
   padding: 3.2mm 3.3mm 3mm 5mm;
-  grid-template-rows: auto auto 1fr;
+  display: grid;
+  grid-template-rows: auto 1fr;
 }
 .label-head {
   display: grid;
@@ -330,4 +331,52 @@ body {
 }
 .qr-sheet--onetime .label-kind {
   color: var(--sf-onetime);
+}
+
+
+/* Payment label v2: information and QR are explicitly separated. */
+.label-body {
+  min-height: 0;
+  padding-top: 2.4mm;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 25.5mm;
+  gap: 2.2mm;
+  align-items: center;
+}
+.label-info {
+  min-width: 0;
+  align-self: center;
+}
+.label-body .label-meta {
+  padding-top: 0;
+}
+.label-body .label-qr-zone {
+  min-height: 0;
+  display: grid;
+  place-items: center;
+}
+.label-body .label-qr-frame {
+  width: 25.5mm;
+  height: 25.5mm;
+}
+.label-body .label-qr-frame img {
+  width: 22mm;
+  height: 22mm;
+}
+.label-body .label-member {
+  font-size: 3.1mm;
+}
+.label-body .label-plan {
+  margin-top: 1mm;
+  font-size: 2mm;
+}
+.label-body .label-amount {
+  margin-top: 1mm;
+  font-size: 2.45mm;
+  line-height: 1.2;
+}
+.label-body .label-description {
+  margin-top: .8mm;
+  font-size: 1.75mm;
+  line-height: 1.3;
 }
