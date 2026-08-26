@@ -633,3 +633,127 @@ body {
     height: var(--sf-a5-h);
   }
 }
+
+
+/* ========================================
+   Teacher card: A7 portrait
+   ======================================== */
+:root {
+  --sf-teacher: #65798a;
+}
+
+.qr-sheet--teacher::before {
+  background: var(--sf-teacher);
+}
+
+.teacher-head {
+  display: grid;
+  grid-template-columns: 10mm 1fr;
+  gap: 3mm;
+  align-items: center;
+  padding-bottom: 4mm;
+  border-bottom: .25mm solid var(--sf-line);
+}
+
+.teacher-icon {
+  width: 10mm;
+  height: 10mm;
+  display: grid;
+  place-items: center;
+  border: .35mm solid var(--sf-teacher);
+  border-radius: 50%;
+  color: var(--sf-teacher);
+}
+
+.teacher-icon svg {
+  width: 6.5mm;
+  height: 6.5mm;
+}
+
+.teacher-kind {
+  margin-top: 1.2mm;
+  color: var(--sf-teacher);
+  font-size: 2.5mm;
+  font-weight: 800;
+  letter-spacing: .12em;
+}
+
+.teacher-block {
+  padding-top: 5mm;
+}
+
+.teacher-name {
+  margin-top: 1mm;
+  font-size: 6.2mm;
+  line-height: 1.25;
+  font-weight: 750;
+  overflow-wrap: anywhere;
+}
+
+.teacher-role {
+  margin-top: 1.5mm;
+  color: var(--sf-teacher);
+  font-size: 2.7mm;
+  font-weight: 800;
+}
+
+.teacher-id {
+  margin-top: 2mm;
+  color: var(--sf-muted);
+  font-size: 2.6mm;
+  letter-spacing: .04em;
+}
+
+.teacher-qr-zone {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 0;
+}
+
+.teacher-qr-frame {
+  width: 43mm;
+  height: 43mm;
+  display: grid;
+  place-items: center;
+  background: #fff;
+  border: .25mm solid #e2e7e5;
+  border-radius: 2mm;
+}
+
+.teacher-qr-frame img {
+  width: 37mm;
+  height: 37mm;
+  display: block;
+  background: #fff;
+}
+
+.teacher-foot {
+  display: grid;
+  grid-template-columns: 1fr 9mm;
+  gap: 3mm;
+  align-items: end;
+  padding-top: 3mm;
+  border-top: .25mm solid var(--sf-line);
+}
+
+.teacher-usage {
+  font-size: 2.55mm;
+  line-height: 1.5;
+  font-weight: 700;
+}
+
+.teacher-usage small {
+  display: block;
+  margin-top: .5mm;
+  color: var(--sf-muted);
+  font-size: 2.05mm;
+  font-weight: 500;
+}
+
+.teacher-mark {
+  width: 9mm;
+  height: 9mm;
+  color: var(--sf-teacher);
+  opacity: .88;
+}
