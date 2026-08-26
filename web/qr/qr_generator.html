@@ -197,51 +197,109 @@
     }
 
     function populateAllowedPlans(feeType) {
+      const result = resolveSelectablePlans(feeType);
+      const message = document.getElementById("planRuleMessage");
+
+      populateSelect("planSelect", result.candidates, "plan_id", planLabel);
+
+      if (!result.member) {
+        message.textContent = "会員を選択してください。";
+        message.className = "note";
+        return;
+      }
+
+      if (result.rulePlanIds.length === 0) {
+        message.textContent =
+          "区分「" + result.memberType +
+          "」の料金プラン選択ルールがありません。";
+        message.className = "note error";
+        return;
+      }
+
+      if (result.candidates.length === 0) {
+        message.textContent =
+          "区分「" + result.memberType + "」の許可プラン[" +
+          result.rulePlanIds.join(", ") + "]に、" +
+          feeType + "の料金プランがありません。";
+        message.className = "note error";
+        return;
+      }
+
+      if (result.candidates.length === 1) {
+        message.textContent =
+          "区分「" + result.memberType + "」→ " +
+          result.candidates[0].plan_id + " の1件です。";
+        message.className = "note";
+        return;
+      }
+
+      message.textContent =
+        "区分「" + result.memberType + "」の候補を" +
+        result.candidates.length + "件に制限しています。";
+      message.className = "note";
+    }
+
+    /*
+     * 全会員区分共通の料金プラン候補抽出。
+     *
+     * 唯一の対応ルール:
+     *   01_会員マスタ.区分
+     *      ↓
+     *   03_料金プラン選択ルール
+     *      ↓
+     *   selectable_plan_id[]
+     *      ↓
+     *   03_料金マスタ.plan_id
+     *
+     * 03_料金マスタ.区分は eligibility 判定には使用しない。
+     * 一般/子供/大学生/家族n/ビジター等の個別ifも持たない。
+     */
+    function resolveSelectablePlans(feeType) {
       const member = selectedRow(
         options.members || [],
         "member_id",
         valueOf("memberSelect")
       );
-      const message = document.getElementById("planRuleMessage");
 
       if (!member) {
-        populateSelect("planSelect", [], "plan_id", planLabel);
-        message.textContent = "会員を選択してください。";
-        return;
+        return {
+          member: null,
+          memberType: "",
+          rulePlanIds: [],
+          candidates: []
+        };
       }
 
-      const allowedIds = new Set(
-        (options.plan_selection_rules || [])
-          .filter(function(rule) {
-            return String(rule.member_type || "").trim() ===
-                   String(member.member_type || "").trim();
-          })
-          .map(function(rule) {
-            return String(rule.selectable_plan_id || "").trim();
-          })
-      );
+      const memberType = normalizeRuleKey(member.member_type);
+
+      const rulePlanIds = (options.plan_selection_rules || [])
+        .filter(function(rule) {
+          return normalizeRuleKey(rule.member_type) === memberType;
+        })
+        .map(function(rule) {
+          return String(rule.selectable_plan_id || "").trim();
+        })
+        .filter(Boolean);
+
+      const allowedIds = new Set(rulePlanIds);
 
       const candidates = (options.plans || []).filter(function(plan) {
-        return plan.fee_type === feeType && allowedIds.has(String(plan.plan_id));
+        return allowedIds.has(String(plan.plan_id || "").trim()) &&
+               String(plan.fee_type || "").trim() === feeType;
       });
 
-      populateSelect("planSelect", candidates, "plan_id", planLabel);
+      return {
+        member: member,
+        memberType: memberType,
+        rulePlanIds: rulePlanIds,
+        candidates: candidates
+      };
+    }
 
-      if (candidates.length === 0) {
-        message.textContent =
-          "区分「" + (member.member_type || "未設定") +
-          "」で選択可能な" + feeType + "プランがありません。";
-        message.className = "note error";
-      } else if (candidates.length === 1) {
-        message.textContent =
-          "区分「" + member.member_type + "」の候補は1件です。";
-        message.className = "note";
-      } else {
-        message.textContent =
-          "区分「" + member.member_type + "」の候補を" +
-          candidates.length + "件に制限しています。";
-        message.className = "note";
-      }
+    function normalizeRuleKey(value) {
+      return String(value == null ? "" : value)
+        .trim()
+        .normalize("NFKC");
     }
 
     function planLabel(row) {

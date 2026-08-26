@@ -37,7 +37,6 @@ function qrGenerator_getOptions(ctx) {
       return {
         plan_id: normalizeId_(row["plan_id"]),
         plan_name: String(row["表示名"] || row["plan_id"] || "").trim(),
-        member_type: String(row["区分"] || "").trim(),
         fee_type: String(row["会費タイプ"] || "").trim(),
         unit_price: Number(row["回数単価"] || 0),
         cap_amount: Number(row["上限金額"] || 0)
