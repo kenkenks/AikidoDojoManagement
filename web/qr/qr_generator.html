@@ -97,7 +97,7 @@
     <h2>3. 選択内容</h2>
     <div id="selectionSummary" class="summary">マスタ読込後に表示します。</div>
     <button id="previewButton" class="next-button" type="button" disabled>プレビューへ</button>
-    <p class="note">この段階では対象選択までを実装しています。QR画像・帳票プレビューは次工程で接続します。</p>
+    <p class="note">会員カードはプレビュー・印刷まで確認できます。その他のQRは順次接続します。</p>
   </section>
 
   <script src="virtual_session.js"></script>
@@ -130,6 +130,8 @@
     ["memberSelect", "planSelect", "locationSelect", "teacherSelect"].forEach(function(id) {
       document.getElementById(id).addEventListener("change", renderSummary);
     });
+
+    document.getElementById("previewButton").addEventListener("click", openPreview);
 
     function loadOptions() {
       jsonp(GAS_URL, { action:"qr_generator_options" })
@@ -223,7 +225,21 @@
       }
 
       document.getElementById("selectionSummary").innerHTML = lines.join("<br>");
-      document.getElementById("previewButton").disabled = !isSelectionComplete();
+      const previewButton = document.getElementById("previewButton");
+      previewButton.disabled = !(qrType === "MEMBER_CARD" && isSelectionComplete());
+      previewButton.textContent = qrType === "MEMBER_CARD" ? "プレビューへ" : "プレビュー（順次対応）";
+    }
+
+    function openPreview() {
+      if (!options || qrType !== "MEMBER_CARD") return;
+      const member = selectedRow(options.members || [], "member_id", valueOf("memberSelect"));
+      if (!member) return;
+
+      const query = new URLSearchParams({
+        member_id: member.member_id,
+        member_name: member.member_name || ""
+      });
+      location.href = "sheets/member-card.html?" + query.toString();
     }
 
     function isSelectionComplete() {

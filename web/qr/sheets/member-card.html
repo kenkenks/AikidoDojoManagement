@@ -37,6 +37,7 @@
       padding: 7px 9px;
     }
     .toolbar button { padding: 8px 14px; cursor: pointer; }
+    .toolbar a { color:#245b50; font-weight:600; text-decoration:none; margin-right:auto; }
     .sheet {
       width: var(--card-width);
       height: var(--card-height);
@@ -113,9 +114,7 @@
 </head>
 <body>
   <div class="toolbar">
-    <label>会員ID<input id="memberIdInput" value="M001"></label>
-    <label>氏名<input id="memberNameInput" value="山田太郎"></label>
-    <button id="previewButton" type="button">プレビュー更新</button>
+    <a href="../qr_generator.html">← QR生成へ戻る</a>
     <button type="button" onclick="window.print()">印刷</button>
   </div>
 
@@ -138,42 +137,33 @@
     (function () {
       "use strict";
 
-      function readInitialValue(name, fallback) {
-        const value = new URLSearchParams(location.search).get(name);
-        return value == null || value === "" ? fallback : value;
+      const params = new URLSearchParams(location.search);
+      const memberId = (params.get("member_id") || "").trim();
+      const memberName = (params.get("member_name") || "").trim();
+      const error = document.getElementById("error");
+
+      try {
+        if (!memberId) throw new Error("member_id が指定されていません。");
+
+        const qr = DojoQrGenerator.buildQr(
+          DojoQrGenerator.QR_TYPES.MEMBER_CARD,
+          { member_id: memberId },
+          { image: { size: "320x320" } }
+        );
+
+        document.getElementById("memberId").textContent = memberId;
+        document.getElementById("memberName").textContent = memberName || "（氏名未設定）";
+        const qrImage = document.getElementById("qrImage");
+        qrImage.src = qr.imageUrl;
+        qrImage.dataset.targetUrl = qr.targetUrl;
+        qrImage.addEventListener("error", function () {
+          error.textContent = "QR画像を取得できませんでした。ネットワーク接続を確認してください。";
+        });
+        document.title = "会員カード " + memberId;
+      } catch (e) {
+        document.getElementById("qrImage").removeAttribute("src");
+        error.textContent = e && e.message ? e.message : String(e);
       }
-
-      function render() {
-        const memberId = document.getElementById("memberIdInput").value.trim();
-        const memberName = document.getElementById("memberNameInput").value.trim();
-        const error = document.getElementById("error");
-        error.textContent = "";
-
-        try {
-          const qr = DojoQrGenerator.buildQr(
-            DojoQrGenerator.QR_TYPES.MEMBER_CARD,
-            { member_id: memberId },
-            { image: { size: "320x320" } }
-          );
-
-          document.getElementById("memberId").textContent = memberId;
-          document.getElementById("memberName").textContent = memberName || "（氏名未設定）";
-          document.getElementById("qrImage").src = qr.imageUrl;
-          document.getElementById("qrImage").dataset.targetUrl = qr.targetUrl;
-          document.title = "会員カード " + memberId;
-        } catch (e) {
-          document.getElementById("qrImage").removeAttribute("src");
-          error.textContent = e && e.message ? e.message : String(e);
-        }
-      }
-
-      document.getElementById("memberIdInput").value =
-        readInitialValue("member_id", "M001");
-      document.getElementById("memberNameInput").value =
-        readInitialValue("member_name", "山田太郎");
-
-      document.getElementById("previewButton").addEventListener("click", render);
-      render();
     })();
   </script>
 </body>
