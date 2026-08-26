@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR生成</title>
+  <link rel="stylesheet" href="common.css">
+</head>
+<body class="teacher">
+  <h1>🔳 QR生成</h1>
+
+  <section class="card login-state">
+    <strong id="loginIdentity">未ログイン</strong>
+    <button onclick="logoutSession()">ログアウト</button>
+  </section>
+
+  <section class="card">
+    <h2>QR種類</h2>
+    <p class="note">
+      発行するQRの種類を選択してください。<br>
+      対象選択・プレビュー・印刷は、この画面から順次実装します。
+    </p>
+    <div class="grid">
+      <button type="button" class="qr-type" data-qr-type="MEMBER_CARD">👤 会員カード</button>
+      <button type="button" class="qr-type" data-qr-type="PAYMENT_MONTHLY">💴 月謝</button>
+      <button type="button" class="qr-type" data-qr-type="PAYMENT_ONETIME">🪙 都度支払い</button>
+      <button type="button" class="qr-type" data-qr-type="DOJO">🏯 道場</button>
+      <button type="button" class="qr-type" data-qr-type="TEACHER">🥋 先生</button>
+    </div>
+  </section>
+
+  <section class="card" id="selectionState" hidden>
+    <h2>選択中</h2>
+    <p id="selectedQrType" class="note"></p>
+    <p class="note">次工程で、この領域に対象選択UIを追加します。</p>
+  </section>
+
+  <p class="note"><a href="teacher_home.html">先生ホームへ戻る</a></p>
+
+  <script src="virtual_session.js"></script>
+  <script>
+    const queryTeacherId = new URLSearchParams(location.search).get("teacher_id") || "";
+    if (queryTeacherId) DojoVirtualSession.loginTeacher(queryTeacherId, "PAGE_URL");
+
+    const teacherSession = DojoVirtualSession.get();
+    if (!teacherSession || teacherSession.role !== "TEACHER") {
+      location.href = "index.html";
+    } else {
+      document.getElementById("loginIdentity").textContent =
+        "先生 " + teacherSession.teacher_id + " でログイン中";
+    }
+
+    const QR_LABELS = {
+      MEMBER_CARD: "会員カード",
+      PAYMENT_MONTHLY: "月謝",
+      PAYMENT_ONETIME: "都度支払い",
+      DOJO: "道場",
+      TEACHER: "先生"
+    };
+
+    document.querySelectorAll(".qr-type").forEach((button) => {
+      button.addEventListener("click", () => {
+        const qrType = button.dataset.qrType;
+        document.getElementById("selectedQrType").textContent =
+          "QR種類: " + (QR_LABELS[qrType] || qrType);
+        document.getElementById("selectionState").hidden = false;
+      });
+    });
+
+    function logoutSession() {
+      DojoVirtualSession.logout();
+      location.href = "index.html";
+    }
+  </script>
+  <script src="system_context.js"></script>
+</body>
+</html>
