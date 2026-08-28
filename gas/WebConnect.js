@@ -91,7 +91,10 @@ function doGet(e) {
       return paypayCode_start({
         member_id: params.member_id || "",
         plan_id: params.plan_id || "",
-        teacher_id: params.teacher_id || "PAYPAY_MEMBER"
+        teacher_id: params.teacher_id || "PAYPAY_MEMBER",
+        location_id: params.location_id || "",
+        billing_block_id: params.billing_block_id || "",
+        reception_session_id: params.reception_session_id || ""
       }, ctx);
     });
     return createJsonOrJsonpOutput_(result, params.callback);

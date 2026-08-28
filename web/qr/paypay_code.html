@@ -69,9 +69,13 @@
       const params = new URLSearchParams(window.location.search);
       const urlMemberId = String(params.get("member_id") || "").trim();
 
-      // 月謝袋QRなどの起動URLにmember_idがある場合は、
-      // 支払Contextを初期化する前に会員主体のSessionを生成する。
-      if (urlMemberId) {
+      // 既に同じ会員でログイン済みなら再ログインしない。
+      // 再ログインすると、道場QR/出席画面で保持した location_id / billing_block_id を
+      // 失い、PayPayだけ先生側の課金枠集計から外れてしまうため。
+      const existingSession = DojoVirtualSession.get();
+      if (urlMemberId && !(existingSession &&
+          existingSession.role === "MEMBER" &&
+          existingSession.member_id === urlMemberId)) {
         DojoVirtualSession.loginMember(urlMemberId, "PAGE_URL");
       }
 
@@ -105,11 +109,17 @@
       addLog("PayPay開始: " + memberId + " / " + planId);
       setMessage("startResult", "会費情報を取得しています...", "note");
 
-      jsonp(GAS_URL, {
+      const session = DojoVirtualSession.get();
+      const context = session && session.context ? session.context : {};
+      const request = {
         action: "paypay_code_start",
         member_id: memberId,
-        plan_id: planId
-      }).then(function(result) {
+        plan_id: planId,
+        location_id: context.location_id || "",
+        billing_block_id: context.billing_block_id || ""
+      };
+
+      jsonp(GAS_URL, request).then(function(result) {
         addLog("GAS応答(paypay_code_start): " + JSON.stringify(result));
 
         if (!result || result.ok !== true) {
@@ -118,6 +128,12 @@
         }
 
         currentPayPay = result;
+        if (result.locationId) {
+          DojoVirtualSession.setContext({
+            location_id: result.locationId,
+            billing_block_id: result.billingBlockId || ""
+          });
+        }
         renderPaymentInfo(result);
         setMessage("startResult", "会費情報を取得しました。", "ok");
 

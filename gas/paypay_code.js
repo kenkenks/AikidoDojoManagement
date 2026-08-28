@@ -11,6 +11,7 @@ function paypayCode_start(data, ctx) {
   const memberId = normalizeId_(data.member_id || data.memberId);
   const planId = normalizeId_(data.plan_id || data.planId);
   const teacherId = normalizeId_(data.teacher_id || data.teacherId || 'PAYPAY_MEMBER');
+  const scope = paypayCode_resolveReceptionScope_(data, ctx);
 
   if (!memberId) {
     return { ok: false, success: false, message: 'member_id がありません。' };
@@ -79,6 +80,10 @@ function paypayCode_start(data, ctx) {
         member_id: invoice.member_id || memberId,
         payment_method: 'PAYPAY',
         amount: Number(invoice.amount || 0),
+        location_id: scope.location_id,
+        billing_block_id: scope.billing_block_id,
+        teacher_id: teacherId,
+        reception_session_id: normalizeId_(data.reception_session_id || data.receptionSessionId),
         remarks: 'paypay_code.html start'
       }, ctx);
 
@@ -135,7 +140,80 @@ function paypayCode_start(data, ctx) {
     invoiceItems: invoiceItems,
     evidenceItems: evidenceItems,
     requestResults: requestResults,
-    teacherId: teacherId
+    teacherId: teacherId,
+    locationId: scope.location_id,
+    billingBlockId: scope.billing_block_id,
+    scopeInferred: scope.inferred === true,
+    scopeMessage: scope.message || ''
+  };
+}
+
+
+function paypayCode_resolveReceptionScope_(data, ctx) {
+  ctx = ensureSheetContext(ctx);
+  data = data || {};
+
+  const locationId = normalizeId_(data.location_id || data.locationId);
+  const billingBlockId = normalizeId_(data.billing_block_id || data.billingBlockId);
+
+  // 出席登録とは独立して支払いScopeを解決する。
+  // 道場外など、受付Scopeを持たない支払いは従来どおり許容する。
+  if (!locationId) {
+    return {
+      location_id: '',
+      billing_block_id: '',
+      inferred: false,
+      message: '受付Scopeなし'
+    };
+  }
+
+  const location = getLocations(ctx).find(function(row) {
+    return normalizeId_(row["location_id"]) === locationId && isActiveMasterRow_(row);
+  });
+  if (!location) {
+    throw new Error('PayPay受付の有効な道場が見つかりません。');
+  }
+
+  if (billingBlockId) {
+    const block = getBillingBlocks(ctx).find(function(row) {
+      return normalizeId_(row["billing_block_id"]) === billingBlockId &&
+        normalizeId_(row["location_id"]) === locationId &&
+        isActiveMasterRow_(row);
+    });
+    if (!block) {
+      throw new Error('PayPay受付の道場に対応する有効な課金枠が見つかりません。');
+    }
+    return {
+      location_id: locationId,
+      billing_block_id: billingBlockId,
+      inferred: false,
+      message: ''
+    };
+  }
+
+  // 課金枠QRには依存しない。道場 + 現在時刻から一意に決まる場合だけ補完する。
+  const now = parseSessionDateTime_('', ctx);
+  const candidates = findBillingBlockCandidates_(locationId, now, ctx);
+  const exact = candidates.filter(function(candidate) { return candidate.is_current; });
+  const nearby = candidates.filter(function(candidate) { return candidate.is_nearby; });
+  const resolved = exact.length === 1
+    ? exact[0]
+    : (exact.length === 0 && nearby.length === 1 ? nearby[0] : null);
+
+  if (!resolved) {
+    return {
+      location_id: locationId,
+      billing_block_id: '',
+      inferred: false,
+      message: '課金枠を自動判定できなかったため、道場情報のみ保持しました。'
+    };
+  }
+
+  return {
+    location_id: locationId,
+    billing_block_id: normalizeId_(resolved.billing_block_id),
+    inferred: true,
+    message: '現在時刻から課金枠を自動判定しました。'
   };
 }
 
