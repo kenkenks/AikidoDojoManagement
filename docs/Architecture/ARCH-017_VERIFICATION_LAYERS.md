@@ -159,3 +159,10 @@ Runner名または文書上で、どのレイヤーを保証するRunnerか判�
 - ARCH-003 Runner設計
 - ARCH-014 Runner契約・入口パターン設計
 - ARCH_SESSION セッション管理フレームワーク
+
+## Runnerの実行契約
+
+GASエディタから実行するRunnerには、引数なしで実行できるエントリポイントを用意する。
+Runnerは結果をログへ出力し、検証失敗時は `{ ok:false }` を返すだけで終了せず例外を送出する。
+これにより、Apps Scriptの実行結果そのものから PASS / FAIL を判別できるようにする。
+

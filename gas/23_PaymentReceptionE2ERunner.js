@@ -124,3 +124,26 @@ function runner_e2ePayPayReceptionScope(memberId, planId, locationId, billingBlo
   Logger.log(JSON.stringify(result, null, 2));
   return result;
 }
+
+// GASエディタからワンクリック実行するための入口。
+// E2E CLEAN後のテストデータに合わせて値を設定する。
+function runner_e2ePayPayReceptionScope_TEST() {
+  const result = runner_e2ePayPayReceptionScope(
+    "M001",
+    "P002",
+    "HONBU",
+    "B_KYO_MON_1030_1230"
+  );
+
+  Logger.log("[E2E] " + JSON.stringify(result, null, 2));
+
+  if (!result || result.ok !== true) {
+    throw new Error(
+      "[E2E FAIL] PayPay reception scope: " + JSON.stringify(result)
+    );
+  }
+
+  Logger.log("[E2E PASS] PayPay reception scope");
+  return result;
+}
+
