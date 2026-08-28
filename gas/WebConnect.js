@@ -256,8 +256,31 @@ function getMemberPaymentInfo_(memberId, plan_id, ctx) {
       ? billingExtraEnsureInvoice(memberId, plan_id_r, ctx)
       : billing_acceptMonthlySelection(memberId, plan_id_r, ctx);
     Logger.log(JSON.stringify(billingResult, null, 2));
+
+    // BillingMonthly は業務エラーを throw せず { ok:false } で返す。
+    // ここで失敗を握りつぶすと、直後の状態取得が「未宣言」となり
+    // PayPay画面では宣言失敗の原因が見えなくなる。
+    if (!billingResult || billingResult.ok !== true) {
+      return {
+        success: false,
+        ok: false,
+        memberId: memberId,
+        memberName: member.memberName || "",
+        planId: plan_id_r,
+        message: billingResult && billingResult.message
+          ? billingResult.message
+          : "会費タイプの宣言に失敗しました。"
+      };
+    }
   } catch (e) {
-    Logger.log("Error occurred: " + e.toString());
+    return {
+      success: false,
+      ok: false,
+      memberId: memberId,
+      memberName: member.memberName || "",
+      planId: plan_id_r,
+      message: "会費タイプの宣言に失敗しました: " + e.message
+    };
   }
 
   const paymentStatus = getPaymentStatus(memberId, ctx);

@@ -21,7 +21,9 @@ function paypayCode_start(data, ctx) {
   }
 
   // 04/05/20 を準備し、画面表示用DTOを取得する。
-  const paymentInfo = getMemberPaymentInfo_(memberId, planId);
+  // PayPay開始処理全体で同じSheetContextを使い、宣言・請求生成後の
+  // 最新状態を同一リクエスト内で参照する。
+  const paymentInfo = getMemberPaymentInfo_(memberId, planId, ctx);
   if (!paymentInfo || paymentInfo.ok !== true) {
     return paymentInfo;
   }
