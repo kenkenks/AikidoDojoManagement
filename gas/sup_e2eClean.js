@@ -10,7 +10,7 @@
  *
  * NOTE:
  * - マスタは削除しない。
- * - 07_出席ログは対象外。
+ * - 07_出席ログも member_id を基準にクリーンする。
  * - 削除件数表示、dry-run、論理削除は扱わない。
  * - 請求グループ単位で整合性を保つため、指定会員と同じ
  *   billing_group_id に属する会費データは残す。
@@ -26,7 +26,7 @@ function showE2eCleanPrompt() {
     "E2Eテストデータ クリーン",
     "残す member_id をカンマ区切りで入力してください。\n" +
       "例: M001,M005\n\n" +
-      "指定した会員（同じ請求グループを含む）以外の会費テストデータを物理削除します。",
+      "指定した会員（同じ請求グループを含む）以外の会費・出席テストデータを物理削除します。",
     ui.ButtonSet.OK_CANCEL
   );
 
@@ -95,7 +95,13 @@ function e2eClean_exceptMembers_(keepMemberIds, ctx) {
     }
   });
 
-  // 下流から削除する。判定に必要なキーは上で収集済み。
+  // 出席ログは会員単位。保持指定した member_id の行だけ残す。
+  e2eClean_deleteRowsExcept_("07_出席ログ", function(row) {
+    const memberId = normalizeId_(row["member_id"]);
+    return !!(memberId && keepMemberSet[memberId]);
+  }, ctx);
+
+  // 会費系は下流から削除する。判定に必要なキーは上で収集済み。
   e2eClean_deleteRowsExcept_("09_決済エビデンス", function(row) {
     return e2eClean_keepByMemberOrInvoice_(row, keepMemberSet, keepInvoiceSet);
   }, ctx);
@@ -121,7 +127,7 @@ function e2eClean_exceptMembers_(keepMemberIds, ctx) {
   return {
     ok: true,
     keep_member_ids: requestedMemberIds,
-    message: "指定会員に関係しないE2E会費データをクリーンしました。"
+    message: "指定会員に関係しないE2E会費・出席データをクリーンしました。"
   };
 }
 
