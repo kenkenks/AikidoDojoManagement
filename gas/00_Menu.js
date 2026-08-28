@@ -13,6 +13,7 @@ function onOpen() {
     .addItem("現金受け取り確認(一覧)", "showCashConfirmDialog")
     .addSeparator()
     .addItem("テスト時刻を設定", "showTimeTravelDialog")
+    .addItem("E2Eテストデータ クリーン", "showE2eCleanPrompt")
     .addSeparator()
     .addItem("デバック実行用", "debug_run")
     .addToUi();
