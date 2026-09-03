@@ -61,14 +61,18 @@ function paypayCode_start(data, ctx) {
 
     const existing = paypayCode_findActiveEvidenceByInvoice_(invoiceId, ctx);
     if (existing) {
-      evidenceItems.push(paypayCode_makeEvidenceDto_(existing));
+      const reusable = paypayCode_repairReusableEvidenceScope_(existing, scope, ctx);
+      evidenceItems.push(paypayCode_makeEvidenceDto_(reusable));
       requestResults.push({
         ok: true,
         skipped: true,
         index: i,
         invoice_id: invoiceId,
-        evidence_id: existing.evidence_id,
-        status: existing.status,
+        evidence_id: reusable.evidence_id,
+        status: reusable.status,
+        scope_repaired:
+          normalizeId_(existing.location_id || existing['location_id']) !== normalizeId_(reusable.location_id || reusable['location_id']) ||
+          normalizeId_(existing.billing_block_id || existing['billing_block_id']) !== normalizeId_(reusable.billing_block_id || reusable['billing_block_id']),
         message: '既存の決済エビデンスを使用します。'
       });
       continue;
@@ -101,14 +105,18 @@ function paypayCode_start(data, ctx) {
     } catch (e) {
       const retryExisting = paypayCode_findActiveEvidenceByInvoice_(invoiceId, ctx);
       if (retryExisting) {
-        evidenceItems.push(paypayCode_makeEvidenceDto_(retryExisting));
+        const reusable = paypayCode_repairReusableEvidenceScope_(retryExisting, scope, ctx);
+        evidenceItems.push(paypayCode_makeEvidenceDto_(reusable));
         requestResults.push({
           ok: true,
           skipped: true,
           index: i,
           invoice_id: invoiceId,
-          evidence_id: retryExisting.evidence_id,
-          status: retryExisting.status,
+          evidence_id: reusable.evidence_id,
+          status: reusable.status,
+          scope_repaired:
+            normalizeId_(retryExisting.location_id || retryExisting['location_id']) !== normalizeId_(reusable.location_id || reusable['location_id']) ||
+            normalizeId_(retryExisting.billing_block_id || retryExisting['billing_block_id']) !== normalizeId_(reusable.billing_block_id || reusable['billing_block_id']),
           message: '既存の決済エビデンスを使用します。'
         });
       } else {
@@ -301,6 +309,58 @@ function paypayCode_record(data, ctx) {
   };
 }
 
+
+// REQUESTED / CONFIRMED の既存エビデンスを再利用するとき、
+// 旧データで受付Scopeが欠けていれば現在の受付Scopeで空欄だけを補完する。
+// POSTEDは06入金ログへ既に転記済みなので、ここでは後書きしない。
+function paypayCode_repairReusableEvidenceScope_(row, scope, ctx) {
+  ctx = ensureSheetContext(ctx);
+  row = row || {};
+  scope = scope || {};
+
+  const status = normalizeId_(row.status || row['status']);
+  if (['REQUESTED', 'CONFIRMED'].indexOf(status) < 0) {
+    return row;
+  }
+
+  const evidenceId = normalizeId_(row.evidence_id || row['evidence_id']);
+  if (!evidenceId) return row;
+
+  const currentLocationId = normalizeId_(row.location_id || row['location_id']);
+  const currentBillingBlockId = normalizeId_(row.billing_block_id || row['billing_block_id']);
+  const desiredLocationId = normalizeId_(scope.location_id);
+  const desiredBillingBlockId = normalizeId_(scope.billing_block_id);
+
+  // 既存値と現在Scopeが食い違う場合は、別受付の可能性があるため上書きしない。
+  if (currentLocationId && desiredLocationId && currentLocationId !== desiredLocationId) {
+    return row;
+  }
+  if (currentBillingBlockId && desiredBillingBlockId &&
+      currentBillingBlockId !== desiredBillingBlockId) {
+    return row;
+  }
+
+  const updates = {};
+  if (!currentLocationId && desiredLocationId) {
+    updates.location_id = desiredLocationId;
+  }
+  if (!currentBillingBlockId && desiredBillingBlockId) {
+    updates.billing_block_id = desiredBillingBlockId;
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return row;
+  }
+
+  const target = paymentEvidence_findRowById_(evidenceId, ctx);
+  if (!target) return row;
+
+  paymentEvidence_updateColumns_(target.rowNumber, updates, ctx);
+
+  const refreshed = paymentEvidence_findRowById_(evidenceId, ctx);
+  return refreshed ? refreshed.row : row;
+}
+
 function paypayCode_findActiveEvidenceByInvoice_(invoiceId, ctx) {
   const rows = paymentEvidence_getRows(ctx);
   const activeStatuses = ['REQUESTED', 'CONFIRMED', 'POSTED'];
@@ -319,6 +379,8 @@ function paypayCode_makeEvidenceDto_(row) {
     payment_method: normalizeId_(row.payment_method || row['payment_method']),
     amount: Number(row.amount || row['amount'] || 0),
     status: normalizeId_(row.status || row['status']),
-    evidence_code: normalizeId_(row.evidence_code || row['evidence_code'])
+    evidence_code: normalizeId_(row.evidence_code || row['evidence_code']),
+    location_id: normalizeId_(row.location_id || row['location_id']),
+    billing_block_id: normalizeId_(row.billing_block_id || row['billing_block_id'])
   };
 }

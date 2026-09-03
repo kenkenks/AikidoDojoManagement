@@ -31,6 +31,27 @@ function billingMonthlyAccept(memberId, plan_id, ctx) {
     billingContext =
     billingMonthlyCollect(memberId, plan_id, ctx);
 
+    // 同じ月・同じ請求グループ・同じplan_idの再要求は冪等成功とする。
+    // PayPay画面の再表示や既存REQUESTED再利用時に、同じ宣言を
+    // 「登録済みエラー」として止めない。
+    if (billingContext.alreadySelected === true) {
+      viewUpdate =
+        paymentStatusView_refresh(
+          billingContext.memberId,
+          billingContext.targetMonth,
+          ctx
+        );
+
+      return {
+        ok: true,
+        skipped: true,
+        idempotent: true,
+        message: `${billingContext.targetMonth} の会費タイプ「${plan_id}」は登録済みです。`,
+        invoice: null,
+        viewUpdate
+      };
+    }
+
     // Record Monthly Selection
     billingMonthlyRegisterSelection_(billingContext, ctx);
 
@@ -55,6 +76,8 @@ function billingMonthlyAccept(memberId, plan_id, ctx) {
 
   return {
     ok: true,
+    skipped: false,
+    idempotent: false,
     message: `${billingContext.targetMonth} の会費タイプを「${plan_id}」で登録しました。`,
     invoice,
     viewUpdate
@@ -99,8 +122,27 @@ function billingMonthlyCollect(memberId, planId, ctx) {
   const targetMonth = sup_targetMonth(ctx);
 
   const existing = billingCoreGetMonthlySelection_(billingGroupId, targetMonth, ctx);
+  const requestedPlanId = String(planId).trim();
   if (existing) {
-    throw new Error("今月の会費タイプはすでに登録済みです。");
+    const existingPlanId = String(existing["plan_id"] || "").trim();
+
+    // 同じ宣言の再要求は、画面再表示・再送・E2E再利用経路で起こり得る。
+    // 副作用を増やさず成功扱いにする。
+    if (existingPlanId === requestedPlanId) {
+      return {
+        targetMonth,
+        memberId,
+        billingGroupId,
+        plan_id: requestedPlanId,
+        alreadySelected: true,
+        existingSelection: existing
+      };
+    }
+
+    // 別planへの変更は暗黙に行わない。
+    throw new Error(
+      `今月の会費タイプはすでに「${existingPlanId || "不明"}」で登録済みです。`
+    );
   }
 
   const fees = getFees(ctx);
@@ -117,6 +159,7 @@ function billingMonthlyCollect(memberId, planId, ctx) {
     memberId,
     billingGroupId,
     plan_id: planId,
+    alreadySelected: false,
     invoiceType: fee["会費タイプ"],
     invoiceName: fee["表示名"],
     quantity: 1,

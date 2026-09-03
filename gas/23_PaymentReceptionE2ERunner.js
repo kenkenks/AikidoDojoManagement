@@ -41,7 +41,33 @@ function runner_e2ePayPayReceptionScope(memberId, planId, locationId, billingBlo
     return { ok: false, phase: "start", start: start };
   }
 
-  const evidenceItems = Array.isArray(start.evidenceItems) ? start.evidenceItems : [];
+  let evidenceItems = Array.isArray(start.evidenceItems) ? start.evidenceItems : [];
+
+  // 実ページで発生した回帰ケースを再現する。
+  // 既存REQUESTEDの受付Scopeを欠落させ、同じPayPay開始処理で再利用した際に
+  // location_id / billing_block_id が補完されることまでE2Eで確認する。
+  evidenceItems.forEach(function(item) {
+    const target = paymentEvidence_findRowById_(item.evidence_id, ctx);
+    if (target && normalizeId_(target.row["status"]) === "REQUESTED") {
+      paymentEvidence_updateColumns_(target.rowNumber, {
+        location_id: "",
+        billing_block_id: ""
+      }, ctx);
+    }
+  });
+
+  const reusedStart = paypayCode_start({
+    member_id: memberId,
+    plan_id: planId,
+    location_id: locationId,
+    billing_block_id: billingBlockId,
+    teacher_id: "RUNNER_E2E_PAYPAY"
+  }, ctx);
+  if (!reusedStart || reusedStart.ok !== true) {
+    return { ok: false, phase: "reuse_start", start: start, reusedStart: reusedStart };
+  }
+  evidenceItems = Array.isArray(reusedStart.evidenceItems) ? reusedStart.evidenceItems : [];
+
   const evidenceRows = evidenceItems.map(function(item) {
     const target = paymentEvidence_findRowById_(item.evidence_id, ctx);
     return target ? target.row : null;
@@ -56,8 +82,9 @@ function runner_e2ePayPayReceptionScope(memberId, planId, locationId, billingBlo
       ok: false,
       phase: "evidence_scope",
       start: start,
+      reusedStart: reusedStart,
       evidenceRows: evidenceRows,
-      message: "09_決済エビデンスまで受付Scopeが保持されていません。"
+      message: "既存REQUESTED再利用時に09_決済エビデンスの受付Scopeを復元できませんでした。"
     };
   }
 
@@ -106,6 +133,7 @@ function runner_e2ePayPayReceptionScope(memberId, planId, locationId, billingBlo
     ok: scopeOk && paymentScopeOk && summaryOk,
     before: before,
     start: start,
+    reusedStart: reusedStart,
     record: record,
     posted: posted,
     expectedPayPayAmount: expectedAmount,
@@ -125,8 +153,8 @@ function runner_e2ePayPayReceptionScope(memberId, planId, locationId, billingBlo
   return result;
 }
 
-// GASエディタからワンクリック実行するための入口。
-// E2E CLEAN後のテストデータに合わせて値を設定する。
+// GASエディタからワンクリック実行する入口。
+// E2E CLEAN後のテスト会員に合わせて値を変更する。
 function runner_e2ePayPayReceptionScope_TEST() {
   const result = runner_e2ePayPayReceptionScope(
     "M001",
@@ -136,11 +164,8 @@ function runner_e2ePayPayReceptionScope_TEST() {
   );
 
   Logger.log("[E2E] " + JSON.stringify(result, null, 2));
-
   if (!result || result.ok !== true) {
-    throw new Error(
-      "[E2E FAIL] PayPay reception scope: " + JSON.stringify(result)
-    );
+    throw new Error("[E2E FAIL] PayPay reception scope: " + JSON.stringify(result));
   }
 
   Logger.log("[E2E PASS] PayPay reception scope");
