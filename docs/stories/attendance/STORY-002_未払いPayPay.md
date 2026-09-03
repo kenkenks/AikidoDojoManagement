@@ -1,30 +1,39 @@
 # STORY-002 未払いPayPay
 
-STATUS: 未整備
+STATUS: 作成中
 TYPE: STORY
 TASK: TASK-DEV-011-100
-AREA: ATTENDANCE
+AREA: PAYMENT
 PRIORITY: HIGH
 
 TAG: STORY
-TAG: ATTENDANCE
 TAG: PAYPAY
 TAG: PAYMENT
-TAG: 未整備
 
 RUNNER: runner_story_attendance_002
 
-<!--
-暫定ルール:
-- STATUS は現在の整備状態
-- TYPE は文書種別
-- TASK は関連タスクID
-- AREA は主担当領域
-- TAG は検索用キーワード
-- RUNNER は対応Runner関数
--->
-
-
 ## 概要
 
-未払い会員がPayPay決済コードを登録し、先生の決済更新へつなげるStory。
+料金プランが既に確定し未払い請求を持つ会員が、PayPayで支払い、先生の決済確認・入金反映へつなげるStory。
+
+## 前提
+
+- 月額／都度の正規確定タイミングは出席登録時である。
+- 対象月の `04_月次選択` と未払い請求が存在する。
+- 会費回収側の月次選択処理が呼ばれる場合も、同一planなら冪等にSKIPしてよい。
+
+## Flow
+
+```text
+未払い請求取得
+  ↓
+会員がPayPay支払いを選択
+  ↓
+決済エビデンス受付
+  ↓
+先生が確認
+  ↓
+入金反映
+```
+
+PayPay画面は月額／都度を新規決定する主画面としない。
