@@ -114,6 +114,22 @@ function paymentEvidence_acceptBatch(data, ctx) {
   const locationId = normalizeId_(data && data.location_id);
   const billingBlockId = normalizeId_(data && data.billing_block_id);
   const teacherId = normalizeId_(data && data.teacher_id);
+  const source = normalizeId_(data && data.source);
+  const inputPayments = Array.isArray(data && data.payment_items)
+    ? data.payment_items
+    : (Array.isArray(data && data.payments) ? data.payments : []);
+
+  // 現仕様では先生会費受付画面は現金専用。
+  // PayPay は会員PayPay画面 -> 09 CONFIRMED -> 先生の決済更新で処理する。
+  if (source === "payment_teacher.html") {
+    const nonCash = inputPayments.find(function(payment) {
+      const method = paymentEvidence_normalizePaymentMethod_(payment.payment_method || payment.paymentMethod || "");
+      return method !== "CASH";
+    });
+    if (nonCash) {
+      return { ok: false, message: "accept: 先生会費受付画面から登録できるのは現金のみです。" };
+    }
+  }
   if (!locationId || !billingBlockId || !teacherId) {
     return { ok: false, message: "accept: 先生・道場・課金枠を指定してください。" };
   }
@@ -170,7 +186,27 @@ function paymentEvidence_acceptBatch(data, ctx) {
     result: JSON.stringify(recordResult, null, 2)
   }, ctx);
 
-  const postResult = paymentEvidence_postBatch(ctx);
+  // この受付バッチで確認したEvidenceだけを06へ反映する。
+  // paymentEvidence_postBatch() は全CONFIRMEDを対象にするため、
+  // 会員PayPay画面で作られた別受付のEvidenceまで巻き込む危険がある。
+  const postResults = [];
+  for (let i = 0; i < evidence_items.length; i++) {
+    const evidenceId = normalizeId_(evidence_items[i].evidence_id);
+    if (!evidenceId) continue;
+    try {
+      const result = paymentEvidence_post({ evidence_id: evidenceId }, ctx);
+      postResults.push({ ok: true, evidence_id: evidenceId, result: result });
+    } catch (e) {
+      postResults.push({ ok: false, evidence_id: evidenceId, message: e.message });
+    }
+  }
+  const postResult = {
+    ok: postResults.every(function(result) { return result.ok; }),
+    results: postResults,
+    posted: postResults.filter(function(result) { return result.ok; }),
+    skipped: postResults.filter(function(result) { return !result.ok; }),
+    message: "accept: この受付バッチの決済エビデンスだけを06へ反映しました。"
+  };
 
   return {
     ok: true,

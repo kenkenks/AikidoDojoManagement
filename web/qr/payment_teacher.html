@@ -238,10 +238,8 @@
   </div>
 
   <div class="card summary">
-    <strong>今回の受付（未送信）</strong>
+    <strong>今回の現金受付（未送信）</strong>
     <div>現金: <span id="cashTotal">0</span>円</div>
-    <div>PayPay: <span id="paypayTotal">0</span>円</div>
-    <div>合計: <span id="grandTotal">0</span>円</div>
     <div>受付人数: <span id="paymentCount">0</span>名</div>
     <button id="completePaymentsButton" onclick="sendPaymentsToGas()" disabled>集金完了</button>
     <button onclick="postConfirmedPayments()">決済更新</button>
@@ -487,20 +485,17 @@
                 現金受領
               </button>
 
-              <!--
-                PayPay受付
-                ・現在は動作確認のため先生画面でも受付可能
-                ・将来は会員画面（Googleフォーム/Firebase）へ移行予定
-              -->
-              <button class="primary" onclick="confirmPayment('PayPay')">
-                PayPay受領
-              </button>
             `
             : `<div class="ok">未払い金額はありません</div>`}
         `;
     }
 
     function confirmPayment(payType) {
+      if (payType !== "現金") {
+        addLog("受領スキップ: 先生画面は現金受付専用です。PayPayは会員PayPay画面を使用してください。");
+        return;
+      }
+
       if (!currentPayment) {
         addLog("受領スキップ: 現在受付中の会員なし");
         return;
@@ -598,21 +593,11 @@
     }
 
     function renderSummary() {
-      let cashTotal = 0;
-      let paypayTotal = 0;
-
-      paymentList.forEach(payment => {
-        if (payment.payType === "現金") {
-          cashTotal += payment.amount;
-        } else if (payment.payType === "PayPay") {
-          paypayTotal += payment.amount;
-        }
-      });
+      const cashPayments = paymentList.filter(payment => payment.payType === "現金");
+      const cashTotal = cashPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
 
       document.getElementById("cashTotal").textContent = formatYen(cashTotal);
-      document.getElementById("paypayTotal").textContent = formatYen(paypayTotal);
-      document.getElementById("grandTotal").textContent = formatYen(cashTotal + paypayTotal);
-      document.getElementById("paymentCount").textContent = paymentList.length;
+      document.getElementById("paymentCount").textContent = cashPayments.length;
       updateCompletionButton();
     }
 
@@ -756,7 +741,13 @@
         return;
       }
 
-      const paymentItems = paymentList.flatMap(payment =>
+      const cashPayments = paymentList.filter(payment => payment.payType === "現金");
+      if (cashPayments.length === 0) {
+        addLog("送信スキップ: 現金受付データなし");
+        return;
+      }
+
+      const paymentItems = cashPayments.flatMap(payment =>
         (payment.invoiceItems || []).map(invoice => ({
           invoice_id: invoice.invoice_id,
           member_id: invoice.member_id || payment.memberId,
@@ -785,8 +776,9 @@
       };
 
       addLog("GAS一括送信予定: " + JSON.stringify(payload));
+      const completeButton = document.getElementById("completePaymentsButton");
+      if (completeButton) completeButton.disabled = true;
 
-      //初版では画面動作確認を優先するため、実送信は次ステップで有効化する。
       fetch(GAS_URL, {
         method: "POST",
         mode: "no-cors",
@@ -796,9 +788,13 @@
         body: JSON.stringify(payload)
       }).then(() => {
         addLog("GAS一括送信要求完了");
+        paymentList = paymentList.filter(payment => payment.payType !== "現金");
+        renderPaymentList();
+        renderSummary();
         window.setTimeout(loadRegisteredScopeSummary, 2500);
       }).catch(err => {
         addLog("GAS一括送信エラー: " + err);
+        updateCompletionButton();
       });
     }
 
