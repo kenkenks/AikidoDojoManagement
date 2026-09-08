@@ -245,12 +245,40 @@ function doGet(e) {
 }
 
 function getMemberPaymentInfo_(memberId, plan_id, ctx) {
+  ctx = ensureSheetContext(ctx || createSheetContext());
+
   const member = getPaymentStatus(memberId, ctx);
   if (!member || member.ok !== true) return member;
 
   sup_logDebug("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id }, ctx);
 
-  const plan_id_r = plan_id || "P002";
+  // 通常運用のQRは member_id のみを持つ。plan_id が入口に無い場合は、
+  // 出席時に確定済みの当月 04_月次選択から復元する。
+  // plan_id が明示されている旧QR/審査費等の経路はその値を優先する。
+  let plan_id_r = normalizeId_(plan_id);
+  if (String(plan_id_r).toLowerCase() === "undefined" || String(plan_id_r).toLowerCase() === "null") {
+    plan_id_r = "";
+  }
+  if (!plan_id_r) {
+    const memberRow = getMembers(ctx).find(function(row) {
+      return normalizeId_(row["member_id"]) === normalizeId_(memberId);
+    });
+    const billingGroupId = memberRow ? normalizeId_(memberRow["請求グループID"]) : "";
+    const selection = billingGroupId
+      ? billing_getMonthlySelection(billingGroupId, sup_targetMonth(ctx), ctx)
+      : null;
+    plan_id_r = selection ? normalizeId_(selection["plan_id"]) : "";
+  }
+
+  if (!plan_id_r) {
+    return {
+      success: false,
+      ok: false,
+      memberId: memberId,
+      memberName: member.memberName || "",
+      message: "今月の会費タイプが未登録です。出席登録または会費タイプ選択を行ってください。"
+    };
+  }
   try {
     const fee = getFees(ctx).find(function(row) {
       return normalizeId_(row["plan_id"]) === normalizeId_(plan_id_r) && isActiveMasterRow_(row);

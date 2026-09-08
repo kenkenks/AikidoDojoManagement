@@ -59,6 +59,7 @@
 
   <p class="note"><a href="member_home.html">会員ホームへ戻る</a></p>
 
+  <script src="virtual_session.js"></script>
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
 
@@ -66,14 +67,25 @@
 
     window.addEventListener("load", function() {
       const params = new URLSearchParams(window.location.search);
-      const memberId = params.get("member_id") || "";
+      const queryMemberId = params.get("member_id") || "";
       const planId = params.get("plan_id") || "";
+
+      if (queryMemberId && window.DojoVirtualSession) {
+        DojoVirtualSession.loginMember(queryMemberId, "PAGE_URL");
+      }
+
+      const memberSession = window.DojoVirtualSession ? DojoVirtualSession.get() : null;
+      const memberId =
+        memberSession && memberSession.role === "MEMBER"
+          ? (memberSession.member_id || "")
+          : queryMemberId;
 
       document.getElementById("memberId").value = memberId;
       document.getElementById("planId").value = planId;
 
       if (memberId) {
-        addLog("URLパラメータ取得: member_id=" + memberId + (planId ? " / plan_id=" + planId + " (互換用)" : ""));
+        addLog("会員ID取得: member_id=" + memberId + (memberSession ? " (ログイン状態)" : " (URL)") +
+          (planId ? " / plan_id=" + planId + " (互換用)" : ""));
         startPayPayCode();
       }
     });
