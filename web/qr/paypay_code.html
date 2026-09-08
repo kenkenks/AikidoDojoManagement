@@ -25,8 +25,8 @@
     <h2>会員情報</h2>
     <label>会員ID</label>
     <input id="memberId" placeholder="例：M001">
-    <label>プランID</label>
-    <input id="planId" placeholder="例：P001">
+    <label>プランID（会費情報から取得）</label>
+    <input id="planId" class="readonly" placeholder="自動取得" readonly>
     <button class="primary member" onclick="startPayPayCode()">会費情報を表示</button>
     <div id="startResult" class="note"></div>
   </section>
@@ -59,7 +59,6 @@
 
   <p class="note"><a href="member_home.html">会員ホームへ戻る</a></p>
 
-  <script src="virtual_session.js"></script>
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
 
@@ -67,73 +66,67 @@
 
     window.addEventListener("load", function() {
       const params = new URLSearchParams(window.location.search);
-      const urlMemberId = String(params.get("member_id") || "").trim();
-
-      // 既に同じ会員でログイン済みなら再ログインしない。
-      // 再ログインすると、道場QR/出席画面で保持した location_id / billing_block_id を
-      // 失い、PayPayだけ先生側の課金枠集計から外れてしまうため。
-      const existingSession = DojoVirtualSession.get();
-      if (urlMemberId && !(existingSession &&
-          existingSession.role === "MEMBER" &&
-          existingSession.member_id === urlMemberId)) {
-        DojoVirtualSession.loginMember(urlMemberId, "PAGE_URL");
-      }
-
-      const memberSession = DojoVirtualSession.get();
-      const memberId = urlMemberId ||
-        (memberSession && memberSession.role === "MEMBER" ? memberSession.member_id : "") || "";
+      const memberId = params.get("member_id") || "";
       const planId = params.get("plan_id") || "";
 
       document.getElementById("memberId").value = memberId;
       document.getElementById("planId").value = planId;
 
-      if (memberId && planId) {
-        addLog("URLパラメータ取得: " + memberId + " / " + planId);
+      if (memberId) {
+        addLog("URLパラメータ取得: member_id=" + memberId + (planId ? " / plan_id=" + planId + " (互換用)" : ""));
         startPayPayCode();
       }
     });
 
     function startPayPayCode() {
       const memberId = document.getElementById("memberId").value.trim();
-      const planId = document.getElementById("planId").value.trim();
+      const legacyPlanId = document.getElementById("planId").value.trim();
 
       if (!memberId) {
         setMessage("startResult", "member_id がありません。", "error");
         return;
       }
-      if (!planId) {
-        setMessage("startResult", "plan_id がありません。", "error");
-        return;
-      }
 
-      addLog("PayPay開始: " + memberId + " / " + planId);
+      addLog("会費情報取得開始: member_id=" + memberId);
       setMessage("startResult", "会費情報を取得しています...", "note");
 
-      const session = DojoVirtualSession.get();
-      const context = session && session.context ? session.context : {};
-      const request = {
-        action: "paypay_code_start",
+      jsonp(GAS_URL, {
+        action: "getPaymentInfo",
         member_id: memberId,
-        plan_id: (planId || ""),
-        location_id: context.location_id || "",
-        billing_block_id: context.billing_block_id || ""
-      };
+        plan_id: legacyPlanId || ""
+      }).then(function(info) {
+        addLog("GAS応答(getPaymentInfo): " + JSON.stringify(info));
 
-      jsonp(GAS_URL, request).then(function(result) {
+        if (!info || info.success !== true) {
+          setMessage("startResult", (info && info.message) || "会費情報を取得できませんでした。", "error");
+          return;
+        }
+
+        const resolvedPlanId = info.planId || "";
+        if (!resolvedPlanId) {
+          setMessage("startResult", "会費情報から plan_id を確定できませんでした。", "error");
+          return;
+        }
+
+        document.getElementById("planId").value = resolvedPlanId;
+        addLog("plan_id確定: " + resolvedPlanId + " (会費情報)");
+
+        return jsonp(GAS_URL, {
+          action: "paypay_code_start",
+          member_id: memberId,
+          plan_id: resolvedPlanId
+        });
+      }).then(function(result) {
+        if (!result) return;
+
         addLog("GAS応答(paypay_code_start): " + JSON.stringify(result));
 
-        if (!result || result.ok !== true) {
-          setMessage("startResult", (result && result.message) || "会費情報を取得できませんでした。", "error");
+        if (result.ok !== true) {
+          setMessage("startResult", result.message || "PayPay情報を取得できませんでした。", "error");
           return;
         }
 
         currentPayPay = result;
-        if (result.locationId) {
-          DojoVirtualSession.setContext({
-            location_id: result.locationId,
-            billing_block_id: result.billingBlockId || ""
-          });
-        }
         renderPaymentInfo(result);
         setMessage("startResult", "会費情報を取得しました。", "ok");
 
