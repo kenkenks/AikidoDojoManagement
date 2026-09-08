@@ -163,6 +163,7 @@ function getMemberAttendanceState(params, ctx) {
     attendanceDate, memberId, locationId, billingBlockId, ctx
   );
   const progress = attendanceProgress_getMemberSummary(memberId, ctx);
+  const billingSelection = attendance_getBillingSelectionState_(member, ctx);
 
   return {
     ok: true,
@@ -178,7 +179,67 @@ function getMemberAttendanceState(params, ctx) {
     remaining_training_count: progress.ok ? progress.remaining_training_count : null,
     examination_ready: progress.ok ? progress.examination_ready : false,
     recent_attendance_dates: progress.ok ? progress.recent_attendance_dates : [],
-    selected_slot_ids: Array.from(new Set(rows.map(row => normalizeId_(row["slot_id"])).filter(Boolean)))
+    selected_slot_ids: Array.from(new Set(rows.map(row => normalizeId_(row["slot_id"])).filter(Boolean))),
+    billing_plan_id: billingSelection.plan_id,
+    billing_plan_name: billingSelection.plan_name,
+    billing_plan_selected: billingSelection.selected,
+    billing_plan_candidates: billingSelection.candidates
+  };
+}
+
+// 出席受付で使う対象月の料金プラン状態。
+// 04_月次選択があればそれを正とし、未選択時だけ会員区分から候補を返す。
+function attendance_getBillingSelectionState_(member, ctx) {
+  ctx = ensureSheetContext(ctx);
+  const memberId = normalizeId_(member["member_id"]);
+  const billingGroupId = normalizeId_(member["請求グループID"]);
+  const targetMonth = sup_targetMonth(ctx);
+  const existing = billingGroupId
+    ? billingCoreGetMonthlySelection_(billingGroupId, targetMonth, ctx)
+    : null;
+  const fees = getFees(ctx).filter(isActiveMasterRow_);
+
+  function feeDto_(planId) {
+    const fee = fees.find(function(row) {
+      return normalizeId_(row["plan_id"]) === normalizeId_(planId);
+    });
+    return {
+      plan_id: normalizeId_(planId),
+      plan_name: fee ? String(fee["表示名"] || planId).trim() : normalizeId_(planId),
+      fee_type: fee ? String(fee["会費タイプ"] || "").trim() : "",
+      amount: fee ? Number(fee["回数単価"] || 0) : 0,
+      cap_amount: fee ? Number(fee["上限金額"] || 0) : 0
+    };
+  }
+
+  if (existing) {
+    const planId = normalizeId_(existing["plan_id"]);
+    const dto = feeDto_(planId);
+    return {
+      member_id: memberId,
+      target_month: targetMonth,
+      selected: true,
+      plan_id: planId,
+      plan_name: dto.plan_name,
+      candidates: [dto]
+    };
+  }
+
+  const memberType = String(member["区分"] || "").trim();
+  const planIds = getPlanSelectionRules(ctx)
+    .filter(function(row) {
+      return String(row["member_type"] || "").trim() === memberType;
+    })
+    .map(function(row) { return normalizeId_(row["selectable_plan_id"]); })
+    .filter(Boolean);
+
+  return {
+    member_id: memberId,
+    target_month: targetMonth,
+    selected: false,
+    plan_id: "",
+    plan_name: "",
+    candidates: Array.from(new Set(planIds)).map(feeDto_)
   };
 }
 
@@ -233,6 +294,47 @@ function registerAttendanceBatchLocked_(data, ctx) {
   const locationId = normalizeId_(data.location_id);
   const billingBlockId = normalizeId_(data.billing_block_id);
 
+  // 04_月次選択の正規確定点を出席登録へ置く。
+  // 既存の同一planは billingMonthlyAccept() が冪等にSKIPする。
+  // slot_ids が空の項目は出席取消・同期解除なので、新しい月次選択は作らない。
+  const billingResults = [];
+  const attendanceItems = Array.isArray(data.attendance_items) ? data.attendance_items : [];
+  for (let i = 0; i < attendanceItems.length; i++) {
+    const item = attendanceItems[i] || {};
+    const slotIds = Array.isArray(item.slot_ids) ? item.slot_ids.filter(Boolean) : [];
+    if (slotIds.length === 0) continue;
+
+    const memberId = normalizeId_(item.member_id);
+    const member = getMembers(ctx).find(function(row) {
+      return normalizeId_(row["member_id"]) === memberId && isActiveMasterRow_(row);
+    });
+    if (!member) return { ok: false, message: "有効な会員が見つかりません: " + memberId };
+
+    const state = attendance_getBillingSelectionState_(member, ctx);
+    const planId = state.selected ? state.plan_id : normalizeId_(item.plan_id);
+    if (!planId) {
+      return {
+        ok: false,
+        message: memberId + " の今月の会費タイプ（月額／都度）を選択してください。"
+      };
+    }
+
+    const billingResult = billingMonthlyAccept(memberId, planId, ctx);
+    if (!billingResult || billingResult.ok !== true) {
+      return {
+        ok: false,
+        message: memberId + " の会費タイプを登録できませんでした: " +
+          ((billingResult && billingResult.message) || "不明なエラー")
+      };
+    }
+    billingResults.push({
+      member_id: memberId,
+      plan_id: planId,
+      skipped: billingResult.skipped === true,
+      idempotent: billingResult.idempotent === true
+    });
+  }
+
   const result = attendanceCore_registerBatch_({
     teacher_id: teacherId,
     location_id: locationId,
@@ -251,6 +353,7 @@ function registerAttendanceBatchLocked_(data, ctx) {
   }, ctx);
 
   if (result && result.ok) {
+    result.billing_selections = billingResults;
     result.rank_updates = attendanceProgress_updateSelfDeclaredRanks_(data.attendance_items, ctx);
     result.post_event = attendance_postEvent(result, data, ctx);
   }

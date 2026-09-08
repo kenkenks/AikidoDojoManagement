@@ -359,6 +359,10 @@
         remaining_training_count: null,
         examination_ready: false,
         slot_ids: [],
+        billing_plan_id: "",
+        billing_plan_name: "",
+        billing_plan_selected: false,
+        billing_plan_candidates: [],
         loaded: false,
         load_error: ""
       });
@@ -391,6 +395,15 @@
             ? null
             : Number(data.remaining_training_count);
           candidate.examination_ready = data.examination_ready === true;
+          candidate.billing_plan_id = data.billing_plan_id || candidate.billing_plan_id || "";
+          candidate.billing_plan_name = data.billing_plan_name || candidate.billing_plan_name || "";
+          candidate.billing_plan_selected = data.billing_plan_selected === true;
+          candidate.billing_plan_candidates = Array.isArray(data.billing_plan_candidates)
+            ? data.billing_plan_candidates
+            : [];
+          if (!candidate.billing_plan_id && candidate.billing_plan_candidates.length === 1) {
+            candidate.billing_plan_id = candidate.billing_plan_candidates[0].plan_id;
+          }
         }
         candidate.loaded = true;
         candidate.load_error = "";
@@ -541,6 +554,37 @@
           }
         }
 
+        const billingRow = document.createElement("div");
+        billingRow.className = "rank-row";
+        const billingLabel = document.createElement("span");
+        billingLabel.textContent = "会費タイプ";
+        billingRow.appendChild(billingLabel);
+        if (candidate.billing_plan_selected) {
+          const fixedPlan = document.createElement("strong");
+          fixedPlan.textContent = candidate.billing_plan_name || candidate.billing_plan_id || "登録済み";
+          billingRow.appendChild(fixedPlan);
+        } else {
+          const planSelect = document.createElement("select");
+          const emptyPlan = document.createElement("option");
+          emptyPlan.value = "";
+          emptyPlan.textContent = "月額／都度を選択";
+          planSelect.appendChild(emptyPlan);
+          candidate.billing_plan_candidates.forEach(function(plan) {
+            const option = document.createElement("option");
+            option.value = plan.plan_id;
+            option.textContent = plan.plan_name || plan.plan_id;
+            option.selected = candidate.billing_plan_id === plan.plan_id;
+            planSelect.appendChild(option);
+          });
+          planSelect.disabled = submitting || !candidate.loaded;
+          planSelect.onchange = function() {
+            candidate.billing_plan_id = planSelect.value;
+            renderCandidates();
+          };
+          billingRow.appendChild(planSelect);
+        }
+        row.appendChild(billingRow);
+
         const slots = document.createElement("div");
         slots.className = "slots";
         currentSlots.forEach(function (slot) {
@@ -579,6 +623,13 @@
         addLog("現在級・段を選択してください: " + rankMissing.map(function(item) { return item.member_id; }).join(", "), "error");
         return;
       }
+      const billingMissing = memberCandidates.filter(function(item) {
+        return item.slot_ids.length > 0 && !item.billing_plan_selected && !item.billing_plan_id;
+      });
+      if (billingMissing.length > 0) {
+        addLog("月額／都度を選択してください: " + billingMissing.map(function(item) { return item.member_id; }).join(", "), "error");
+        return;
+      }
 
       const payload = {
         mode: "attendance_batch",
@@ -592,6 +643,7 @@
           return {
             member_id: item.member_id,
             current_rank: item.current_rank,
+            plan_id: item.billing_plan_id || "",
             slot_ids: item.slot_ids.slice()
           };
         }),
