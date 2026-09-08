@@ -1032,6 +1032,7 @@
     }
 
   function loadMemberForPayment(memberId, planId) {
+    planId = (planId == null || planId === "undefined" || planId === "null") ? "" : planId;
     addLog("会費情報登録開始: member_id=" + memberId + " / plan_id=" + (planId || "(04から取得)"));
 
     if (!memberId) {
