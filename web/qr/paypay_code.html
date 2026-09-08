@@ -114,7 +114,7 @@
       const request = {
         action: "paypay_code_start",
         member_id: memberId,
-        plan_id: planId,
+        plan_id: (planId || ""),
         location_id: context.location_id || "",
         billing_block_id: context.billing_block_id || ""
       };
