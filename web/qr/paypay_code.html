@@ -123,10 +123,25 @@
         document.getElementById("planId").value = resolvedPlanId;
         addLog("plan_id確定: " + resolvedPlanId + " (会費情報)");
 
+        const session = window.DojoVirtualSession ? DojoVirtualSession.get() : null;
+        const context = session && session.context ? session.context : {};
+        const locationId = context.location_id || "";
+        const billingBlockId = context.billing_block_id || "";
+        const teacherId = context.teacher_id || "";
+
+        addLog(
+          "受付Scope: location_id=" + (locationId || "(空)") +
+          " / billing_block_id=" + (billingBlockId || "(空)") +
+          " / teacher_id=" + (teacherId || "PAYPAY_MEMBER")
+        );
+
         return jsonp(GAS_URL, {
           action: "paypay_code_start",
           member_id: memberId,
-          plan_id: resolvedPlanId
+          plan_id: resolvedPlanId,
+          location_id: locationId,
+          billing_block_id: billingBlockId,
+          teacher_id: teacherId
         });
       }).then(function(result) {
         if (!result) return;
@@ -199,6 +214,9 @@
         plan_id: currentPayPay.planId,
         evidence_code: code,
         evidence_items: evidenceItems,
+        location_id: currentPayPay.locationId || "",
+        billing_block_id: currentPayPay.billingBlockId || "",
+        teacher_id: currentPayPay.teacherId || "PAYPAY_MEMBER",
         source: "paypay_code.html"
       };
 

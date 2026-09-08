@@ -113,7 +113,16 @@
       throw new Error("仮想ログインの役割またはIDが不正です。");
     }
     const timestamp = nowIso();
+    const previousSession = read();
+    const previousContext = previousSession ? normalizeContext(previousSession.context) : normalizeContext({});
     const pendingContext = readPendingContext();
+    const inheritedContext = normalizeContext(previousContext);
+    CONTEXT_KEYS.forEach(function(key) {
+      if (pendingContext[key]) inheritedContext[key] = pendingContext[key];
+    });
+
+    // 道場・課金枠・受付先生は「誰としてログインしているか」とは別の現場Context。
+    // 先生→会員へQRログインを切り替えても、同じタブ内では受付Contextを保持する。
     const stored = write({
       role: normalizedRole,
       subject_id: normalizedId,
@@ -122,7 +131,7 @@
       logged_in_at: timestamp,
       last_accessed_at: timestamp,
       source: normalize(source) || "QR",
-      context: pendingContext
+      context: inheritedContext
     });
     clearPendingContext();
     return stored;
