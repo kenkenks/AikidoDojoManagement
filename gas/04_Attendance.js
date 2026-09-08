@@ -354,6 +354,13 @@ function registerAttendanceBatchLocked_(data, ctx) {
 
   if (result && result.ok) {
     result.billing_selections = billingResults;
+
+    // 04の月次選択が既存でも、都度課金は今回の出席事実から再計算する。
+    // 「同じP002なので04はSKIP」と「今回分の課金もSKIP」を分離する。
+    result.usage_billing = billingResults.map(function(item) {
+      return billingUsageSyncFromAttendance_(item.member_id, item.plan_id, ctx);
+    });
+
     result.rank_updates = attendanceProgress_updateSelfDeclaredRanks_(data.attendance_items, ctx);
     result.post_event = attendance_postEvent(result, data, ctx);
   }

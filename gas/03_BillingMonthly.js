@@ -188,3 +188,65 @@ function billingMonthlyRegisterSelection_(billingContext, ctx) {
     備考: ""
   }, ctx);
 }
+/**
+ * ROLE
+ * BillingUsage / Attendance Sync
+ *
+ * RESPONSIBILITY
+ * 都度プランの請求予定額を、当月の有効な課金対象出席回数から再計算する。
+ * 04_月次選択の冪等性とは独立して実行する。
+ */
+function billingUsageSyncFromAttendance_(memberId, planId, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  const fee = getFees(ctx).find(function(row) {
+    return normalizeId_(row["plan_id"]) === normalizeId_(planId);
+  });
+  if (!fee) throw new Error("料金プランが見つかりません: " + planId);
+
+  const feeType = String(fee["会費タイプ"] || "").trim();
+  if (feeType.indexOf("都度") < 0 && normalizeId_(planId) !== "P002") {
+    return { ok: true, skipped: true, reason: "NOT_USAGE_PLAN" };
+  }
+
+  const member = getMembers(ctx).find(function(row) {
+    return normalizeId_(row["member_id"]) === normalizeId_(memberId) && isActiveMasterRow_(row);
+  });
+  if (!member) throw new Error("有効な会員が見つかりません: " + memberId);
+
+  const targetMonth = sup_targetMonth(ctx);
+  const billingGroupId = normalizeId_(member["請求グループID"]);
+  const chargeCount = calculateAttendanceChargeCount(memberId, targetMonth, ctx).charge_count;
+  const unitPrice = Number(fee["回数単価"] || 0);
+  const monthlyCap = Number(fee["上限金額"] || 0);
+  const calculatedAmount = chargeCount * unitPrice;
+  const plannedAmount = monthlyCap > 0 ? Math.min(calculatedAmount, monthlyCap) : calculatedAmount;
+
+  const invoice = getInvoices(ctx).find(function(row) {
+    return normalizeMonth(row["target_month"]) === normalizeMonth(targetMonth) &&
+      normalizeId_(row["billing_group_id"]) === billingGroupId &&
+      normalizeId_(row["plan_id"]) === normalizeId_(planId);
+  });
+  if (!invoice) throw new Error("都度課金の請求明細が見つかりません: " + memberId);
+
+  const currentAmount = Number(invoice["請求予定額"] || invoice["金額"] || 0);
+  if (currentAmount === plannedAmount && Number(invoice["数量"] || 0) === chargeCount) {
+    return { ok: true, skipped: true, reason: "ALREADY_SYNCED", charge_count: chargeCount, planned_amount: plannedAmount };
+  }
+
+  const paidTotal = payment_getPaidTotal(getPayments(ctx), normalizeMonth(targetMonth), billingGroupId);
+  const paymentStatus = plannedAmount === 0 ? "免除" : (paidTotal >= plannedAmount ? "支払済" : "未払い");
+
+  billingRecordUpdateInvoice_(invoice["invoice_id"], {
+    "数量": chargeCount,
+    "単価": unitPrice,
+    "上限金額": monthlyCap,
+    "計算額": calculatedAmount,
+    "請求予定額": plannedAmount,
+    "金額": plannedAmount,
+    "支払状態": paymentStatus
+  }, ctx);
+
+  paymentStatusView_refresh(memberId, targetMonth, ctx);
+  return { ok: true, skipped: false, charge_count: chargeCount, planned_amount: plannedAmount };
+}
