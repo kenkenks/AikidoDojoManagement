@@ -238,19 +238,11 @@
   </div>
 
   <div class="card summary">
-    <strong>登録上の予定額</strong>
+    <strong>今回の受付（未送信）</strong>
     <div>現金: <span id="cashTotal">0</span>円</div>
     <div>PayPay: <span id="paypayTotal">0</span>円</div>
     <div>合計: <span id="grandTotal">0</span>円</div>
     <div>受付人数: <span id="paymentCount">0</span>名</div>
-    <div class="reconcile-grid">
-      <label for="actualCashTotal">確認した現金</label>
-      <div><input id="actualCashTotal" type="number" min="0" step="1" inputmode="numeric" oninput="renderReconciliation()">円</div>
-      <label for="actualPaypayTotal">確認したPayPay</label>
-      <div><input id="actualPaypayTotal" type="number" min="0" step="1" inputmode="numeric" oninput="renderReconciliation()">円</div>
-    </div>
-    <button type="button" onclick="copyExpectedToActual()">予定額を確認額へコピー</button>
-    <div id="reconcileResult" class="reconcile-result">確認額を入力すると差額を表示します。</div>
     <button id="completePaymentsButton" onclick="sendPaymentsToGas()" disabled>集金完了</button>
     <button onclick="postConfirmedPayments()">決済更新</button>
   </div>
@@ -261,6 +253,11 @@
     <div>PayPay: <span id="registeredPaypayTotal">0</span>円</div>
     <div>合計: <span id="registeredGrandTotal">0</span>円</div>
     <div>入金件数: <span id="registeredPaymentCount">0</span>件</div>
+    <hr>
+    <strong>出席との照合</strong>
+    <div>現在の未回収予定額: <span id="expectedCollectionTotal">0</span>円</div>
+    <div>出席人数: <span id="attendanceMemberCount">0</span>名</div>
+    <div id="attendancePaymentWarnings" class="registered-payment-list"><div class="mini-summary">要確認はありません。</div></div>
     <button onclick="loadRegisteredScopeSummary()">登録済みを再取得</button>
     <div id="registeredPaymentList" class="registered-payment-list"><div class="mini-summary">登録済み明細はありません。</div></div>
   </div>
@@ -616,7 +613,6 @@
       document.getElementById("paypayTotal").textContent = formatYen(paypayTotal);
       document.getElementById("grandTotal").textContent = formatYen(cashTotal + paypayTotal);
       document.getElementById("paymentCount").textContent = paymentList.length;
-      renderReconciliation();
       updateCompletionButton();
     }
 
@@ -667,6 +663,9 @@
         document.getElementById("registeredPaypayTotal").textContent = formatYen(result.paypay_total);
         document.getElementById("registeredGrandTotal").textContent = formatYen(result.total_amount);
         document.getElementById("registeredPaymentCount").textContent = Number(result.payment_count || 0);
+        document.getElementById("expectedCollectionTotal").textContent = formatYen(result.expected_total || 0);
+        document.getElementById("attendanceMemberCount").textContent = Number(result.attendance_member_count || 0);
+        renderAttendancePaymentWarnings(result.reconciliation_items || []);
         renderRegisteredPayments(result.payments || []);
         addLog("登録済み集計取得: " + result.total_amount + "円 / " + result.payment_count + "件");
       }).catch(function(error) {
@@ -674,6 +673,27 @@
       });
     }
 
+
+    function renderAttendancePaymentWarnings(items) {
+      const root = document.getElementById("attendancePaymentWarnings");
+      if (!root) return;
+      if (!Array.isArray(items) || items.length === 0) {
+        root.innerHTML = '<div class="mini-summary">要確認はありません。</div>';
+        return;
+      }
+      root.innerHTML = items.map(function(item) {
+        const names = Array.isArray(item.member_names) && item.member_names.length
+          ? item.member_names.join(" / ")
+          : (item.billing_group_id || "会員不明");
+        return '<div class="registered-payment-row">' +
+          '<div class="registered-payment-head"><span class="registered-payment-name">' + escapeHtml(names) + '</span>' +
+          '<span class="registered-payment-status">要確認</span></div>' +
+          '<div class="registered-payment-detail">' + escapeHtml(item.label || "要確認") +
+          ' ／ ' + formatYen(item.amount || 0) + '円' +
+          (item.billing_group_id ? '<br>請求グループ ' + escapeHtml(item.billing_group_id) : '') +
+          '</div></div>';
+      }).join("");
+    }
     function renderRegisteredPayments(payments) {
       const root = document.getElementById("registeredPaymentList");
       if (!root) return;
@@ -713,46 +733,6 @@
       if (context && context.system_now) return String(context.system_now).slice(0, 10);
       const today = new Date();
       return today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
-    }
-
-    function copyExpectedToActual() {
-      document.getElementById("actualCashTotal").value = totalByPaymentType("現金");
-      document.getElementById("actualPaypayTotal").value = totalByPaymentType("PayPay");
-      renderReconciliation();
-    }
-
-    function totalByPaymentType(paymentType) {
-      return paymentList.reduce(function(sum, payment) {
-        return sum + (payment.payType === paymentType ? Number(payment.amount || 0) : 0);
-      }, 0);
-    }
-
-    function renderReconciliation() {
-      const cashInput = document.getElementById("actualCashTotal");
-      const paypayInput = document.getElementById("actualPaypayTotal");
-      const result = document.getElementById("reconcileResult");
-      if (!cashInput || !paypayInput || !result) return;
-      if (cashInput.value === "" && paypayInput.value === "") {
-        result.className = "reconcile-result";
-        result.textContent = "確認額を入力すると差額を表示します。";
-        return;
-      }
-      const expectedCash = totalByPaymentType("現金");
-      const expectedPaypay = totalByPaymentType("PayPay");
-      const actualCash = Number(cashInput.value || 0);
-      const actualPaypay = Number(paypayInput.value || 0);
-      const cashDifference = actualCash - expectedCash;
-      const paypayDifference = actualPaypay - expectedPaypay;
-      const totalDifference = cashDifference + paypayDifference;
-      result.className = "reconcile-result " + (cashDifference === 0 && paypayDifference === 0 ? "match" : "mismatch");
-      result.textContent = cashDifference === 0 && paypayDifference === 0
-        ? "一致：現金・PayPayとも登録額と合っています。"
-        : "差額　現金 " + formatSignedYen(cashDifference) + "円 / PayPay " + formatSignedYen(paypayDifference) + "円 / 合計 " + formatSignedYen(totalDifference) + "円";
-    }
-
-    function formatSignedYen(value) {
-      const number = Number(value || 0);
-      return (number > 0 ? "+" : "") + formatYen(number);
     }
 
     function sendPaymentsToGas() {
@@ -1001,8 +981,6 @@
       paymentList = [];
       confirmedEvidences = [];
       postedEvidences = [];
-      document.getElementById("actualCashTotal").value = "";
-      document.getElementById("actualPaypayTotal").value = "";
       renderCurrentPayment();
       renderPaymentList();
       renderSummary();

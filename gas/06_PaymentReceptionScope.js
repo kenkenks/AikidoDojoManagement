@@ -73,6 +73,10 @@ function paymentReception_getScopeSummary(data, ctx) {
     };
   });
 
+  const reconciliation = paymentReception_makeAttendanceReconciliation_(
+    receptionDate, locationId, billingBlockId, rows, memberNames, ctx
+  );
+
   return {
     ok: true,
     reception_date: receptionDate,
@@ -83,9 +87,118 @@ function paymentReception_getScopeSummary(data, ctx) {
     other_total: total - cashTotal - paypayTotal,
     total_amount: total,
     payment_count: rows.length,
-    payments: payments
+    payments: payments,
+    expected_total: reconciliation.expected_total,
+    outstanding_total: reconciliation.outstanding_total,
+    attendance_member_count: reconciliation.attendance_member_count,
+    reconciliation_items: reconciliation.items
   };
 }
+
+// 出席と入金は独立した事実として扱い、先生が例外だけ確認できる形へ整形する。
+// 支払い先行をエラーにはせず「支払いあり・出席なし」として返す。
+function paymentReception_makeAttendanceReconciliation_(receptionDate, locationId, billingBlockId, scopePayments, memberNames, ctx) {
+  const targetMonth = String(receptionDate || "").slice(0, 7);
+  const memberToGroup = {};
+  const groupMembers = {};
+  getMembers(ctx).forEach(function(member) {
+    if (!isActiveMasterRow_(member)) return;
+    const memberId = normalizeId_(member["member_id"]);
+    const groupId = normalizeId_(member["請求グループID"]);
+    if (!memberId || !groupId) return;
+    memberToGroup[memberId] = groupId;
+    if (!groupMembers[groupId]) groupMembers[groupId] = [];
+    groupMembers[groupId].push(memberId);
+  });
+
+  const attendedMembers = {};
+  getAttendances(ctx).forEach(function(row) {
+    if (paymentStatusTeacher_normalizeDate_(row["稽古日"]) !== receptionDate) return;
+    if (normalizeId_(row["location_id"]) !== locationId) return;
+    if (normalizeId_(row["billing_block_id"]) !== billingBlockId) return;
+    if (normalizeId_(row["状態"]) === "取消") return;
+    const memberId = normalizeId_(row["member_id"]);
+    if (memberId) attendedMembers[memberId] = true;
+  });
+
+  const attendedGroups = {};
+  Object.keys(attendedMembers).forEach(function(memberId) {
+    const groupId = memberToGroup[memberId];
+    if (groupId) attendedGroups[groupId] = true;
+  });
+
+  const billedByGroup = {};
+  getInvoices(ctx).forEach(function(invoice) {
+    if (normalizeMonth(invoice["target_month"]) !== normalizeMonth(targetMonth)) return;
+    if (String(invoice["支払状態"] || "") === "取消") return;
+    const groupId = normalizeId_(invoice["billing_group_id"]);
+    if (!groupId) return;
+    billedByGroup[groupId] = Number(billedByGroup[groupId] || 0) +
+      Number(invoice["請求予定額"] || invoice["金額"] || 0);
+  });
+
+  const allPayments = getPayments(ctx);
+  const paidByGroup = {};
+  allPayments.forEach(function(payment) {
+    if (normalizeMonth(payment["target_month"]) !== normalizeMonth(targetMonth)) return;
+    const groupId = normalizeId_(payment["billing_group_id"]);
+    if (!groupId) return;
+    paidByGroup[groupId] = Number(paidByGroup[groupId] || 0) +
+      Number(payment["入金額"] || payment["金額"] || 0);
+  });
+
+  const scopePaidGroups = {};
+  (scopePayments || []).forEach(function(payment) {
+    const groupId = normalizeId_(payment["billing_group_id"]) || memberToGroup[normalizeId_(payment["member_id"])];
+    if (groupId) scopePaidGroups[groupId] = true;
+  });
+
+  const items = [];
+  let expectedTotal = 0;
+  Object.keys(attendedGroups).forEach(function(groupId) {
+    const unpaid = Math.max(Number(billedByGroup[groupId] || 0) - Number(paidByGroup[groupId] || 0), 0);
+    expectedTotal += unpaid;
+    if (unpaid <= 0) return;
+    const attended = (groupMembers[groupId] || []).filter(function(memberId) { return attendedMembers[memberId]; });
+    items.push({
+      status: "ATTENDED_UNPAID",
+      label: "出席あり・未回収",
+      billing_group_id: groupId,
+      member_ids: attended,
+      member_names: attended.map(function(memberId) { return memberNames[memberId] || memberId; }),
+      amount: unpaid
+    });
+  });
+
+  Object.keys(scopePaidGroups).forEach(function(groupId) {
+    if (attendedGroups[groupId]) return;
+    const groupScopePayments = (scopePayments || []).filter(function(payment) {
+      return (normalizeId_(payment["billing_group_id"]) || memberToGroup[normalizeId_(payment["member_id"])]) === groupId;
+    });
+    const amount = groupScopePayments.reduce(function(sum, payment) {
+      return sum + Number(payment["入金額"] || payment["金額"] || 0);
+    }, 0);
+    const payerIds = Array.from(new Set(groupScopePayments.map(function(payment) {
+      return normalizeId_(payment["member_id"]);
+    }).filter(Boolean)));
+    items.push({
+      status: "PAID_WITHOUT_ATTENDANCE",
+      label: "支払いあり・出席なし",
+      billing_group_id: groupId,
+      member_ids: payerIds,
+      member_names: payerIds.map(function(memberId) { return memberNames[memberId] || memberId; }),
+      amount: amount
+    });
+  });
+
+  return {
+    expected_total: expectedTotal,
+    outstanding_total: expectedTotal,
+    attendance_member_count: Object.keys(attendedMembers).length,
+    items: items
+  };
+}
+
 
 function paymentReception_sumMethod_(rows, method) {
   return rows.reduce(function(sum, row) {
