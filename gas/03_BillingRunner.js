@@ -384,3 +384,113 @@ function runner_billing_story_002() {
   Logger.log(JSON.stringify(summary, null, 2));
   return summary;
 }
+// ========================================
+// runner_billing_story_002_repeatAttendance
+// 都度払い: 出席回数 → 上限付き累積請求 → 既入金との差額を読取り専用で検証
+// ========================================
+//
+// PURPOSE
+// STORY-B002 の既存Caseは quantity を直接BillingCoreへ渡すため、
+// 「2回目出席が請求へ接続されているか」を検証できない。
+// このRunnerは実シートを変更せず、04/05/06/07の現在値から
+// 都度払いの期待請求額と実請求額を比較する。
+//
+function checker_billing_perUseConsistency() {
+  const startedAt = Date.now();
+  const ctx = createSheetContext();
+  const targetMonth = normalizeMonth(sup_targetMonth(ctx));
+  const fees = getFees(ctx).filter(isActiveMasterRow_);
+  const selections = getMonthlySelections(ctx).filter(function(row) {
+    return normalizeMonth(row["target_month"]) === targetMonth && isActiveMasterRow_(row);
+  });
+  const invoices = getInvoices(ctx);
+  const payments = getPayments(ctx);
+  const members = getMembers(ctx).filter(isActiveMasterRow_);
+  const results = [];
+
+  selections.forEach(function(selection) {
+    const planId = normalizeId_(selection["plan_id"]);
+    const fee = fees.find(function(row) {
+      return normalizeId_(row["plan_id"]) === planId;
+    });
+    if (!fee || String(fee["会費タイプ"] || "").trim() !== "回数料金") return;
+
+    const groupId = normalizeId_(selection["billing_group_id"]);
+    const memberIdFromSelection = normalizeId_(selection["member_id"]);
+    const member = members.find(function(row) {
+      return normalizeId_(row["member_id"]) === memberIdFromSelection;
+    }) || members.find(function(row) {
+      return normalizeId_(row["請求グループID"]) === groupId;
+    });
+    const memberId = member ? normalizeId_(member["member_id"]) : memberIdFromSelection;
+    const memberName = member ? String(member["氏名"] || "") : "";
+
+    const charge = calculateAttendanceChargeCount(memberId, targetMonth, ctx);
+    const quantity = Number(charge && charge.charge_count || 0);
+    const unitPrice = Number(fee["回数単価"] || 0);
+    const monthlyCap = Number(fee["上限金額"] || 0);
+    const calculated = quantity * unitPrice;
+    const expectedBilled = monthlyCap > 0 ? Math.min(calculated, monthlyCap) : calculated;
+
+    const memberInvoices = invoices.filter(function(row) {
+      return normalizeMonth(row["target_month"]) === targetMonth &&
+        normalizeId_(row["billing_group_id"]) === groupId &&
+        normalizeId_(row["plan_id"]) === planId &&
+        normalizeId_(row["支払状態"]) !== "取消";
+    });
+    const actualBilled = memberInvoices.reduce(function(sum, row) {
+      return sum + Number(row["請求予定額"] || row["金額"] || 0);
+    }, 0);
+
+    const paid = payments.filter(function(row) {
+      return normalizeMonth(row["target_month"]) === targetMonth &&
+        normalizeId_(row["billing_group_id"]) === groupId;
+    }).reduce(function(sum, row) {
+      return sum + Number(row["入金額"] || row["金額"] || 0);
+    }, 0);
+
+    const expectedUnpaid = Math.max(expectedBilled - paid, 0);
+    const actualUnpaid = Math.max(actualBilled - paid, 0);
+    const ok = actualBilled === expectedBilled && actualUnpaid === expectedUnpaid;
+
+    results.push({
+      ok: ok,
+      member_id: memberId,
+      member_name: memberName,
+      billing_group_id: groupId,
+      plan_id: planId,
+      charge_count: quantity,
+      unit_price: unitPrice,
+      monthly_cap: monthlyCap,
+      expected_billed: expectedBilled,
+      actual_billed: actualBilled,
+      paid_total: paid,
+      expected_unpaid: expectedUnpaid,
+      actual_unpaid: actualUnpaid,
+      attendance_details: charge && charge.details || [],
+      invoice_ids: memberInvoices.map(function(row) { return normalizeId_(row["invoice_id"]); }),
+      message: ok
+        ? "都度払いの出席回数・請求額・未回収額が一致しています。"
+        : "都度払いの出席回数から求めた期待額と05/06の実績が一致しません。"
+    });
+  });
+
+  const failed = results.filter(function(row) { return !row.ok; });
+  const summary = {
+    ok: results.length > 0 && failed.length === 0,
+    story: "STORY-B002-REPEAT-ATTENDANCE",
+    runner_mode: "READ_ONLY_DIAGNOSTIC",
+    target_month: targetMonth,
+    per_use_count: results.length,
+    failed: failed.length,
+    elapsed_ms: Date.now() - startedAt,
+    results: results,
+    message: results.length === 0
+      ? "対象月に回数料金の04_月次選択がありません。"
+      : (failed.length === 0
+        ? "都度払い反復出席 PASS"
+        : "都度払い反復出席 FAIL: 出席→請求の接続を確認してください。")
+  };
+  Logger.log(JSON.stringify(summary, null, 2));
+  return summary;
+}
