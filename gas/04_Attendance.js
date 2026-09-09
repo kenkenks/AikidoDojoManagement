@@ -355,11 +355,30 @@ function registerAttendanceBatchLocked_(data, ctx) {
   if (result && result.ok) {
     result.billing_selections = billingResults;
 
-    // 04の月次選択が既存でも、都度課金は今回の出席事実から再計算する。
-    // 「同じP002なので04はSKIP」と「今回分の課金もSKIP」を分離する。
-    result.usage_billing = billingResults.map(function(item) {
-      return billingUsageSyncFromAttendance_(item.member_id, item.plan_id, ctx);
+    // 出席登録後の確定した07を根拠に、回数料金の累積請求を同期する。
+    // 04が既存P002でSKIPされても、都度課金はここで継続する。
+    result.usage_billing = [];
+    const syncedMembers = {};
+    attendanceItems.forEach(function(item) {
+      const memberId = normalizeId_(item && item.member_id);
+      const slotIds = Array.isArray(item && item.slot_ids) ? item.slot_ids.filter(Boolean) : [];
+      if (!memberId || slotIds.length === 0 || syncedMembers[memberId]) return;
+      syncedMembers[memberId] = true;
+      result.usage_billing.push(
+        billingUsageSyncFromAttendance_(memberId, sup_targetMonth(ctx), ctx)
+      );
     });
+
+    const usageFailed = result.usage_billing.find(function(item) {
+      return item && item.ok === false;
+    });
+    if (usageFailed) {
+      return {
+        ok: false,
+        message: "出席は登録されましたが、都度請求の同期に失敗しました: " + usageFailed.message,
+        attendance_result: result
+      };
+    }
 
     result.rank_updates = attendanceProgress_updateSelfDeclaredRanks_(data.attendance_items, ctx);
     result.post_event = attendance_postEvent(result, data, ctx);
