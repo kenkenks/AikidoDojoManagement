@@ -945,3 +945,434 @@ function runner_billing_story_003_teacherPartialCash() {
   Logger.log(JSON.stringify(output, null, 2));
   return output;
 }
+
+
+// ========================================
+// runner_billing_story_004_perUseComplexMonth
+// P002: 実運用で最も複雑な月内Storyを再演する。
+// - 同一invoiceへの複数回追加入金
+// - 同一日・異なる課金枠（午前/午後）
+// - 現金→PayPay混在
+// - 月額上限到達
+// - 上限超過後は追加決済不要
+//
+// Runner専用日付: 2099-01
+// 1: 01/05(月) 10:30-12:30 現金
+// 2: 01/09(金) 10:30-12:30 現金
+// 3: 01/11(日) 10:30-12:30 現金
+// 4: 01/11(日) 14:30-16:30 PayPay
+// 5: 01/12(月) 10:30-12:30 PayPay
+// 6: 01/14(水) 19:30-21:30 追加決済なし（上限超過）
+// ========================================
+function runner_billing_story_004_perUseComplexMonth() {
+  const ctx = createSheetContext();
+  ctx.settings = {
+    TIME_TRAVEL_ENABLED: "TRUE",
+    DEBUG_DATE: "2099-01-05T10:30:00+09:00",
+    DEBUG_TARGET_MONTH: "2099-01",
+    DEBUG: "TRUE"
+  };
+
+  const targetMonth = "2099-01";
+  const source = "runner_billing_story_004_perUseComplexMonth";
+  const teacher = getTeachers(ctx).find(function(row) {
+    return isActiveMasterRow_(row) && isTrueValue_(row["出席受付可"]);
+  });
+  const member = getMembers(ctx).find(function(row) {
+    return isActiveMasterRow_(row) && normalizeId_(row["請求グループID"]);
+  });
+  const fee = getFees(ctx).find(function(row) {
+    return isActiveMasterRow_(row) &&
+      String(row["会費タイプ"] || "").trim() === "回数料金" &&
+      Number(row["回数単価"] || 0) > 0;
+  });
+
+  if (!teacher || !member || !fee) {
+    const fail = { ok: false, runner: "BILLING-P002-COMPLEX-MONTH-001", message: "Runnerに必要な有効マスタが不足しています。" };
+    Logger.log(JSON.stringify(fail, null, 2));
+    return fail;
+  }
+
+  const teacherId = normalizeId_(teacher["teacher_id"]);
+  const memberId = normalizeId_(member["member_id"]);
+  const groupId = normalizeId_(member["請求グループID"]);
+  const planId = normalizeId_(fee["plan_id"]);
+  const unitPrice = Number(fee["回数単価"] || 0);
+  const cap = Number(fee["月額上限"] || fee["上限金額"] || 0) || unitPrice * 5;
+  const locationId = "HONBU";
+
+  function findScope(weekday, startText, endText) {
+    const blocks = getBillingBlocks(ctx);
+    const slots = getTrainingSlots(ctx);
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      if (!isActiveMasterRow_(block)) continue;
+      if (normalizeId_(block["location_id"]) !== locationId) continue;
+      if (!weekdayMatches_(block["曜日"], weekday)) continue;
+      const blockId = normalizeId_(block["billing_block_id"]);
+      const blockSlots = slots.filter(function(row) {
+        return isActiveMasterRow_(row) &&
+          normalizeId_(row["location_id"]) === locationId &&
+          normalizeId_(row["billing_block_id"]) === blockId;
+      });
+      if (!blockSlots.length) continue;
+      const start = Math.min.apply(null, blockSlots.map(function(row) { return timeToMinutes_(row["開始時刻"]); }));
+      const end = Math.max.apply(null, blockSlots.map(function(row) { return timeToMinutes_(row["終了時刻"]); }));
+      if (minutesToTimeText_(start) === startText && minutesToTimeText_(end) === endText) {
+        return {
+          location_id: locationId,
+          billing_block_id: blockId,
+          slot_ids: blockSlots.map(function(row) { return normalizeId_(row["slot_id"]); }),
+          weekday: weekday,
+          start_time: startText,
+          end_time: endText
+        };
+      }
+    }
+    return null;
+  }
+
+  const scopes = {
+    mon_am: findScope("月", "10:30", "12:30"),
+    fri_am: findScope("金", "10:30", "12:30"),
+    sun_am: findScope("日", "10:30", "12:30"),
+    sun_pm: findScope("日", "14:30", "16:30"),
+    wed_pm: findScope("水", "19:30", "21:30")
+  };
+
+  const missingScopes = Object.keys(scopes).filter(function(key) { return !scopes[key]; });
+  if (missingScopes.length) {
+    const fail = {
+      ok: false,
+      runner: "BILLING-P002-COMPLEX-MONTH-001",
+      message: "Runnerに必要な課金枠が見つかりません。",
+      missing_scopes: missingScopes,
+      scopes: scopes
+    };
+    Logger.log(JSON.stringify(fail, null, 2));
+    return fail;
+  }
+
+  // Runner専用未来月を初期化する。
+  invalidateInvoices(ctx);
+  const oldInvoiceIds = getInvoices(ctx).filter(function(row) {
+    return normalizeMonth(row["target_month"]) === targetMonth &&
+      normalizeId_(row["billing_group_id"]) === groupId;
+  }).map(function(row) { return normalizeId_(row["invoice_id"]); });
+
+  monthlyIntegration902_deleteRows_("09_決済エビデンス", function(row) {
+    return oldInvoiceIds.indexOf(normalizeId_(row["invoice_id"])) >= 0;
+  }, ctx);
+  ["07_出席ログ", "06_入金ログ", "05_請求明細", "04_月次選択", "20_会費状態View"].forEach(function(sheetName) {
+    monthlyIntegration902_deleteRows_(sheetName, function(row) {
+      return normalizeMonth(row["target_month"]) === targetMonth &&
+        (normalizeId_(row["billing_group_id"]) === groupId || normalizeId_(row["member_id"]) === memberId);
+    }, ctx);
+  });
+
+  function setTime(iso) {
+    ctx.settings.DEBUG_DATE = iso;
+    ctx.settings.DEBUG_TARGET_MONTH = targetMonth;
+  }
+
+  function attend(day, time, scope, no) {
+    setTime(day + "T" + time + ":00+09:00");
+    return registerAttendanceBatchLocked_({
+      teacher_id: teacherId,
+      location_id: scope.location_id,
+      billing_block_id: scope.billing_block_id,
+      attendance_date: day,
+      attendance_session_id: "RUN-P002-COMPLEX-A" + no,
+      attendance_items: [{
+        member_id: memberId,
+        plan_id: planId,
+        slot_ids: scope.slot_ids
+      }],
+      source: source
+    }, ctx);
+  }
+
+  function invoiceRow() {
+    invalidateInvoices(ctx);
+    return getInvoices(ctx).find(function(row) {
+      return normalizeMonth(row["target_month"]) === targetMonth &&
+        normalizeId_(row["billing_group_id"]) === groupId &&
+        normalizeId_(row["plan_id"]) === planId;
+    });
+  }
+
+  function cashReceive(day, time, scope, no) {
+    const invoice = invoiceRow();
+    if (!invoice) return { ok: false, message: "請求明細が見つかりません。" };
+    setTime(day + "T" + time + ":00+09:00");
+    return paymentEvidence_acceptBatch({
+      mode: "payment_batch",
+      teacher_id: teacherId,
+      location_id: scope.location_id,
+      billing_block_id: scope.billing_block_id,
+      reception_session_id: "RUN-P002-COMPLEX-CASH-" + no,
+      payment_items: [{
+        invoice_id: normalizeId_(invoice["invoice_id"]),
+        member_id: memberId,
+        billing_group_id: groupId,
+        target_month: targetMonth,
+        plan_id: planId,
+        amount: unitPrice,
+        payment_method: "現金",
+        location_id: scope.location_id,
+        billing_block_id: scope.billing_block_id,
+        teacher_id: teacherId,
+        reception_session_id: "RUN-P002-COMPLEX-CASH-" + no
+      }],
+      source: "payment_teacher.html"
+    }, ctx);
+  }
+
+  function paypayReceive(day, time, scope, no) {
+    setTime(day + "T" + time + ":00+09:00");
+
+    function evidenceSnapshot_(label) {
+      invalidatePaymentEvidences(ctx);
+      const rows = getPaymentEvidences(ctx).filter(function(row) {
+        return normalizeMonth(row["target_month"]) === targetMonth ||
+          normalizeId_(row["invoice_id"]) === normalizeId_((invoiceRow() || {})["invoice_id"]);
+      }).map(function(row) {
+        return {
+          evidence_id: normalizeId_(row["evidence_id"]),
+          invoice_id: normalizeId_(row["invoice_id"]),
+          member_id: normalizeId_(row["member_id"]),
+          payment_method: String(row["payment_method"] || row["支払方法"] || ""),
+          amount: Number(row["amount"] || row["金額"] || 0),
+          status: String(row["status"] || row["状態"] || "")
+        };
+      });
+      Logger.log("[RUNNER-PAYPAY-TRACE] " + label + " : " + JSON.stringify(rows));
+      return rows;
+    }
+
+    const before = evidenceSnapshot_("before_start_" + no);
+
+    const start = paypayCode_start({
+      member_id: memberId,
+      plan_id: planId,
+      teacher_id: "PAYPAY_MEMBER",
+      location_id: scope.location_id,
+      billing_block_id: scope.billing_block_id,
+      reception_session_id: "RUN-P002-COMPLEX-PAYPAY-" + no
+    }, ctx);
+
+    const evidenceItems = Array.isArray(start && start.evidenceItems) ? start.evidenceItems : [];
+    Logger.log("[RUNNER-PAYPAY-TRACE] start_result_" + no + " : " + JSON.stringify({
+      ok: start && start.ok,
+      evidence_items: evidenceItems.map(function(item) {
+        return {
+          evidence_id: normalizeId_(item["evidence_id"] || item.evidence_id),
+          invoice_id: normalizeId_(item["invoice_id"] || item.invoice_id),
+          payment_method: String(item["payment_method"] || item.payment_method || ""),
+          amount: Number(item["amount"] || item.amount || 0),
+          status: String(item["status"] || item.status || "")
+        };
+      })
+    }));
+
+    const afterStart = evidenceSnapshot_("after_start_" + no);
+
+    if (!start || start.ok !== true || evidenceItems.length === 0) {
+      return {
+        ok: false,
+        phase: "start",
+        start: start,
+        trace: { before: before, after_start: afterStart },
+        message: "PayPay Evidence要求を開始できませんでした。"
+      };
+    }
+
+    Logger.log("[RUNNER-PAYPAY-TRACE] record_target_" + no + " : " + JSON.stringify(
+      evidenceItems.map(function(item) {
+        return normalizeId_(item["evidence_id"] || item.evidence_id);
+      })
+    ));
+
+    const record = paypayCode_record({
+      member_id: memberId,
+      evidence_code: "RUN-PAYPAY-" + no + "-OK",
+      evidence_items: evidenceItems
+    }, ctx);
+
+    const afterRecord = evidenceSnapshot_("after_record_" + no);
+
+    const postResults = [];
+    let postError = null;
+    for (let i = 0; i < evidenceItems.length; i++) {
+      const item = evidenceItems[i];
+      const evidenceId = normalizeId_(item["evidence_id"] || item.evidence_id);
+      if (!evidenceId) continue;
+      Logger.log("[RUNNER-PAYPAY-TRACE] post_target_" + no + " : " + evidenceId);
+      try {
+        postResults.push(paymentEvidence_post({ evidence_id: evidenceId }, ctx));
+      } catch (e) {
+        postError = {
+          evidence_id: evidenceId,
+          message: String(e && e.message || e),
+          stack: String(e && e.stack || "")
+        };
+        Logger.log("[RUNNER-PAYPAY-TRACE] post_error_" + no + " : " + JSON.stringify(postError));
+        break;
+      }
+    }
+
+    const afterPost = evidenceSnapshot_("after_post_" + no);
+
+    return {
+      ok: !postError &&
+        start.ok === true &&
+        record && record.ok !== false &&
+        postResults.length > 0 &&
+        postResults.every(function(row) { return row && row.ok !== false; }),
+      phase: postError ? "post" : "completed",
+      start: start,
+      record: record,
+      posts: postResults,
+      post_error: postError,
+      evidence_items: evidenceItems,
+      trace: {
+        before: before,
+        after_start: afterStart,
+        after_record: afterRecord,
+        after_post: afterPost
+      }
+    };
+  }
+
+  function state(label, expected) {
+    invalidateInvoices(ctx);
+    invalidatePayments(ctx);
+    invalidateFeeStatusView(ctx);
+    const invoice = invoiceRow() || {};
+    const payments = getPayments(ctx).filter(function(row) {
+      return normalizeId_(row["invoice_id"]) === normalizeId_(invoice["invoice_id"]);
+    });
+    const view = getFeeStatusViewRows(ctx).find(function(row) {
+      return normalizeMonth(row["target_month"]) === targetMonth &&
+        normalizeId_(row["member_id"]) === memberId;
+    }) || {};
+
+    const actual = {
+      quantity: Number(invoice["数量"] || 0),
+      calculated: Number(invoice["計算額"] || 0),
+      billed: Number(invoice["金額"] || 0),
+      paid: Number(view["入金額"] || 0),
+      cash: Number(view["現金入金額"] || 0),
+      paypay: Number(view["PayPay入金額"] || 0),
+      unpaid: Number(view["未払い額"] || 0),
+      payment_count: payments.length,
+      attendance_count: Number(view["出席回数"] || 0),
+      is_capped: String(view["is_capped"] || "").toUpperCase(),
+      invoice_status: String(invoice["支払状態"] || "")
+    };
+
+    const failures = [];
+    Object.keys(expected).forEach(function(key) {
+      if (String(actual[key]) !== String(expected[key])) {
+        failures.push({ field: key, expected: expected[key], actual: actual[key] });
+      }
+    });
+
+    return {
+      label: label,
+      ok: failures.length === 0,
+      expected: expected,
+      actual: actual,
+      failures: failures,
+      invoice_id: normalizeId_(invoice["invoice_id"])
+    };
+  }
+
+  function op(name, result, scope) {
+    return {
+      operation: name,
+      ok: !!(result && result.ok),
+      billing_block_id: scope && scope.billing_block_id || "",
+      scope: scope ? scope.weekday + " " + scope.start_time + "-" + scope.end_time : "",
+      result: result
+    };
+  }
+
+  const results = [];
+  const cap5 = Math.min(unitPrice * 5, cap);
+  const calc6 = unitPrice * 6;
+
+  results.push(op("attendance_1", attend("2099-01-05", "10:30", scopes.mon_am, 1), scopes.mon_am));
+  results.push(op("cash_1", cashReceive("2099-01-05", "11:00", scopes.mon_am, 1), scopes.mon_am));
+  results.push(state("1回目完了", {
+    quantity: 1, calculated: unitPrice, billed: unitPrice, paid: unitPrice,
+    cash: unitPrice, paypay: 0, unpaid: 0, payment_count: 1, attendance_count: 1,
+    is_capped: "", invoice_status: "支払済"
+  }));
+
+  results.push(op("attendance_2", attend("2099-01-09", "10:30", scopes.fri_am, 2), scopes.fri_am));
+  results.push(op("cash_2", cashReceive("2099-01-09", "11:00", scopes.fri_am, 2), scopes.fri_am));
+  results.push(state("2回目完了", {
+    quantity: 2, calculated: unitPrice * 2, billed: unitPrice * 2, paid: unitPrice * 2,
+    cash: unitPrice * 2, paypay: 0, unpaid: 0, payment_count: 2, attendance_count: 2,
+    is_capped: "", invoice_status: "支払済"
+  }));
+
+  results.push(op("attendance_3", attend("2099-01-11", "10:30", scopes.sun_am, 3), scopes.sun_am));
+  results.push(op("cash_3", cashReceive("2099-01-11", "11:00", scopes.sun_am, 3), scopes.sun_am));
+  results.push(state("3回目完了", {
+    quantity: 3, calculated: unitPrice * 3, billed: unitPrice * 3, paid: unitPrice * 3,
+    cash: unitPrice * 3, paypay: 0, unpaid: 0, payment_count: 3, attendance_count: 3,
+    is_capped: "", invoice_status: "支払済"
+  }));
+
+  // 同一日2回目・別課金枠。現在の実運用NG再現ポイント。
+  results.push(op("attendance_4_same_day_pm", attend("2099-01-11", "14:30", scopes.sun_pm, 4), scopes.sun_pm));
+  results.push(state("4回目出席後・PayPay前", {
+    quantity: 4, calculated: unitPrice * 4, billed: unitPrice * 4, paid: unitPrice * 3,
+    cash: unitPrice * 3, paypay: 0, unpaid: unitPrice, payment_count: 3, attendance_count: 4,
+    is_capped: "", invoice_status: "未払い"
+  }));
+  results.push(op("paypay_4_same_day_pm", paypayReceive("2099-01-11", "15:00", scopes.sun_pm, 4), scopes.sun_pm));
+  results.push(state("4回目PayPay完了", {
+    quantity: 4, calculated: unitPrice * 4, billed: unitPrice * 4, paid: unitPrice * 4,
+    cash: unitPrice * 3, paypay: unitPrice, unpaid: 0, payment_count: 4, attendance_count: 4,
+    is_capped: "", invoice_status: "支払済"
+  }));
+
+  results.push(op("attendance_5_cap", attend("2099-01-12", "10:30", scopes.mon_am, 5), scopes.mon_am));
+  results.push(op("paypay_5_cap", paypayReceive("2099-01-12", "11:00", scopes.mon_am, 5), scopes.mon_am));
+  results.push(state("5回目・上限到達", {
+    quantity: 5, calculated: unitPrice * 5, billed: cap5, paid: cap5,
+    cash: unitPrice * 3, paypay: unitPrice * 2, unpaid: 0, payment_count: 5, attendance_count: 5,
+    is_capped: "TRUE", invoice_status: "支払済"
+  }));
+
+  // 6回目は出席のみ。計算額は増えるが請求額は上限で停止し、決済は増えない。
+  results.push(op("attendance_6_over_cap_free", attend("2099-01-14", "19:30", scopes.wed_pm, 6), scopes.wed_pm));
+  results.push(state("6回目・上限超過・追加決済なし", {
+    quantity: 6, calculated: calc6, billed: cap5, paid: cap5,
+    cash: unitPrice * 3, paypay: unitPrice * 2, unpaid: 0, payment_count: 5, attendance_count: 6,
+    is_capped: "TRUE", invoice_status: "支払済"
+  }));
+
+  const failed = results.filter(function(item) { return item && item.ok === false; });
+  const output = {
+    ok: failed.length === 0,
+    runner: "BILLING-P002-COMPLEX-MONTH-001",
+    target_month: targetMonth,
+    member_id: memberId,
+    plan_id: planId,
+    unit_price: unitPrice,
+    cap: cap,
+    scopes: scopes,
+    total: results.length,
+    failed: failed.length,
+    results: results,
+    message: failed.length === 0
+      ? "P002 複合月間Story PASS"
+      : "P002 複合月間Story FAIL"
+  };
+  Logger.log(JSON.stringify(output, null, 2));
+  return output;
+}

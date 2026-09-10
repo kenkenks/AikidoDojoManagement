@@ -83,7 +83,7 @@ function paypayCode_start(data, ctx) {
         invoice_id: invoiceId,
         member_id: invoice.member_id || memberId,
         payment_method: 'PAYPAY',
-        amount: Number(invoice.amount || 0),
+        amount: Number(paymentInfo.amount || 0),
         location_id: scope.location_id,
         billing_block_id: scope.billing_block_id,
         teacher_id: teacherId,
@@ -363,10 +363,11 @@ function paypayCode_repairReusableEvidenceScope_(row, scope, ctx) {
 
 function paypayCode_findActiveEvidenceByInvoice_(invoiceId, ctx) {
   const rows = paymentEvidence_getRows(ctx);
-  const activeStatuses = ['REQUESTED', 'CONFIRMED', 'POSTED'];
+  const activeStatuses = ['REQUESTED', 'CONFIRMED'];
 
   return rows.find(function(row) {
     return normalizeId_(row.invoice_id || row['invoice_id']) === normalizeId_(invoiceId) &&
+      normalizeId_(row.payment_method || row['payment_method']) === 'PAYPAY' &&
       activeStatuses.indexOf(normalizeId_(row.status || row['status'])) >= 0;
   }) || null;
 }
