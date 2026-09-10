@@ -27,14 +27,6 @@ function filterBySheet(memberId, rows, boolCol, boolValue) {
   );
 }
 
-function filterBySheetByDate(memberId, rows, boolCol, boolValue) {
-
-  return rows.filter(r =>
-    String(r["member_id"]).trim() === String(memberId).trim() &&
-    normalizeMonth(r[boolCol]) === normalizeMonth(boolValue)
-  );
-}
-
 function readSheet(sheet) {
   return readSheetData_(sheet).rows;
 }

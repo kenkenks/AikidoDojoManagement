@@ -48,7 +48,6 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   perfLog("START paymentStatusView_collectContext", t0);
 
   const members = getMembers(ctx);
-  const fees = getFees(ctx);
   const invoices = getInvoices(ctx);
   const payments = getPayments(ctx);
   const attendances = getAttendances(ctx);
@@ -65,13 +64,6 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   const memberName = member["氏名"];
   const billingGroupId = member["請求グループID"];
   const normalizedTargetMonth = normalizeMonth(targetMonth);
-
-  const cashPayCount = filterBySheetByDate(
-    memberId,
-    cashRequests,
-    "target_month",
-    normalizedTargetMonth
-  ).length;
 
   const lessonCount =
     calculateAttendanceChargeCount(memberId, normalizedTargetMonth, ctx).charge_count;
@@ -151,7 +143,6 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
       isCapped: false,
       todayAttendanceRegistered: paymentStatusView_isAttendedToday(memberId, attendances, ctx),
       cashRequestsLen,
-      cashPayCount,
       cashPaidTotal,
       paypayPaidTotal,
       otherPaidTotal,
@@ -187,7 +178,6 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
       isCapped: false,
       todayAttendanceRegistered: paymentStatusView_isAttendedToday(memberId, attendances, ctx),
       cashRequestsLen,
-      cashPayCount,
       cashPaidTotal,
       paypayPaidTotal,
       otherPaidTotal,
@@ -263,7 +253,6 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
     isCapped,
     todayAttendanceRegistered: paymentStatusView_isAttendedToday(memberId, attendances, ctx),
     cashRequestsLen,
-    cashPayCount,
     cashPaidTotal,
     paypayPaidTotal,
     otherPaidTotal,
