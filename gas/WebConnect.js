@@ -247,18 +247,39 @@ function doGet(e) {
 function getMemberPaymentInfo_(memberId, plan_id, ctx) {
   ctx = ensureSheetContext(ctx || createSheetContext());
 
-  const member = getPaymentStatus(memberId, ctx);
-  if (!member || member.ok !== true) return member;
+  // 20_会費状態View を最初の参照点にする。
+  // 通常の運用では出席時点で 04/05 と View が確定済みなので、
+  // 支払い画面で同じ正本を再探索・再確定しない。
+  const paymentStatus = getPaymentStatus(memberId, ctx);
+  if (!paymentStatus || paymentStatus.ok !== true) return paymentStatus;
 
   sup_logDebug("getMemberPaymentInfo_", { memberId: memberId, plan_id: plan_id }, ctx);
 
-  // 通常運用のQRは member_id のみを持つ。plan_id が入口に無い場合は、
-  // 出席時に確定済みの当月 04_月次選択から復元する。
-  // plan_id が明示されている旧QR/審査費等の経路はその値を優先する。
   let plan_id_r = normalizeId_(plan_id);
   if (String(plan_id_r).toLowerCase() === "undefined" || String(plan_id_r).toLowerCase() === "null") {
     plan_id_r = "";
   }
+
+  const viewPlanId = normalizeId_(paymentStatus.planType);
+  const invoiceItems = Array.isArray(paymentStatus.invoiceItems)
+    ? paymentStatus.invoiceItems
+    : [];
+  const hasCurrentInvoice = Number(paymentStatus.invoiceCount || invoiceItems.length || 0) > 0;
+
+  // Fast path:
+  // 20 に当月の会費タイプと請求が既に存在するなら、それが支払い画面の入力情報。
+  // plan_id 未指定の通常会員QRは 04 を再読込せず View から復元する。
+  // 旧QR等で plan_id が明示されても View と一致していれば再確定処理は不要。
+  if (!plan_id_r && viewPlanId) {
+    plan_id_r = viewPlanId;
+  }
+  if (plan_id_r && viewPlanId && normalizeId_(plan_id_r) === viewPlanId && hasCurrentInvoice) {
+    return getMemberPaymentInfoResponse_(memberId, plan_id_r, paymentStatus);
+  }
+
+  // Fallback:
+  // View にまだ当月状態が無い経路だけ、従来どおり 04/料金マスタから補完する。
+  // 支払い側に補完的な会費タイプ確定能力を残すための経路。
   if (!plan_id_r) {
     const memberRow = getMembers(ctx).find(function(row) {
       return normalizeId_(row["member_id"]) === normalizeId_(memberId);
@@ -275,10 +296,11 @@ function getMemberPaymentInfo_(memberId, plan_id, ctx) {
       success: false,
       ok: false,
       memberId: memberId,
-      memberName: member.memberName || "",
+      memberName: paymentStatus.memberName || "",
       message: "今月の会費タイプが未登録です。出席登録または会費タイプ選択を行ってください。"
     };
   }
+
   try {
     const fee = getFees(ctx).find(function(row) {
       return normalizeId_(row["plan_id"]) === normalizeId_(plan_id_r) && isActiveMasterRow_(row);
@@ -288,15 +310,12 @@ function getMemberPaymentInfo_(memberId, plan_id, ctx) {
       : billing_acceptMonthlySelection(memberId, plan_id_r, ctx);
     Logger.log(JSON.stringify(billingResult, null, 2));
 
-    // BillingMonthly は業務エラーを throw せず { ok:false } で返す。
-    // ここで失敗を握りつぶすと、直後の状態取得が「未宣言」となり
-    // PayPay画面では宣言失敗の原因が見えなくなる。
     if (!billingResult || billingResult.ok !== true) {
       return {
         success: false,
         ok: false,
         memberId: memberId,
-        memberName: member.memberName || "",
+        memberName: paymentStatus.memberName || "",
         planId: plan_id_r,
         message: billingResult && billingResult.message
           ? billingResult.message
@@ -308,25 +327,29 @@ function getMemberPaymentInfo_(memberId, plan_id, ctx) {
       success: false,
       ok: false,
       memberId: memberId,
-      memberName: member.memberName || "",
+      memberName: paymentStatus.memberName || "",
       planId: plan_id_r,
       message: "会費タイプの宣言に失敗しました: " + e.message
     };
   }
 
-  const paymentStatus = getPaymentStatus(memberId, ctx);
-  if (!paymentStatus || paymentStatus.ok !== true) {
+  const refreshedStatus = getPaymentStatus(memberId, ctx);
+  if (!refreshedStatus || refreshedStatus.ok !== true) {
     return {
       success: false,
       ok: false,
       memberId: memberId,
-      memberName: member.memberName || "",
-      message: paymentStatus && paymentStatus.message
-        ? paymentStatus.message
+      memberName: paymentStatus.memberName || "",
+      message: refreshedStatus && refreshedStatus.message
+        ? refreshedStatus.message
         : "会費情報を取得できませんでした。"
     };
   }
 
+  return getMemberPaymentInfoResponse_(memberId, plan_id_r, refreshedStatus);
+}
+
+function getMemberPaymentInfoResponse_(memberId, planId, paymentStatus) {
   const invoiceItems = Array.isArray(paymentStatus.invoiceItems)
     ? paymentStatus.invoiceItems
     : [];
@@ -335,15 +358,15 @@ function getMemberPaymentInfo_(memberId, plan_id, ctx) {
     success: true,
     ok: true,
     memberId: paymentStatus.memberId || memberId,
-    memberName: paymentStatus.memberName || member.memberName || "",
+    memberName: paymentStatus.memberName || "",
     billingGroupId: paymentStatus.billingGroupId || "",
     invoiceIds: paymentStatus.invoiceIds || invoiceItems.map(function(item) { return item.invoice_id; }),
     invoiceCount: Number(paymentStatus.invoiceCount || invoiceItems.length || 0),
     invoiceSummary: paymentStatus.invoiceSummary || "",
     invoiceItems: invoiceItems,
     targetMonth: paymentStatus.targetMonth || "",
-    planId: plan_id_r,
-    feeType: paymentStatus.planType || plan_id_r || "未設定",
+    planId: planId,
+    feeType: paymentStatus.planType || planId || "未設定",
     billedTotal: Number(paymentStatus.billedTotal || 0),
     paidTotal: Number(paymentStatus.paidTotal || 0),
     amount: Number(paymentStatus.unpaidAmount || 0),
