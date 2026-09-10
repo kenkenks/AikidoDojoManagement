@@ -747,22 +747,35 @@
         return;
       }
 
-      const paymentItems = cashPayments.flatMap(payment =>
-        (payment.invoiceItems || []).map(invoice => ({
+      const paymentItems = cashPayments.flatMap(payment => {
+        const invoiceItems = payment.invoiceItems || [];
+
+        // getPaymentInfo の payment.amount は「今回回収すべき未払い額」。
+        // invoice.amount は請求総額なので、既に一部入金済みの請求では
+        // そのまま送ると過大な入金要求になる。
+        // 現在の先生受付は1請求単位で回収するため、単一請求では
+        // 必ず受付時に確定した未払い額を送信する。
+        const singleInvoicePaymentAmount = invoiceItems.length === 1
+          ? Number(payment.amount || 0)
+          : null;
+
+        return invoiceItems.map(invoice => ({
           invoice_id: invoice.invoice_id,
           member_id: invoice.member_id || payment.memberId,
           billing_group_id: invoice.billing_group_id || payment.billingGroupId,
           target_month: invoice.target_month || payment.targetMonth,
           member_name: payment.memberName,
           plan_id: invoice.plan_id || payment.planId,
-          amount: Number(invoice.amount || 0),
+          amount: singleInvoicePaymentAmount != null
+            ? singleInvoicePaymentAmount
+            : Number(invoice.amount || 0),
           payment_method: payment.payType,
           location_id: currentLocationId,
           billing_block_id: currentBillingBlockId,
           teacher_id: currentTeacherId,
           reception_session_id: receptionSessionId
-        }))
-      );
+        }));
+      });
 
       const payload = {
         mode: "payment_batch",

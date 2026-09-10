@@ -127,24 +127,17 @@ function paymentReception_makeAttendanceReconciliation_(receptionDate, locationI
     if (groupId) attendedGroups[groupId] = true;
   });
 
-  const billedByGroup = {};
-  getInvoices(ctx).forEach(function(invoice) {
-    if (normalizeMonth(invoice["target_month"]) !== normalizeMonth(targetMonth)) return;
-    if (String(invoice["支払状態"] || "") === "取消") return;
-    const groupId = normalizeId_(invoice["billing_group_id"]);
-    if (!groupId) return;
-    billedByGroup[groupId] = Number(billedByGroup[groupId] || 0) +
-      Number(invoice["請求予定額"] || invoice["金額"] || 0);
-  });
-
-  const allPayments = getPayments(ctx);
-  const paidByGroup = {};
-  allPayments.forEach(function(payment) {
-    if (normalizeMonth(payment["target_month"]) !== normalizeMonth(targetMonth)) return;
-    const groupId = normalizeId_(payment["billing_group_id"]);
-    if (!groupId) return;
-    paidByGroup[groupId] = Number(paidByGroup[groupId] || 0) +
-      Number(payment["入金額"] || payment["金額"] || 0);
+  // 月間の請求・入金を05/06から再集計しない。
+  // 20_会費状態View は member × month の高速参照TBであり、
+  // 請求グループ単位の未払い額も各member行へ既に反映済み。
+  // 家族グループでは同じ金額が複数member行に載るため、合算せず
+  // groupごとに代表1行だけを採用する。
+  const unpaidByGroup = {};
+  getSheetRows(ctx, "20_会費状態View").forEach(function(viewRow) {
+    if (normalizeMonth(viewRow["target_month"]) !== normalizeMonth(targetMonth)) return;
+    const groupId = normalizeId_(viewRow["billing_group_id"]);
+    if (!groupId || unpaidByGroup[groupId] !== undefined) return;
+    unpaidByGroup[groupId] = Number(viewRow["未払い額"] || 0);
   });
 
   const scopePaidGroups = {};
@@ -156,7 +149,7 @@ function paymentReception_makeAttendanceReconciliation_(receptionDate, locationI
   const items = [];
   let expectedTotal = 0;
   Object.keys(attendedGroups).forEach(function(groupId) {
-    const unpaid = Math.max(Number(billedByGroup[groupId] || 0) - Number(paidByGroup[groupId] || 0), 0);
+    const unpaid = Math.max(Number(unpaidByGroup[groupId] || 0), 0);
     expectedTotal += unpaid;
     if (unpaid <= 0) return;
     const attended = (groupMembers[groupId] || []).filter(function(memberId) { return attendedMembers[memberId]; });
