@@ -975,7 +975,10 @@
         body: JSON.stringify(payload)
       }).then(function() {
         addLog("選択決済更新要求完了。数秒後に一覧を再取得します。 ");
-        window.setTimeout(loadPaymentEvidenceLists, 2500);
+        window.setTimeout(function() {
+          loadPaymentEvidenceLists();
+          loadRegisteredScopeSummary();
+        }, 2500);
       }).catch(function(err) {
         addLog("選択決済更新エラー: " + err);
       });
