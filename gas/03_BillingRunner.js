@@ -696,8 +696,7 @@ function runner_view_paymentStatus_001() {
   }));
 
   const failed = results.filter(function(item) {
-    if (item.ok === false) return true;
-    return item.result && item.result.ok === false;
+    return item && item.ok === false;
   });
   const output = {
     ok: failed.length === 0,
@@ -709,6 +708,239 @@ function runner_view_paymentStatus_001() {
     failed: failed.length,
     results: results,
     message: failed.length === 0 ? "20_会費状態View 主要端子 PASS" : "20_会費状態View FAIL"
+  };
+  Logger.log(JSON.stringify(output, null, 2));
+  return output;
+}
+
+// ========================================
+// runner_billing_story_003_teacherPartialCash
+// P002: 同一invoiceへの先生現金受付を2回行う実運用経路を検証する。
+// 1回目出席→1500円現金、2回目出席→追加1500円現金、を
+// paymentEvidence_acceptBatch(payment_teacher.html) 経路で実行する。
+// ========================================
+function runner_billing_story_003_teacherPartialCash() {
+  const ctx = createSheetContext();
+  ctx.settings = {
+    TIME_TRAVEL_ENABLED: "TRUE",
+    DEBUG_DATE: "2099-10-01T09:00:00+09:00",
+    DEBUG_TARGET_MONTH: "2099-10",
+    DEBUG: "TRUE"
+  };
+
+  const targetMonth = "2099-10";
+  const source = "runner_billing_story_003_teacherPartialCash";
+  const teacher = getTeachers(ctx).find(function(row) {
+    return isActiveMasterRow_(row) && isTrueValue_(row["出席受付可"]);
+  });
+  const member = getMembers(ctx).find(function(row) {
+    return isActiveMasterRow_(row) && normalizeId_(row["請求グループID"]);
+  });
+  const fee = getFees(ctx).find(function(row) {
+    return isActiveMasterRow_(row) &&
+      String(row["会費タイプ"] || "").trim() === "回数料金" &&
+      Number(row["回数単価"] || 0) > 0;
+  });
+
+  let scope = null;
+  getBillingBlocks(ctx).some(function(block) {
+    if (!isActiveMasterRow_(block)) return false;
+    const blockId = normalizeId_(block["billing_block_id"]);
+    const locationId = normalizeId_(block["location_id"]);
+    const slots = getTrainingSlots(ctx).filter(function(row) {
+      return isActiveMasterRow_(row) &&
+        normalizeId_(row["location_id"]) === locationId &&
+        normalizeId_(row["billing_block_id"]) === blockId;
+    });
+    if (!slots.length) return false;
+    scope = {
+      location_id: locationId,
+      billing_block_id: blockId,
+      slot_ids: slots.slice(0, 2).map(function(row) { return normalizeId_(row["slot_id"]); })
+    };
+    return true;
+  });
+
+  if (!teacher || !member || !fee || !scope) {
+    const fail = { ok: false, runner: "BILLING-P002-TEACHER-PARTIAL-CASH-001", message: "Runnerに必要な有効マスタが不足しています。" };
+    Logger.log(JSON.stringify(fail, null, 2));
+    return fail;
+  }
+
+  const teacherId = normalizeId_(teacher["teacher_id"]);
+  const memberId = normalizeId_(member["member_id"]);
+  const groupId = normalizeId_(member["請求グループID"]);
+  const planId = normalizeId_(fee["plan_id"]);
+  const unitPrice = Number(fee["回数単価"] || 0);
+
+  // Runner専用未来月の既存invoiceに紐づくEvidenceを先に除去する。
+  invalidateInvoices(ctx);
+  const oldInvoiceIds = getInvoices(ctx).filter(function(row) {
+    return normalizeMonth(row["target_month"]) === targetMonth &&
+      normalizeId_(row["billing_group_id"]) === groupId;
+  }).map(function(row) { return normalizeId_(row["invoice_id"]); });
+
+  monthlyIntegration902_deleteRows_("09_決済エビデンス", function(row) {
+    return oldInvoiceIds.indexOf(normalizeId_(row["invoice_id"])) >= 0;
+  }, ctx);
+  ["07_出席ログ", "06_入金ログ", "05_請求明細", "04_月次選択", "20_会費状態View"].forEach(function(sheetName) {
+    monthlyIntegration902_deleteRows_(sheetName, function(row) {
+      return normalizeMonth(row["target_month"]) === targetMonth &&
+        (normalizeId_(row["billing_group_id"]) === groupId || normalizeId_(row["member_id"]) === memberId);
+    }, ctx);
+  });
+
+  function setTime(iso) {
+    ctx.settings.DEBUG_DATE = iso;
+    ctx.settings.DEBUG_TARGET_MONTH = targetMonth;
+  }
+  function attend(day, session) {
+    setTime(day + "T10:30:00+09:00");
+    return registerAttendanceBatchLocked_({
+      teacher_id: teacherId,
+      location_id: scope.location_id,
+      billing_block_id: scope.billing_block_id,
+      attendance_date: day,
+      attendance_session_id: session,
+      attendance_items: [{ member_id: memberId, plan_id: planId, slot_ids: scope.slot_ids }],
+      source: source
+    }, ctx);
+  }
+  function invoiceRow() {
+    invalidateInvoices(ctx);
+    return getInvoices(ctx).find(function(row) {
+      return normalizeMonth(row["target_month"]) === targetMonth &&
+        normalizeId_(row["billing_group_id"]) === groupId &&
+        normalizeId_(row["plan_id"]) === planId;
+    });
+  }
+  function cashReceive(amount, suffix) {
+    const invoice = invoiceRow();
+    if (!invoice) return { ok: false, message: "請求明細が見つかりません。" };
+    setTime("2099-10-" + suffix + "T11:00:00+09:00");
+    return paymentEvidence_acceptBatch({
+      mode: "payment_batch",
+      teacher_id: teacherId,
+      location_id: scope.location_id,
+      billing_block_id: scope.billing_block_id,
+      reception_session_id: "RUN-P002-CASH-" + suffix,
+      payment_items: [{
+        invoice_id: normalizeId_(invoice["invoice_id"]),
+        member_id: memberId,
+        billing_group_id: groupId,
+        target_month: targetMonth,
+        plan_id: planId,
+        amount: amount,
+        payment_method: "現金",
+        location_id: scope.location_id,
+        billing_block_id: scope.billing_block_id,
+        teacher_id: teacherId,
+        reception_session_id: "RUN-P002-CASH-" + suffix
+      }],
+      source: "payment_teacher.html"
+    }, ctx);
+  }
+  function state(label, expectedBilled, expectedPaid, expectedUnpaid, expectedPaymentCount, expectedInvoiceStatus) {
+    invalidateInvoices(ctx);
+    invalidatePayments(ctx);
+    invalidateFeeStatusView(ctx);
+    const invoice = invoiceRow() || {};
+    const payments = getPayments(ctx).filter(function(row) {
+      return normalizeId_(row["invoice_id"]) === normalizeId_(invoice["invoice_id"]);
+    });
+    const view = getFeeStatusViewRows(ctx).find(function(row) {
+      return normalizeMonth(row["target_month"]) === targetMonth && normalizeId_(row["member_id"]) === memberId;
+    }) || {};
+    const actual = {
+      billed: Number(invoice["金額"] || 0),
+      paid: Number(view["入金額"] || 0),
+      unpaid: Number(view["未払い額"] || 0),
+      payment_count: payments.length,
+      invoice_status: String(invoice["支払状態"] || "")
+    };
+    const expected = {
+      billed: expectedBilled,
+      paid: expectedPaid,
+      unpaid: expectedUnpaid,
+      payment_count: expectedPaymentCount,
+      invoice_status: expectedInvoiceStatus
+    };
+    const ok = Object.keys(expected).every(function(key) { return String(actual[key]) === String(expected[key]); });
+    return { label: label, ok: ok, expected: expected, actual: actual, invoice_id: normalizeId_(invoice["invoice_id"]) };
+  }
+
+  function summarizeAttendance(operation, result) {
+    return {
+      operation: operation,
+      ok: !!(result && result.ok),
+      registered_count: Number(result && result.registered_count || 0),
+      message: String(result && result.message || "")
+    };
+  }
+  function summarizeCash(operation, result) {
+    const requestResult = result && result.requestResult || {};
+    const recordResult = result && result.recordResult || {};
+    const postResult = result && result.postResult || {};
+    const postItems = Array.isArray(postResult.results) ? postResult.results : [];
+    return {
+      operation: operation,
+      ok: !!(result && result.ok),
+      request_ok: !!requestResult.ok,
+      requested_count: Array.isArray(requestResult.records) ? requestResult.records.length : 0,
+      record_ok: !!recordResult.ok,
+      confirmed_count: Array.isArray(recordResult.completed) ? recordResult.completed.length : 0,
+      post_ok: !!postResult.ok,
+      posted_count: postItems.filter(function(item) { return item && item.ok; }).length,
+      post_results: postItems.map(function(item) {
+        const posted = item && item.result || {};
+        const registered = posted.registerResult || {};
+        return {
+          evidence_id: String(item && item.evidence_id || ""),
+          ok: !!(item && item.ok),
+          payment_id: normalizeId_(posted.payment && posted.payment.payment_id),
+          payment_amount: Number(posted.payment && posted.payment["入金額"] || 0),
+          register_ok: !!registered.ok,
+          register_skipped: !!registered.skipped,
+          register_message: String(registered.message || ""),
+          error: String(item && (item.error || item.message) || posted.error || posted.message || "")
+        };
+      }),
+      message: String(result && result.message || postResult.message || recordResult.message || requestResult.message || "")
+    };
+  }
+
+  const results = [];
+  const attendance1 = attend("2099-10-01", "RUN-P002-CASH-A1");
+  results.push(summarizeAttendance("attendance_1", attendance1));
+  results.push(state("1回目出席後", unitPrice, 0, unitPrice, 0, "未払い"));
+
+  const pay1 = cashReceive(unitPrice, "01");
+  results.push(summarizeCash("cash_1", pay1));
+  results.push(state("1回目現金受付後", unitPrice, unitPrice, 0, 1, "支払済"));
+
+  const attendance2 = attend("2099-10-08", "RUN-P002-CASH-A2");
+  results.push(summarizeAttendance("attendance_2", attendance2));
+  results.push(state("2回目出席後", unitPrice * 2, unitPrice, unitPrice, 1, "未払い"));
+
+  const pay2 = cashReceive(unitPrice, "08");
+  results.push(summarizeCash("cash_2", pay2));
+  results.push(state("2回目現金受付後", unitPrice * 2, unitPrice * 2, 0, 2, "支払済"));
+
+  const failed = results.filter(function(item) {
+    return item && item.ok === false;
+  });
+  const output = {
+    ok: failed.length === 0,
+    runner: "BILLING-P002-TEACHER-PARTIAL-CASH-001",
+    target_month: targetMonth,
+    member_id: memberId,
+    plan_id: planId,
+    total: results.length,
+    failed: failed.length,
+    results: results,
+    message: failed.length === 0
+      ? "P002 先生現金受付・同一invoice追加入金 PASS"
+      : "P002 先生現金受付・同一invoice追加入金 FAIL"
   };
   Logger.log(JSON.stringify(output, null, 2));
   return output;

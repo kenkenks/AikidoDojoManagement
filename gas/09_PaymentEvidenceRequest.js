@@ -145,7 +145,10 @@ function paymentEvidenceRequest_collect(input, ctx) {
 
   const billing_group_id = invoice.billing_group_id;
   const member_id = invoice.member_id;
-  const amount = Number(invoice.請求予定額 || 0);
+
+  // payment_batch の amount は「今回受領する金額」。
+  // invoice.請求予定額 は請求の累計額なので、P002 の追加入金では使わない。
+  const amount = Number(input.amount || 0);
 
   if (!member_id) {
     throw new Error("request: member_id がありません。");
@@ -274,8 +277,10 @@ function paymentEvidence_getRows(ctx) {
 function existsActivePaymentEvidence(invoice_id, ctx) {
   const existing = paymentEvidence_getRows(ctx);
   return existing.some(row =>
-    normalizeId_(row["invoice_id"]) === normalizeId_(invoice_id) 
-    && ["REQUESTED", "CONFIRMED", "POSTED"].includes(row["status"])
+    normalizeId_(row["invoice_id"]) === normalizeId_(invoice_id)
+    // POSTED は完了済みの決済事実。P002 など同一 invoice への追加入金を妨げない。
+    // 二重受付防止の対象は、まだ処理中の REQUESTED / CONFIRMED のみ。
+    && ["REQUESTED", "CONFIRMED"].includes(row["status"])
   );
 }
 
