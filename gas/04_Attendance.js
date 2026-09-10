@@ -135,7 +135,7 @@ function findBillingBlockCandidates_(locationId, dateTime, ctx) {
       start_time: minutesToTimeText_(start),
       end_time: minutesToTimeText_(end),
       is_current: currentMinutes >= start && currentMinutes <= end,
-      is_nearby: currentMinutes >= start - 30 && currentMinutes <= end + 30
+      is_nearby: currentMinutes >= start - 30 && currentMinutes <= end
     };
   }).filter(Boolean).sort((a, b) => timeToMinutes_(a.start_time) - timeToMinutes_(b.start_time));
 }
