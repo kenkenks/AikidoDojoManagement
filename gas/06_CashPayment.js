@@ -41,25 +41,7 @@ function requestCashPayment(memberId) {
       status: "要求中"
     });
 
-    const vctx = collectPaymentStatusContext(
-      memberId,
-      normalizeMonth(status.targetMonth),
-      ctx
-    );
-
-    const viewRow = buildPaymentStatusViewRow(
-      memberId,
-      normalizeMonth(status.targetMonth),
-      vctx
-    );
-
-    updateFeeStatusView(
-      memberId,
-      normalizeMonth(status.targetMonth),
-      viewRow
-    );
-
-    invalidateFeeStatusView(ctx);
+    paymentStatusView_refresh(memberId, normalizeMonth(status.targetMonth), ctx);
 
     return {
       ok: true,
@@ -242,25 +224,7 @@ function approveCashRequest(requestId, ctx) {
 
   invalidateCashRequests(ctx);
 
-  const vctx = collectPaymentStatusContext(
-    req.memberId,
-    req.targetMonth,
-    ctx
-  );
-
-  const viewRow = buildPaymentStatusViewRow(
-    req.memberId,
-    req.targetMonth,
-    vctx
-  );
-
-  updateFeeStatusView(
-    req.memberId,
-    req.targetMonth,
-    viewRow
-  );
-
-  invalidateFeeStatusView(ctx);
+  paymentStatusView_refresh(req.memberId, req.targetMonth, ctx);
 
   return {
     ok: true,

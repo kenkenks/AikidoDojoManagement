@@ -29,8 +29,12 @@ function paymentEvidence_request(input, ctx) {
   try {
     const requestContext = paymentEvidenceRequest_collect(input, ctx);
     const request = paymentEvidenceRequest_make(requestContext, ctx);
-  
-    return paymentEvidenceRequest_register(request, ctx);
+    const result = paymentEvidenceRequest_register(request, ctx);
+
+    if (result && result.ok) {
+      result.viewUpdate = paymentStatusView_refreshByEvidenceId_(request.evidence_id, ctx);
+    }
+    return result;
   } catch (e) {
     throw new Error("request: 決済エビデンス要求の収集に失敗しました: " + e.message);
   }

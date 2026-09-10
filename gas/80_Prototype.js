@@ -52,10 +52,7 @@ function demoPay(memberId) {
       ctx
     );
 
-    const vctx = collectPaymentStatusContext(memberId, targetMonth, ctx);
-    const viewRow = buildPaymentStatusViewRow(memberId, targetMonth, vctx);
-    updateFeeStatusView(memberId, targetMonth, viewRow);
-    invalidateFeeStatusView(ctx);
+    paymentStatusView_refresh(memberId, targetMonth, ctx);
 
     return {
       ok: true,

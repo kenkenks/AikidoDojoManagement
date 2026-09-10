@@ -30,8 +30,12 @@ function paymentEvidence_record(input, ctx) {
   }, ctx);
   const recordContext = paymentEvidenceRecord_collect(input, ctx);
   const record = paymentEvidenceRecord_make(recordContext, ctx);
-  
-  return paymentEvidenceRecord_update(record, ctx);
+  const result = paymentEvidenceRecord_update(record, ctx);
+
+  if (result && result.ok) {
+    result.viewUpdate = paymentStatusView_refreshByEvidenceId_(record.evidence_id, ctx);
+  }
+  return result;
 }
 
 // バッチ処理
