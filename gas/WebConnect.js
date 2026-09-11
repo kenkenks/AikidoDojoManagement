@@ -55,10 +55,22 @@
 //     → 決済エビデンス一括受付
 //
 
+// WEB境界トレース。値がどの境界で欠落・変化したかを追うための軽量ログ。
+function webTraceId_(value) {
+  const given = String(value || "").trim();
+  if (given) return given;
+  return "WEB-" + Utilities.getUuid().slice(0, 8);
+}
+
+function webTraceLog_(phase, traceId, data) {
+  Logger.log("[WEB-" + phase + "] trace=" + traceId + " " + JSON.stringify(data || {}));
+}
+
 // GETリクエストの処理
 // 例: https://script.google.com/macros/s/AKfycbx.../exec?action=getMemberInfo&member_id=12345
 function doGet(e) {
   const params = (e && e.parameter) || {};
+  const traceId = webTraceId_(params.trace_id);
 
   const ctx = createSheetContext();
 
@@ -101,16 +113,20 @@ function doGet(e) {
   }
 
   if (params.action === "payment_evidence_list") {
+    const mapped = {
+      target_month: params.target_month || sup_targetMonth(ctx),
+      status: params.status || "CONFIRMED",
+      statuses: params.statuses || params.status || "CONFIRMED",
+      payment_method: params.payment_method || "",
+      location_id: params.location_id || "",
+      billing_block_id: params.billing_block_id || ""
+    };
+    webTraceLog_("IN", traceId, { action: params.action, statuses: params.statuses || params.status || "", payment_method: params.payment_method || "", location_id: params.location_id || "", billing_block_id: params.billing_block_id || "" });
+    webTraceLog_("MAP", traceId, mapped);
     const result = safelyExecute_(function() {
-      return paymentEvidenceQuery_list({
-        target_month: params.target_month || sup_targetMonth(ctx),
-        status: params.status || "CONFIRMED",
-        statuses: params.statuses || params.status || "CONFIRMED",
-        payment_method: params.payment_method || "",
-        location_id: params.location_id || "",
-        billing_block_id: params.billing_block_id || ""
-      }, ctx);
+      return paymentEvidenceQuery_list(mapped, ctx);
     });
+    webTraceLog_("OUT", traceId, { action: params.action, ok: result && result.ok === true, count: result && result.count, total_amount: result && result.total_amount, location_id: result && result.location_id, billing_block_id: result && result.billing_block_id });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
@@ -158,13 +174,17 @@ function doGet(e) {
   }
 
   if (params.action === "payment_reception_summary") {
+    const mapped = {
+      reception_date: params.reception_date || "",
+      location_id: params.location_id || "",
+      billing_block_id: params.billing_block_id || ""
+    };
+    webTraceLog_("IN", traceId, { action: params.action, reception_date: params.reception_date || "", location_id: params.location_id || "", billing_block_id: params.billing_block_id || "" });
+    webTraceLog_("MAP", traceId, mapped);
     const result = safelyExecute_(function() {
-      return paymentReception_getScopeSummary({
-        reception_date: params.reception_date || "",
-        location_id: params.location_id || "",
-        billing_block_id: params.billing_block_id || ""
-      }, ctx);
+      return paymentReception_getScopeSummary(mapped, ctx);
     });
+    webTraceLog_("OUT", traceId, { action: params.action, ok: result && result.ok === true, reception_date: result && result.reception_date, location_id: result && result.location_id, billing_block_id: result && result.billing_block_id, paypay_total: result && result.paypay_total, payment_count: result && result.payment_count, outstanding_total: result && result.outstanding_total });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
@@ -371,6 +391,17 @@ function doPost(e) {
       : e.postData.contents;
     const data = JSON.parse(jsonText);
     requestData = data;
+    const traceId = webTraceId_(data.trace_id || data.request_id);
+
+    if (data.mode === "payment_evidence_post_selected") {
+      webTraceLog_("IN", traceId, {
+        mode: data.mode,
+        teacher_id: data.teacher_id || "",
+        evidence_ids: (data.evidence_items || []).map(function(item) { return item && item.evidence_id || ""; }),
+        location_id: data.location_id || "",
+        billing_block_id: data.billing_block_id || ""
+      });
+    }
 
     if (data.mode === "diagnostic_ping") {
       const token = String(data.token || "").trim();
@@ -399,7 +430,28 @@ function doPost(e) {
     }
 
     if (data.mode === "payment_evidence_post_selected") {
-      return paymentEvidence_postSelectedBatch(data, ctx);
+      const mapped = {
+        mode: data.mode,
+        teacher_id: data.teacher_id || "",
+        evidence_items: data.evidence_items || [],
+        source: data.source || "",
+        request_id: data.request_id || ""
+      };
+      webTraceLog_("MAP", traceId, {
+        mode: mapped.mode,
+        teacher_id: mapped.teacher_id,
+        evidence_ids: mapped.evidence_items.map(function(item) { return item && item.evidence_id || ""; }),
+        source: mapped.source
+      });
+      const posted = paymentEvidence_postSelectedBatch(mapped, ctx);
+      webTraceLog_("OUT", traceId, {
+        mode: data.mode,
+        ok: posted && posted.ok === true,
+        success: posted && posted.success,
+        posted_count: posted && posted.posted_count,
+        payment_log_ids: posted && posted.payment_log_ids
+      });
+      return posted;
     }
 
     if (data.mode === "payment_evidence_post_batch") {
