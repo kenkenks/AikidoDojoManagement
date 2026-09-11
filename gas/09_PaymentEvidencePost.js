@@ -202,6 +202,7 @@ function paymentEvidencePost_make(context, ctx) {
   return {
     payment_id: "PAY-" + Utilities.getUuid().slice(0, 8),
     日時: evidence["confirmed_at"] || sup_now(ctx),
+    reception_date: paymentEvidence_normalizeReceptionDate_(evidence["reception_date"]),
     target_month: normalizeMonth(invoice["target_month"]),
     billing_group_id: normalizeId_(invoice["billing_group_id"]),
     invoice_id: normalizeId_(invoice["invoice_id"]),

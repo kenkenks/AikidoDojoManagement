@@ -2,7 +2,7 @@
 // 既存列の位置や既存データは変更せず、不足列だけを末尾へ追加する。
 
 const PAYMENT_RECEPTION_SCOPE_HEADERS = [
-  "location_id", "billing_block_id", "teacher_id", "reception_session_id"
+  "reception_date", "location_id", "billing_block_id", "teacher_id", "reception_session_id"
 ];
 
 function paymentReception_ensureSchema(ctx) {
@@ -43,7 +43,7 @@ function paymentReception_getScopeSummary(data, ctx) {
   }
 
   const rows = getPayments(ctx).filter(function(payment) {
-    return paymentStatusTeacher_normalizeDate_(payment["日時"]) === receptionDate &&
+    return paymentStatusTeacher_normalizeDate_(payment["reception_date"] || payment["日時"]) === receptionDate &&
       normalizeId_(payment["location_id"]) === locationId &&
       normalizeId_(payment["billing_block_id"]) === billingBlockId;
   });

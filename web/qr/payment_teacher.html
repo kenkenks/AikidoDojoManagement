@@ -823,12 +823,14 @@
         jsonp(GAS_URL, {
           action: "payment_evidence_list",
           statuses: "CONFIRMED",
-          payment_method: "PAYPAY"
+          payment_method: "PAYPAY",
+          reception_date: todayValue()
         }),
         jsonp(GAS_URL, {
           action: "payment_evidence_list",
           statuses: "POSTED",
-          payment_method: "PAYPAY"
+          payment_method: "PAYPAY",
+          reception_date: todayValue()
         })
       ]).then(function(results) {
         const confirmedResult = results[0] || {};

@@ -104,6 +104,7 @@ function doGet(e) {
         member_id: params.member_id || "",
         plan_id: params.plan_id || "",
         teacher_id: params.teacher_id || "PAYPAY_MEMBER",
+        reception_date: params.reception_date || sup_today(ctx),
         location_id: params.location_id || "",
         billing_block_id: params.billing_block_id || "",
         reception_session_id: params.reception_session_id || ""
@@ -118,15 +119,16 @@ function doGet(e) {
       status: params.status || "CONFIRMED",
       statuses: params.statuses || params.status || "CONFIRMED",
       payment_method: params.payment_method || "",
+      reception_date: params.reception_date || "",
       location_id: params.location_id || "",
       billing_block_id: params.billing_block_id || ""
     };
-    webTraceLog_("IN", traceId, { action: params.action, statuses: params.statuses || params.status || "", payment_method: params.payment_method || "", location_id: params.location_id || "", billing_block_id: params.billing_block_id || "" });
+    webTraceLog_("IN", traceId, { action: params.action, statuses: params.statuses || params.status || "", payment_method: params.payment_method || "", reception_date: params.reception_date || "", location_id: params.location_id || "", billing_block_id: params.billing_block_id || "" });
     webTraceLog_("MAP", traceId, mapped);
     const result = safelyExecute_(function() {
       return paymentEvidenceQuery_list(mapped, ctx);
     });
-    webTraceLog_("OUT", traceId, { action: params.action, ok: result && result.ok === true, count: result && result.count, total_amount: result && result.total_amount, location_id: result && result.location_id, billing_block_id: result && result.billing_block_id });
+    webTraceLog_("OUT", traceId, { action: params.action, ok: result && result.ok === true, count: result && result.count, total_amount: result && result.total_amount, reception_date: result && result.reception_date, location_id: result && result.location_id, billing_block_id: result && result.billing_block_id });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 

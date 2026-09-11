@@ -84,6 +84,7 @@ function paypayCode_start(data, ctx) {
         member_id: invoice.member_id || memberId,
         payment_method: 'PAYPAY',
         amount: Number(paymentInfo.amount || 0),
+        reception_date: scope.reception_date,
         location_id: scope.location_id,
         billing_block_id: scope.billing_block_id,
         teacher_id: teacherId,
@@ -161,6 +162,7 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
   ctx = ensureSheetContext(ctx);
   data = data || {};
 
+  const receptionDate = paymentEvidence_normalizeReceptionDate_(data.reception_date || data.receptionDate || sup_today(ctx));
   const locationId = normalizeId_(data.location_id || data.locationId);
   const billingBlockId = normalizeId_(data.billing_block_id || data.billingBlockId);
 
@@ -168,6 +170,7 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
   // 道場外など、受付Scopeを持たない支払いは従来どおり許容する。
   if (!locationId) {
     return {
+      reception_date: receptionDate,
       location_id: '',
       billing_block_id: '',
       inferred: false,
@@ -192,6 +195,7 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
       throw new Error('PayPay受付の道場に対応する有効な課金枠が見つかりません。');
     }
     return {
+      reception_date: receptionDate,
       location_id: locationId,
       billing_block_id: billingBlockId,
       inferred: false,
@@ -210,6 +214,7 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
 
   if (!resolved) {
     return {
+      reception_date: receptionDate,
       location_id: locationId,
       billing_block_id: '',
       inferred: false,
@@ -218,6 +223,7 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
   }
 
   return {
+    reception_date: receptionDate,
     location_id: locationId,
     billing_block_id: normalizeId_(resolved.billing_block_id),
     inferred: true,
@@ -326,8 +332,10 @@ function paypayCode_repairReusableEvidenceScope_(row, scope, ctx) {
   const evidenceId = normalizeId_(row.evidence_id || row['evidence_id']);
   if (!evidenceId) return row;
 
+  const currentReceptionDate = paymentEvidence_normalizeReceptionDate_(row.reception_date || row['reception_date'] || '');
   const currentLocationId = normalizeId_(row.location_id || row['location_id']);
   const currentBillingBlockId = normalizeId_(row.billing_block_id || row['billing_block_id']);
+  const desiredReceptionDate = paymentEvidence_normalizeReceptionDate_(scope.reception_date || '');
   const desiredLocationId = normalizeId_(scope.location_id);
   const desiredBillingBlockId = normalizeId_(scope.billing_block_id);
 
@@ -341,6 +349,9 @@ function paypayCode_repairReusableEvidenceScope_(row, scope, ctx) {
   }
 
   const updates = {};
+  if (!currentReceptionDate && desiredReceptionDate) {
+    updates.reception_date = desiredReceptionDate;
+  }
   if (!currentLocationId && desiredLocationId) {
     updates.location_id = desiredLocationId;
   }
@@ -381,6 +392,7 @@ function paypayCode_makeEvidenceDto_(row) {
     amount: Number(row.amount || row['amount'] || 0),
     status: normalizeId_(row.status || row['status']),
     evidence_code: normalizeId_(row.evidence_code || row['evidence_code']),
+    reception_date: paymentEvidence_normalizeReceptionDate_(row.reception_date || row['reception_date'] || ''),
     location_id: normalizeId_(row.location_id || row['location_id']),
     billing_block_id: normalizeId_(row.billing_block_id || row['billing_block_id'])
   };

@@ -29,6 +29,7 @@ function paymentEvidenceQuery_list(data, ctx) {
 
   const targetMonth = normalizeMonth(data.target_month || data.targetMonth || paymentEvidenceQuery_currentMonth_());
   const methodFilter = normalizeId_(data.payment_method || data.paymentMethod || "");
+  const receptionDateFilter = paymentEvidence_normalizeReceptionDate_(data.reception_date || data.receptionDate || "");
   const locationFilter = normalizeId_(data.location_id || data.locationId || "");
   const billingBlockFilter = normalizeId_(data.billing_block_id || data.billingBlockId || "");
   const statuses = paymentEvidenceQuery_parseStatuses_(data.statuses || data.status || "CONFIRMED");
@@ -50,6 +51,9 @@ function paymentEvidenceQuery_list(data, ctx) {
 
       const method = paymentEvidence_normalizePaymentMethod_(evidence["payment_method"]);
       if (methodFilter && method !== paymentEvidence_normalizePaymentMethod_(methodFilter)) return false;
+
+      const evidenceReceptionDate = paymentEvidence_normalizeReceptionDate_(evidence["reception_date"]);
+      if (receptionDateFilter && evidenceReceptionDate !== receptionDateFilter) return false;
 
       const evidenceLocationId = normalizeId_(evidence["location_id"]);
       const evidenceBillingBlockId = normalizeId_(evidence["billing_block_id"]);
@@ -89,6 +93,7 @@ function paymentEvidenceQuery_list(data, ctx) {
         confirmed_at: paymentEvidenceQuery_formatDateTime_(evidence["confirmed_at"]),
         posted_at: paymentEvidenceQuery_formatDateTime_(evidence["posted_at"]),
         payment_log_id: normalizeId_(evidence["payment_log_id"]),
+        reception_date: paymentEvidence_normalizeReceptionDate_(evidence["reception_date"]),
         location_id: normalizeId_(evidence["location_id"]),
         billing_block_id: normalizeId_(evidence["billing_block_id"]),
         remarks: String(evidence["remarks"] || "")
@@ -101,6 +106,7 @@ function paymentEvidenceQuery_list(data, ctx) {
     target_month: targetMonth,
     statuses: statuses,
     payment_method: methodFilter,
+    reception_date: receptionDateFilter,
     location_id: locationFilter,
     billing_block_id: billingBlockFilter,
     count: rows.length,

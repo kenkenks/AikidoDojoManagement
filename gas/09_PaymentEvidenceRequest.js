@@ -25,6 +25,7 @@
 // ==============================
 function paymentEvidence_request(input, ctx) {
   ctx = ensureSheetContext(ctx || createSheetContext());
+  paymentReception_ensureSchema(ctx);
 
   try {
     const requestContext = paymentEvidenceRequest_collect(input, ctx);
@@ -176,6 +177,7 @@ function paymentEvidenceRequest_collect(input, ctx) {
     member_id: member_id,
     payment_method: payment_method,
     amount: amount,
+    reception_date: paymentEvidence_normalizeReceptionDate_(input.reception_date || input.receptionDate || sup_today(ctx)),
     location_id: normalizeId_(input.location_id),
     billing_block_id: normalizeId_(input.billing_block_id),
     teacher_id: normalizeId_(input.teacher_id),
@@ -199,6 +201,7 @@ function paymentEvidenceRequest_make(context, ctx) {
     member_id: context.member_id,
     payment_method: context.payment_method,
     amount: Number(context.amount || 0),
+    reception_date: context.reception_date || "",
     location_id: context.location_id || "",
     billing_block_id: context.billing_block_id || "",
     teacher_id: context.teacher_id || "",
@@ -297,6 +300,7 @@ function paymentEvidence_requiredHeaders_() {
     "member_id",
     "payment_method",
     "amount",
+    "reception_date",
     "status",
     "evidence_code",
     "requested_at",

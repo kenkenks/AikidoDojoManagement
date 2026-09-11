@@ -131,6 +131,7 @@ function runner_webInterface_paymentScreenRead(input) {
     action: "payment_evidence_list",
     statuses: "CONFIRMED",
     payment_method: "PAYPAY",
+    reception_date: receptionDate,
     callback: callback
   });
 
@@ -138,6 +139,7 @@ function runner_webInterface_paymentScreenRead(input) {
     action: "payment_evidence_list",
     statuses: "POSTED",
     payment_method: "PAYPAY",
+    reception_date: receptionDate,
     callback: callback
   });
 
@@ -167,6 +169,19 @@ function runner_webInterface_paymentScreenRead(input) {
     Array.isArray(posted.evidences),
     "POSTED DTO evidences", Array.isArray(posted.evidences), true);
 
+  runner_webInterface_assert_(checks,
+    String(confirmed.reception_date || "") === receptionDate,
+    "CONFIRMED reception_date 往復", confirmed.reception_date || "", receptionDate);
+  runner_webInterface_assert_(checks,
+    String(posted.reception_date || "") === receptionDate,
+    "POSTED reception_date 往復", posted.reception_date || "", receptionDate);
+  runner_webInterface_assert_(checks,
+    (confirmed.evidences || []).every(function(row) { return String(row.reception_date || "") === receptionDate; }),
+    "CONFIRMED Evidence受付日一致", true, true);
+  runner_webInterface_assert_(checks,
+    (posted.evidences || []).every(function(row) { return String(row.reception_date || "") === receptionDate; }),
+    "POSTED Evidence受付日一致", true, true);
+
   return runner_webInterface_finish_("WEB-PAYMENT-READ-001", checks, {
     session: session,
     summary: summary,
@@ -190,6 +205,64 @@ function runner_webInterface_paymentScreenRead_TEST() {
 
   Logger.log("[WEB Interface PASS] payment read");
   return result;
+}
+
+// --------------------------------------------------
+// Reception Date wiring Runner
+// 既存REQUESTED/CONFIRMEDの空受付Contextを、実Web GET(paypay_code_start)で補完し、
+// reception_date 指定Queryから対象Evidenceを取得できることを確認する。
+// 支払いPOSTは行わない。
+// --------------------------------------------------
+function runner_webInterface_paymentReceptionDateRepair_TEST() {
+  const evidenceId = "PAYPAY-5c685928";
+  const receptionDate = "2026-09-14";
+  const checks = [];
+
+  // 既存環境でも Web 境界テストを再現可能にするため、
+  // reception_date を含む受付Context端子を先に保証する。
+  const schema = paymentReception_ensureSchema(createSheetContext());
+  runner_webInterface_assert_(checks, schema && schema.ok === true,
+    "受付Context schema ensure", schema && schema.ok, true);
+
+  const start = runner_webInterface_get_({
+    action: "paypay_code_start",
+    member_id: "M001",
+    plan_id: "P002",
+    teacher_id: "T001",
+    reception_date: receptionDate,
+    location_id: "HONBU",
+    billing_block_id: "B_KYO_MON_1030_1230"
+  });
+
+  const confirmed = runner_webInterface_get_({
+    action: "payment_evidence_list",
+    statuses: "CONFIRMED",
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
+  });
+
+  const target = (confirmed.evidences || []).find(function(row) {
+    return String(row.evidence_id || "") === evidenceId;
+  });
+
+  runner_webInterface_assert_(checks, start && start.ok === true,
+    "paypay_code_start WEB入口", start && start.ok, true);
+  runner_webInterface_assert_(checks, confirmed && confirmed.ok === true,
+    "payment_evidence_list reception_date WEB入口", confirmed && confirmed.ok, true);
+  runner_webInterface_assert_(checks, !!target,
+    "対象Evidenceを9/14 Queryで取得", target ? target.evidence_id : "", evidenceId);
+  runner_webInterface_assert_(checks, target && String(target.reception_date || "") === receptionDate,
+    "対象Evidence reception_date", target ? target.reception_date : "", receptionDate);
+  runner_webInterface_assert_(checks, target && String(target.location_id || "") === "HONBU",
+    "対象Evidence location_id", target ? target.location_id : "", "HONBU");
+  runner_webInterface_assert_(checks, target && String(target.billing_block_id || "") === "B_KYO_MON_1030_1230",
+    "対象Evidence billing_block_id", target ? target.billing_block_id : "", "B_KYO_MON_1030_1230");
+
+  return runner_webInterface_finish_("WEB-PAYMENT-RECEPTION-DATE-001", checks, {
+    start: start,
+    confirmed: confirmed,
+    target: target
+  });
 }
 
 // --------------------------------------------------
@@ -220,12 +293,14 @@ function runner_webInterface_paymentConfirmedToPosted(input) {
   const beforeConfirmed = runner_webInterface_get_({
     action: "payment_evidence_list",
     statuses: "CONFIRMED",
-    payment_method: "PAYPAY"
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
   });
   const beforePosted = runner_webInterface_get_({
     action: "payment_evidence_list",
     statuses: "POSTED",
-    payment_method: "PAYPAY"
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
   });
   const beforeSummary = runner_webInterface_get_({
     action: "payment_reception_summary",
@@ -261,12 +336,14 @@ function runner_webInterface_paymentConfirmedToPosted(input) {
   const afterConfirmed = runner_webInterface_get_({
     action: "payment_evidence_list",
     statuses: "CONFIRMED",
-    payment_method: "PAYPAY"
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
   });
   const afterPosted = runner_webInterface_get_({
     action: "payment_evidence_list",
     statuses: "POSTED",
-    payment_method: "PAYPAY"
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
   });
   const afterSummary = runner_webInterface_get_({
     action: "payment_reception_summary",
