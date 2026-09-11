@@ -627,6 +627,7 @@
         document.getElementById("billingBlockName").textContent = currentBillingBlockName;
         addLog("課金枠確認完了: " + currentBillingBlockName);
         loadRegisteredScopeSummary();
+        loadPaymentEvidenceLists();
       }).catch(function(error) {
         addLog("課金枠確認失敗: " + (error.message || String(error)));
       });
@@ -816,18 +817,31 @@
     }
 
     function loadPaymentEvidenceLists() {
-      addLog("決済情報取得開始");
+      if (!currentLocationId || !currentBillingBlockId) {
+        confirmedEvidences = [];
+        postedEvidences = [];
+        renderConfirmedEvidences();
+        renderPostedEvidences();
+        addLog("決済情報取得スキップ: 道場・課金枠が未設定です。");
+        return;
+      }
+
+      addLog("決済情報取得開始: " + currentLocationId + " / " + currentBillingBlockId);
 
       Promise.all([
         jsonp(GAS_URL, {
           action: "payment_evidence_list",
           statuses: "CONFIRMED",
-          payment_method: "PAYPAY"
+          payment_method: "PAYPAY",
+          location_id: currentLocationId,
+          billing_block_id: currentBillingBlockId
         }),
         jsonp(GAS_URL, {
           action: "payment_evidence_list",
           statuses: "POSTED",
-          payment_method: "PAYPAY"
+          payment_method: "PAYPAY",
+          location_id: currentLocationId,
+          billing_block_id: currentBillingBlockId
         })
       ]).then(function(results) {
         const confirmedResult = results[0] || {};
@@ -955,6 +969,7 @@
         mode: "payment_evidence_post_selected",
         teacher_id: currentTeacherId,
         location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId,
         evidence_items: selected.map(function(evidence) {
           return {
             evidence_id: evidence.evidence_id
@@ -974,7 +989,7 @@
         },
         body: JSON.stringify(payload)
       }).then(function() {
-        addLog("選択決済更新要求完了。数秒後に一覧を再取得します。 ");
+        addLog("選択決済更新要求完了。数秒後に一覧・受付集計を再取得します。 ");
         window.setTimeout(function() {
           loadPaymentEvidenceLists();
           loadRegisteredScopeSummary();

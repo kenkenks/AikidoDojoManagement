@@ -29,6 +29,8 @@ function paymentEvidenceQuery_list(data, ctx) {
 
   const targetMonth = normalizeMonth(data.target_month || data.targetMonth || paymentEvidenceQuery_currentMonth_());
   const methodFilter = normalizeId_(data.payment_method || data.paymentMethod || "");
+  const locationFilter = normalizeId_(data.location_id || data.locationId || "");
+  const billingBlockFilter = normalizeId_(data.billing_block_id || data.billingBlockId || "");
   const statuses = paymentEvidenceQuery_parseStatuses_(data.statuses || data.status || "CONFIRMED");
 
   const invoicesById = {};
@@ -48,6 +50,11 @@ function paymentEvidenceQuery_list(data, ctx) {
 
       const method = paymentEvidence_normalizePaymentMethod_(evidence["payment_method"]);
       if (methodFilter && method !== paymentEvidence_normalizePaymentMethod_(methodFilter)) return false;
+
+      const evidenceLocationId = normalizeId_(evidence["location_id"]);
+      const evidenceBillingBlockId = normalizeId_(evidence["billing_block_id"]);
+      if (locationFilter && evidenceLocationId !== locationFilter) return false;
+      if (billingBlockFilter && evidenceBillingBlockId !== billingBlockFilter) return false;
 
       const invoice = invoicesById[normalizeId_(evidence["invoice_id"])] || null;
       const month = invoice
@@ -82,6 +89,8 @@ function paymentEvidenceQuery_list(data, ctx) {
         confirmed_at: paymentEvidenceQuery_formatDateTime_(evidence["confirmed_at"]),
         posted_at: paymentEvidenceQuery_formatDateTime_(evidence["posted_at"]),
         payment_log_id: normalizeId_(evidence["payment_log_id"]),
+        location_id: normalizeId_(evidence["location_id"]),
+        billing_block_id: normalizeId_(evidence["billing_block_id"]),
         remarks: String(evidence["remarks"] || "")
       };
     });
@@ -92,6 +101,8 @@ function paymentEvidenceQuery_list(data, ctx) {
     target_month: targetMonth,
     statuses: statuses,
     payment_method: methodFilter,
+    location_id: locationFilter,
+    billing_block_id: billingBlockFilter,
     count: rows.length,
     total_amount: rows.reduce(function(sum, row) { return sum + Number(row.amount || 0); }, 0),
     evidences: rows
@@ -107,6 +118,8 @@ function paymentEvidence_postSelectedBatch(data, ctx) {
     data = data || {};
 
     const teacherId = normalizeId_(data.teacher_id || data.teacherId);
+    const locationId = normalizeId_(data.location_id || data.locationId || "");
+    const billingBlockId = normalizeId_(data.billing_block_id || data.billingBlockId || "");
     const items = Array.isArray(data.evidence_items)
       ? data.evidence_items
       : (Array.isArray(data.evidences) ? data.evidences : []);
@@ -131,6 +144,19 @@ function paymentEvidence_postSelectedBatch(data, ctx) {
       }
 
       try {
+        const evidence = getPaymentEvidences(ctx).find(function(row) {
+          return normalizeId_(row["evidence_id"]) === evidenceId;
+        });
+        if (!evidence) {
+          throw new Error("決済エビデンスが見つかりません: " + evidenceId);
+        }
+        if (locationId && normalizeId_(evidence["location_id"]) !== locationId) {
+          throw new Error("道場スコープが一致しません: " + evidenceId);
+        }
+        if (billingBlockId && normalizeId_(evidence["billing_block_id"]) !== billingBlockId) {
+          throw new Error("課金枠スコープが一致しません: " + evidenceId);
+        }
+
         const result = paymentEvidence_post({ evidence_id: evidenceId }, ctx);
         results.push({
           ok: true,
