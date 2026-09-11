@@ -118,8 +118,6 @@ function paymentEvidence_postSelectedBatch(data, ctx) {
     data = data || {};
 
     const teacherId = normalizeId_(data.teacher_id || data.teacherId);
-    const locationId = normalizeId_(data.location_id || data.locationId || "");
-    const billingBlockId = normalizeId_(data.billing_block_id || data.billingBlockId || "");
     const items = Array.isArray(data.evidence_items)
       ? data.evidence_items
       : (Array.isArray(data.evidences) ? data.evidences : []);
@@ -150,13 +148,6 @@ function paymentEvidence_postSelectedBatch(data, ctx) {
         if (!evidence) {
           throw new Error("決済エビデンスが見つかりません: " + evidenceId);
         }
-        if (locationId && normalizeId_(evidence["location_id"]) !== locationId) {
-          throw new Error("道場スコープが一致しません: " + evidenceId);
-        }
-        if (billingBlockId && normalizeId_(evidence["billing_block_id"]) !== billingBlockId) {
-          throw new Error("課金枠スコープが一致しません: " + evidenceId);
-        }
-
         const result = paymentEvidence_post({ evidence_id: evidenceId }, ctx);
         results.push({
           ok: true,

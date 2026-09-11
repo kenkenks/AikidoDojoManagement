@@ -817,31 +817,18 @@
     }
 
     function loadPaymentEvidenceLists() {
-      if (!currentLocationId || !currentBillingBlockId) {
-        confirmedEvidences = [];
-        postedEvidences = [];
-        renderConfirmedEvidences();
-        renderPostedEvidences();
-        addLog("決済情報取得スキップ: 道場・課金枠が未設定です。");
-        return;
-      }
-
-      addLog("決済情報取得開始: " + currentLocationId + " / " + currentBillingBlockId);
+      addLog("決済情報取得開始");
 
       Promise.all([
         jsonp(GAS_URL, {
           action: "payment_evidence_list",
           statuses: "CONFIRMED",
-          payment_method: "PAYPAY",
-          location_id: currentLocationId,
-          billing_block_id: currentBillingBlockId
+          payment_method: "PAYPAY"
         }),
         jsonp(GAS_URL, {
           action: "payment_evidence_list",
           statuses: "POSTED",
-          payment_method: "PAYPAY",
-          location_id: currentLocationId,
-          billing_block_id: currentBillingBlockId
+          payment_method: "PAYPAY"
         })
       ]).then(function(results) {
         const confirmedResult = results[0] || {};
@@ -968,8 +955,6 @@
       const payload = {
         mode: "payment_evidence_post_selected",
         teacher_id: currentTeacherId,
-        location_id: currentLocationId,
-        billing_block_id: currentBillingBlockId,
         evidence_items: selected.map(function(evidence) {
           return {
             evidence_id: evidence.evidence_id
