@@ -218,12 +218,6 @@ function runner_webInterface_paymentReceptionDateRepair_TEST() {
   const receptionDate = "2026-09-14";
   const checks = [];
 
-  // 既存環境でも Web 境界テストを再現可能にするため、
-  // reception_date を含む受付Context端子を先に保証する。
-  const schema = paymentReception_ensureSchema(createSheetContext());
-  runner_webInterface_assert_(checks, schema && schema.ok === true,
-    "受付Context schema ensure", schema && schema.ok, true);
-
   const start = runner_webInterface_get_({
     action: "paypay_code_start",
     member_id: "M001",
@@ -413,3 +407,18 @@ function runner_webInterface_paymentConfirmedToPosted(input) {
 //   billing_block_id: "B_KYO_MON_1030_1230",
 //   expect_scope_payment: true
 // });
+
+/**
+ * Apps Script エディタから引数なしで実行するための WRITE Runner 入口。
+ * PAYPAY-5c685928 を 2026-09-14 の受付として CONFIRMED -> POSTED へ進める。
+ */
+function runner_webInterface_paymentConfirmedToPosted_TEST() {
+  return runner_webInterface_paymentConfirmedToPosted({
+    evidence_id: "PAYPAY-5c685928",
+    teacher_id: "T001",
+    reception_date: "2026-09-14",
+    location_id: "HONBU",
+    billing_block_id: "B_KYO_MON_1030_1230",
+    expect_scope_payment: true
+  });
+}
