@@ -187,7 +187,10 @@ function paymentEvidenceRecord_update(record, ctx) {
     throw new Error("record: 決済エビデンスが見つかりません: " + record.evidence_id);
   }
 
-  paymentEvidence_updateColumns_(target.rowNumber, {
+  // CONFIRMED遷移に必要な列は1回のsetValuesで更新する。
+  // statusだけ先に書けて evidence_code / confirmed_at が未更新になる
+  // 中間状態を作らないため。
+  paymentEvidence_updateColumnsAtomic_(target.rowNumber, {
     status: record.status,
     evidence_code: record.evidence_code,
     confirmed_at: record.confirmed_at,
@@ -200,6 +203,29 @@ function paymentEvidenceRecord_update(record, ctx) {
     message: "record: 決済エビデンスを確認済みにしました。",
     record
   };
+}
+
+/**
+ * 09_決済エビデンスの複数列を、行単位で一括更新する。
+ * 状態遷移など、複数列が同時に成立している必要がある更新に使用する。
+ */
+function paymentEvidence_updateColumnsAtomic_(rowNumber, valuesByHeader, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = getRequiredSheet_("09_決済エビデンス", ctx);
+  const headerInfo = assertHeaders_(sheet, paymentEvidence_requiredHeaders_());
+  const width = headerInfo.headers.length;
+  const rowValues = sheet.getRange(rowNumber, 1, 1, width).getValues()[0];
+
+  Object.keys(valuesByHeader).forEach(function(header) {
+    if (headerInfo.map[header] === undefined) {
+      throw new Error("09_決済エビデンス に列がありません: " + header);
+    }
+    rowValues[headerInfo.map[header]] = valuesByHeader[header];
+  });
+
+  sheet.getRange(rowNumber, 1, 1, width).setValues([rowValues]);
+  paymentEvidence_invalidate(ctx);
 }
 
 

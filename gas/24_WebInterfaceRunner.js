@@ -422,3 +422,197 @@ function runner_webInterface_paymentConfirmedToPosted_TEST() {
     expect_scope_payment: true
   });
 }
+
+// --------------------------------------------------
+// WRITE Runner case: Remote PayPay
+// Scopeなし CONFIRMED Evidence を、先生画面の受付Scope付き WEB POST で POSTED にする。
+// 既存 WEB-PAYMENT-POST-001 は変更せず、リモート支払い正常系を追加ケースとして検証する。
+// --------------------------------------------------
+function runner_webInterface_paymentRemoteConfirmedToPosted(input) {
+  input = input || {};
+
+  const evidenceId = String(input.evidence_id || "").trim();
+  const teacherId = String(input.teacher_id || "T001").trim();
+  const receptionDate = String(input.reception_date || "").trim();
+  const locationId = String(input.location_id || "").trim();
+  const billingBlockId = String(input.billing_block_id || "").trim();
+
+  if (!evidenceId || !teacherId || !receptionDate || !locationId || !billingBlockId) {
+    return {
+      ok: false,
+      runner: "WEB-PAYMENT-POST-REMOTE-001",
+      message: "evidence_id / teacher_id / reception_date / location_id / billing_block_id を指定してください。"
+    };
+  }
+
+  const checks = [];
+
+  // 下段Evidence一覧と同じく、受付日 + status で取得する。課金枠では絞らない。
+  const beforeConfirmed = runner_webInterface_get_({
+    action: "payment_evidence_list",
+    statuses: "CONFIRMED",
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
+  });
+  const beforeSummary = runner_webInterface_get_({
+    action: "payment_reception_summary",
+    reception_date: receptionDate,
+    location_id: locationId,
+    billing_block_id: billingBlockId
+  });
+
+  const target = (beforeConfirmed.evidences || []).find(function(row) {
+    return String(row.evidence_id || "") === evidenceId;
+  });
+
+  runner_webInterface_assert_(checks, !!target,
+    "対象EvidenceがCONFIRMED一覧に存在", target ? target.evidence_id : "", evidenceId);
+
+  if (!target) {
+    return runner_webInterface_finish_("WEB-PAYMENT-POST-REMOTE-001", checks, {
+      beforeConfirmed: beforeConfirmed,
+      beforeSummary: beforeSummary
+    });
+  }
+
+  // このケースの本質: 会員側でCONFIRMEDになった時点では道場/課金枠Scopeを持たない。
+  runner_webInterface_assert_(checks,
+    String(target.location_id || "") === "",
+    "CONFIRMED location_id は空", target.location_id || "", "");
+  runner_webInterface_assert_(checks,
+    String(target.billing_block_id || "") === "",
+    "CONFIRMED billing_block_id は空", target.billing_block_id || "", "");
+
+  if (String(target.location_id || "") !== "" || String(target.billing_block_id || "") !== "") {
+    return runner_webInterface_finish_("WEB-PAYMENT-POST-REMOTE-001", checks, {
+      target: target,
+      beforeConfirmed: beforeConfirmed,
+      beforeSummary: beforeSummary,
+      message: "リモートPayPayケースではないためPOSTを実行しません。"
+    });
+  }
+
+  const amount = Number(target.amount || 0);
+  const beforePayPay = Number(beforeSummary.paypay_total || 0);
+  const beforeCount = Number(beforeSummary.payment_count || 0);
+  const beforeOutstanding = Number(beforeSummary.outstanding_total || 0);
+
+  // 実ブラウザが送るべき契約を明示する。
+  // CONFIRMED時点の空Scopeではなく、先生が受付した時点のScopeをPOSTする。
+  const postResult = runner_webInterface_post_({
+    mode: "payment_evidence_post_selected",
+    teacher_id: teacherId,
+    reception_date: receptionDate,
+    location_id: locationId,
+    billing_block_id: billingBlockId,
+    evidence_items: [
+      { evidence_id: evidenceId }
+    ],
+    count: 1,
+    source: "runner_webInterface_paymentRemoteConfirmedToPosted"
+  });
+
+  const afterConfirmed = runner_webInterface_get_({
+    action: "payment_evidence_list",
+    statuses: "CONFIRMED",
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
+  });
+  const afterPosted = runner_webInterface_get_({
+    action: "payment_evidence_list",
+    statuses: "POSTED",
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
+  });
+  const afterSummary = runner_webInterface_get_({
+    action: "payment_reception_summary",
+    reception_date: receptionDate,
+    location_id: locationId,
+    billing_block_id: billingBlockId
+  });
+
+  const stillConfirmed = (afterConfirmed.evidences || []).some(function(row) {
+    return String(row.evidence_id || "") === evidenceId;
+  });
+  const nowPosted = (afterPosted.evidences || []).find(function(row) {
+    return String(row.evidence_id || "") === evidenceId;
+  });
+
+  runner_webInterface_assert_(checks,
+    postResult && postResult.ok === true,
+    "payment_evidence_post_selected WEB POST", postResult && postResult.ok, true);
+  runner_webInterface_assert_(checks,
+    !stillConfirmed,
+    "POST後CONFIRMEDから消える", stillConfirmed, false);
+  runner_webInterface_assert_(checks,
+    !!nowPosted,
+    "POST後POSTEDに現れる", nowPosted ? nowPosted.evidence_id : "", evidenceId);
+  runner_webInterface_assert_(checks,
+    nowPosted && !!String(nowPosted.payment_log_id || ""),
+    "POSTED DTO payment_log_id", nowPosted ? nowPosted.payment_log_id : "", "non-empty");
+
+  // POST時の先生受付Scopeが09 Evidenceへ確定されることを検証する。
+  runner_webInterface_assert_(checks,
+    nowPosted && String(nowPosted.reception_date || "") === receptionDate,
+    "POSTED reception_date は先生受付日", nowPosted ? nowPosted.reception_date : "", receptionDate);
+  runner_webInterface_assert_(checks,
+    nowPosted && String(nowPosted.location_id || "") === locationId,
+    "POSTED location_id は先生受付Scope", nowPosted ? nowPosted.location_id : "", locationId);
+  runner_webInterface_assert_(checks,
+    nowPosted && String(nowPosted.billing_block_id || "") === billingBlockId,
+    "POSTED billing_block_id は先生受付Scope", nowPosted ? nowPosted.billing_block_id : "", billingBlockId);
+
+  runner_webInterface_assert_(checks,
+    afterSummary && afterSummary.ok === true,
+    "POST後 payment_reception_summary WEB入口", afterSummary && afterSummary.ok, true);
+
+  const afterPayPay = Number(afterSummary.paypay_total || 0);
+  const afterCount = Number(afterSummary.payment_count || 0);
+  const afterOutstanding = Number(afterSummary.outstanding_total || 0);
+
+  runner_webInterface_assert_(checks,
+    afterPayPay >= beforePayPay + amount,
+    "課金枠集計 PayPay反映", afterPayPay, ">= " + (beforePayPay + amount));
+  runner_webInterface_assert_(checks,
+    afterCount >= beforeCount + 1,
+    "課金枠集計 入金件数反映", afterCount, ">= " + (beforeCount + 1));
+
+  // 出席由来の未回収が対象金額以上ある場合だけ、同額以上減ることを確認する。
+  // 既に未回収0のテストデータでもRunner自体は成立させる。
+  if (amount > 0 && beforeOutstanding >= amount) {
+    runner_webInterface_assert_(checks,
+      afterOutstanding <= beforeOutstanding - amount,
+      "未回収額が支払額分減少", afterOutstanding, "<= " + (beforeOutstanding - amount));
+  }
+
+  return runner_webInterface_finish_("WEB-PAYMENT-POST-REMOTE-001", checks, {
+    target: target,
+    beforeSummary: beforeSummary,
+    postPayload: {
+      teacher_id: teacherId,
+      reception_date: receptionDate,
+      location_id: locationId,
+      billing_block_id: billingBlockId,
+      evidence_id: evidenceId
+    },
+    postResult: postResult,
+    afterSummary: afterSummary,
+    afterConfirmed: afterConfirmed,
+    afterPosted: afterPosted
+  });
+}
+
+/**
+ * Apps Script エディタから引数なしで実行するリモートPayPayケース入口。
+ * 前提: PAYPAY-ebff2937 が CONFIRMED で、location_id / billing_block_id が空であること。
+ * REQUESTED のままなら、会員PayPay画面で決済コード登録まで進めてから実行する。
+ */
+function runner_webInterface_paymentRemoteConfirmedToPosted_TEST() {
+  return runner_webInterface_paymentRemoteConfirmedToPosted({
+    evidence_id: "PAYPAY-ebff2937",
+    teacher_id: "T001",
+    reception_date: "2026-10-05",
+    location_id: "HONBU",
+    billing_block_id: "B_KYO_MON_1030_1230"
+  });
+}

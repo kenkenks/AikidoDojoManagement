@@ -84,7 +84,6 @@ function paypayCode_start(data, ctx) {
         member_id: invoice.member_id || memberId,
         payment_method: 'PAYPAY',
         amount: Number(paymentInfo.amount || 0),
-        reception_date: scope.reception_date,
         location_id: scope.location_id,
         billing_block_id: scope.billing_block_id,
         teacher_id: teacherId,
@@ -162,7 +161,6 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
   ctx = ensureSheetContext(ctx);
   data = data || {};
 
-  const receptionDate = paymentEvidence_normalizeReceptionDate_(data.reception_date || data.receptionDate || sup_today(ctx));
   const locationId = normalizeId_(data.location_id || data.locationId);
   const billingBlockId = normalizeId_(data.billing_block_id || data.billingBlockId);
 
@@ -170,7 +168,6 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
   // 道場外など、受付Scopeを持たない支払いは従来どおり許容する。
   if (!locationId) {
     return {
-      reception_date: receptionDate,
       location_id: '',
       billing_block_id: '',
       inferred: false,
@@ -195,7 +192,6 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
       throw new Error('PayPay受付の道場に対応する有効な課金枠が見つかりません。');
     }
     return {
-      reception_date: receptionDate,
       location_id: locationId,
       billing_block_id: billingBlockId,
       inferred: false,
@@ -214,7 +210,6 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
 
   if (!resolved) {
     return {
-      reception_date: receptionDate,
       location_id: locationId,
       billing_block_id: '',
       inferred: false,
@@ -223,7 +218,6 @@ function paypayCode_resolveReceptionScope_(data, ctx) {
   }
 
   return {
-    reception_date: receptionDate,
     location_id: locationId,
     billing_block_id: normalizeId_(resolved.billing_block_id),
     inferred: true,
@@ -253,6 +247,7 @@ function paypayCode_record(data, ctx) {
   }
 
   const recordTargets = [];
+  const repairResults = [];
   const skipped = [];
 
   for (let i = 0; i < evidenceItems.length; i++) {
@@ -271,22 +266,62 @@ function paypayCode_record(data, ctx) {
     }
 
     const status = normalizeId_(target.row.status || target.row['status']);
+    const currentEvidenceCode = normalizeId_(target.row.evidence_code || target.row['evidence_code']);
+
     if (status === 'REQUESTED') {
       recordTargets.push({
         evidence_id: evidenceId,
         evidence_code: evidenceCode,
         remarks: 'paypay_code.html record'
       });
-    } else {
-      skipped.push({
-        ok: true,
-        skipped: true,
-        index: i,
-        evidence_id: evidenceId,
-        status: status,
-        message: 'REQUESTEDではないため確認登録をスキップしました。'
-      });
+      continue;
     }
+
+    // 旧データや中断更新で CONFIRMED だけが先に成立し、
+    // evidence_code / confirmed_at が欠けた行はコード再登録で自己修復する。
+    if (status === 'CONFIRMED' && !currentEvidenceCode) {
+      try {
+        const updates = {
+          evidence_code: evidenceCode
+        };
+        if (!target.row.confirmed_at && !target.row['confirmed_at']) {
+          updates.confirmed_at = sup_now(ctx);
+        }
+        if (!normalizeId_(target.row.confirmed_by || target.row['confirmed_by'])) {
+          updates.confirmed_by = memberId;
+        }
+
+        paymentEvidence_updateColumnsAtomic_(target.rowNumber, updates, ctx);
+        repairResults.push({
+          ok: true,
+          repaired: true,
+          index: i,
+          evidence_id: evidenceId,
+          status: status,
+          evidence_code: evidenceCode,
+          message: 'CONFIRMEDの不足項目を補完しました。'
+        });
+      } catch (e) {
+        repairResults.push({
+          ok: false,
+          repaired: false,
+          index: i,
+          evidence_id: evidenceId,
+          status: status,
+          message: 'CONFIRMED補完失敗: ' + e.message
+        });
+      }
+      continue;
+    }
+
+    skipped.push({
+      ok: true,
+      skipped: true,
+      index: i,
+      evidence_id: evidenceId,
+      status: status,
+      message: 'REQUESTEDではないため確認登録をスキップしました。'
+    });
   }
 
   let recordResult = {
@@ -304,14 +339,20 @@ function paypayCode_record(data, ctx) {
     }, ctx);
   }
 
+  const repairOk = repairResults.every(function(r) { return r.ok; });
+  const ok = recordResult.ok !== false && repairOk;
+
   return {
-    ok: recordResult.ok !== false,
-    success: recordResult.ok !== false,
+    ok: ok,
+    success: ok,
     memberId: memberId,
     evidenceCode: evidenceCode,
     recordResult: recordResult,
+    repaired: repairResults,
     skipped: skipped,
-    message: 'PayPay決済コードを登録しました。先生の決済更新後に入金反映されます。'
+    message: ok
+      ? 'PayPay決済コードを登録しました。先生の決済更新後に入金反映されます。'
+      : 'PayPay決済コードの登録または補完に失敗しました。'
   };
 }
 
@@ -332,10 +373,8 @@ function paypayCode_repairReusableEvidenceScope_(row, scope, ctx) {
   const evidenceId = normalizeId_(row.evidence_id || row['evidence_id']);
   if (!evidenceId) return row;
 
-  const currentReceptionDate = paymentEvidence_normalizeReceptionDate_(row.reception_date || row['reception_date'] || '');
   const currentLocationId = normalizeId_(row.location_id || row['location_id']);
   const currentBillingBlockId = normalizeId_(row.billing_block_id || row['billing_block_id']);
-  const desiredReceptionDate = paymentEvidence_normalizeReceptionDate_(scope.reception_date || '');
   const desiredLocationId = normalizeId_(scope.location_id);
   const desiredBillingBlockId = normalizeId_(scope.billing_block_id);
 
@@ -349,9 +388,6 @@ function paypayCode_repairReusableEvidenceScope_(row, scope, ctx) {
   }
 
   const updates = {};
-  if (!currentReceptionDate && desiredReceptionDate) {
-    updates.reception_date = desiredReceptionDate;
-  }
   if (!currentLocationId && desiredLocationId) {
     updates.location_id = desiredLocationId;
   }
@@ -392,7 +428,6 @@ function paypayCode_makeEvidenceDto_(row) {
     amount: Number(row.amount || row['amount'] || 0),
     status: normalizeId_(row.status || row['status']),
     evidence_code: normalizeId_(row.evidence_code || row['evidence_code']),
-    reception_date: paymentEvidence_normalizeReceptionDate_(row.reception_date || row['reception_date'] || ''),
     location_id: normalizeId_(row.location_id || row['location_id']),
     billing_block_id: normalizeId_(row.billing_block_id || row['billing_block_id'])
   };

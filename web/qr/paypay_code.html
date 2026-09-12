@@ -123,10 +123,12 @@
       if (!button || !input) return;
 
       const evidenceItems = info && Array.isArray(info.evidenceItems) ? info.evidenceItems : [];
-      const hasRequested = evidenceItems.some(function(evidence) {
-        return String(evidence.status || "").toUpperCase() === "REQUESTED";
+      const hasRecordTarget = evidenceItems.some(function(evidence) {
+        const status = String(evidence.status || "").toUpperCase();
+        const evidenceCode = String(evidence.evidence_code || "").trim();
+        return status === "REQUESTED" || (status === "CONFIRMED" && !evidenceCode);
       });
-      const alreadyRegistered = evidenceItems.length > 0 && !hasRequested;
+      const alreadyRegistered = evidenceItems.length > 0 && !hasRecordTarget;
 
       button.disabled = paypayRecordSending || alreadyRegistered;
       input.disabled = alreadyRegistered;
@@ -294,10 +296,12 @@
       }
 
       const evidenceItems = currentPayPay.evidenceItems || [];
-      const requestedItems = evidenceItems.filter(function(evidence) {
-        return String(evidence.status || "").toUpperCase() === "REQUESTED";
+      const recordItems = evidenceItems.filter(function(evidence) {
+        const status = String(evidence.status || "").toUpperCase();
+        const evidenceCode = String(evidence.evidence_code || "").trim();
+        return status === "REQUESTED" || (status === "CONFIRMED" && !evidenceCode);
       });
-      if (requestedItems.length === 0) {
+      if (recordItems.length === 0) {
         setMessage("recordResult", "決済コードは登録済みです。", "ok");
         setRecordControlState(currentPayPay);
         return;
@@ -314,7 +318,7 @@
         member_id: currentPayPay.memberId,
         plan_id: currentPayPay.planId,
         evidence_code: code,
-        evidence_items: requestedItems,
+        evidence_items: recordItems,
         location_id: currentPayPay.locationId || "",
         billing_block_id: currentPayPay.billingBlockId || "",
         teacher_id: currentPayPay.teacherId || "PAYPAY_MEMBER",
@@ -334,8 +338,9 @@
         },
         body: JSON.stringify(payload)
       }).then(function() {
-        requestedItems.forEach(function(evidence) {
+        recordItems.forEach(function(evidence) {
           evidence.status = "CONFIRMED";
+          evidence.evidence_code = code;
         });
         paypayRecordSending = false;
         setRecordControlState(currentPayPay);
