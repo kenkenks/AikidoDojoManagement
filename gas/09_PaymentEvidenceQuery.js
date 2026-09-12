@@ -29,7 +29,6 @@ function paymentEvidenceQuery_list(data, ctx) {
 
   const targetMonth = normalizeMonth(data.target_month || data.targetMonth || paymentEvidenceQuery_currentMonth_());
   const methodFilter = normalizeId_(data.payment_method || data.paymentMethod || "");
-  const receptionDateFilter = paymentEvidence_normalizeReceptionDate_(data.reception_date || data.receptionDate || "");
   const locationFilter = normalizeId_(data.location_id || data.locationId || "");
   const billingBlockFilter = normalizeId_(data.billing_block_id || data.billingBlockId || "");
   const statuses = paymentEvidenceQuery_parseStatuses_(data.statuses || data.status || "CONFIRMED");
@@ -51,9 +50,6 @@ function paymentEvidenceQuery_list(data, ctx) {
 
       const method = paymentEvidence_normalizePaymentMethod_(evidence["payment_method"]);
       if (methodFilter && method !== paymentEvidence_normalizePaymentMethod_(methodFilter)) return false;
-
-      const evidenceReceptionDate = paymentEvidence_normalizeReceptionDate_(evidence["reception_date"]);
-      if (receptionDateFilter && evidenceReceptionDate !== receptionDateFilter) return false;
 
       const evidenceLocationId = normalizeId_(evidence["location_id"]);
       const evidenceBillingBlockId = normalizeId_(evidence["billing_block_id"]);
@@ -93,7 +89,6 @@ function paymentEvidenceQuery_list(data, ctx) {
         confirmed_at: paymentEvidenceQuery_formatDateTime_(evidence["confirmed_at"]),
         posted_at: paymentEvidenceQuery_formatDateTime_(evidence["posted_at"]),
         payment_log_id: normalizeId_(evidence["payment_log_id"]),
-        reception_date: paymentEvidence_normalizeReceptionDate_(evidence["reception_date"]),
         location_id: normalizeId_(evidence["location_id"]),
         billing_block_id: normalizeId_(evidence["billing_block_id"]),
         remarks: String(evidence["remarks"] || "")
@@ -106,7 +101,6 @@ function paymentEvidenceQuery_list(data, ctx) {
     target_month: targetMonth,
     statuses: statuses,
     payment_method: methodFilter,
-    reception_date: receptionDateFilter,
     location_id: locationFilter,
     billing_block_id: billingBlockFilter,
     count: rows.length,
@@ -124,12 +118,24 @@ function paymentEvidence_postSelectedBatch(data, ctx) {
     data = data || {};
 
     const teacherId = normalizeId_(data.teacher_id || data.teacherId);
+    const receptionDate = normalizeId_(data.reception_date || data.receptionDate);
+    const locationId = normalizeId_(data.location_id || data.locationId);
+    const billingBlockId = normalizeId_(data.billing_block_id || data.billingBlockId);
+    const receptionSessionId = normalizeId_(data.reception_session_id || data.receptionSessionId);
     const items = Array.isArray(data.evidence_items)
       ? data.evidence_items
       : (Array.isArray(data.evidences) ? data.evidences : []);
 
     if (!teacherId) {
       return { ok: false, success: false, message: "teacher_id がありません。" };
+    }
+
+    if (!receptionDate || !locationId || !billingBlockId) {
+      return {
+        ok: false,
+        success: false,
+        message: "先生受付Scope（reception_date / location_id / billing_block_id）がありません。"
+      };
     }
 
     if (items.length === 0) {
@@ -154,6 +160,21 @@ function paymentEvidence_postSelectedBatch(data, ctx) {
         if (!evidence) {
           throw new Error("決済エビデンスが見つかりません: " + evidenceId);
         }
+
+        // PayPayのREQUESTED/CONFIRMED段階では受付場所・課金枠を持たないことがある。
+        // 先生が決済更新を受け付けた時点のScopeを09へ確定し、そのScopeで06へPOSTする。
+        const target = paymentEvidence_findRowById_(evidenceId, ctx);
+        if (!target) {
+          throw new Error("決済エビデンス行が見つかりません: " + evidenceId);
+        }
+        paymentEvidence_updateColumns_(target.rowNumber, {
+          reception_date: receptionDate,
+          location_id: locationId,
+          billing_block_id: billingBlockId,
+          teacher_id: teacherId,
+          reception_session_id: receptionSessionId
+        }, ctx);
+
         const result = paymentEvidence_post({ evidence_id: evidenceId }, ctx);
         results.push({
           ok: true,

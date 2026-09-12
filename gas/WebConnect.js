@@ -104,7 +104,6 @@ function doGet(e) {
         member_id: params.member_id || "",
         plan_id: params.plan_id || "",
         teacher_id: params.teacher_id || "PAYPAY_MEMBER",
-        reception_date: params.reception_date || sup_today(ctx),
         location_id: params.location_id || "",
         billing_block_id: params.billing_block_id || "",
         reception_session_id: params.reception_session_id || ""
@@ -119,16 +118,15 @@ function doGet(e) {
       status: params.status || "CONFIRMED",
       statuses: params.statuses || params.status || "CONFIRMED",
       payment_method: params.payment_method || "",
-      reception_date: params.reception_date || "",
       location_id: params.location_id || "",
       billing_block_id: params.billing_block_id || ""
     };
-    webTraceLog_("IN", traceId, { action: params.action, statuses: params.statuses || params.status || "", payment_method: params.payment_method || "", reception_date: params.reception_date || "", location_id: params.location_id || "", billing_block_id: params.billing_block_id || "" });
+    webTraceLog_("IN", traceId, { action: params.action, statuses: params.statuses || params.status || "", payment_method: params.payment_method || "", location_id: params.location_id || "", billing_block_id: params.billing_block_id || "" });
     webTraceLog_("MAP", traceId, mapped);
     const result = safelyExecute_(function() {
       return paymentEvidenceQuery_list(mapped, ctx);
     });
-    webTraceLog_("OUT", traceId, { action: params.action, ok: result && result.ok === true, count: result && result.count, total_amount: result && result.total_amount, reception_date: result && result.reception_date, location_id: result && result.location_id, billing_block_id: result && result.billing_block_id });
+    webTraceLog_("OUT", traceId, { action: params.action, ok: result && result.ok === true, count: result && result.count, total_amount: result && result.total_amount, location_id: result && result.location_id, billing_block_id: result && result.billing_block_id });
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
@@ -400,8 +398,10 @@ function doPost(e) {
         mode: data.mode,
         teacher_id: data.teacher_id || "",
         evidence_ids: (data.evidence_items || []).map(function(item) { return item && item.evidence_id || ""; }),
+        reception_date: data.reception_date || "",
         location_id: data.location_id || "",
-        billing_block_id: data.billing_block_id || ""
+        billing_block_id: data.billing_block_id || "",
+        reception_session_id: data.reception_session_id || ""
       });
     }
 
@@ -435,6 +435,10 @@ function doPost(e) {
       const mapped = {
         mode: data.mode,
         teacher_id: data.teacher_id || "",
+        reception_date: data.reception_date || "",
+        location_id: data.location_id || "",
+        billing_block_id: data.billing_block_id || "",
+        reception_session_id: data.reception_session_id || "",
         evidence_items: data.evidence_items || [],
         source: data.source || "",
         request_id: data.request_id || ""
@@ -443,6 +447,10 @@ function doPost(e) {
         mode: mapped.mode,
         teacher_id: mapped.teacher_id,
         evidence_ids: mapped.evidence_items.map(function(item) { return item && item.evidence_id || ""; }),
+        reception_date: mapped.reception_date,
+        location_id: mapped.location_id,
+        billing_block_id: mapped.billing_block_id,
+        reception_session_id: mapped.reception_session_id,
         source: mapped.source
       });
       const posted = paymentEvidence_postSelectedBatch(mapped, ctx);

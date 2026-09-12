@@ -948,6 +948,11 @@
         return;
       }
 
+      if (!currentLocationId || !currentBillingBlockId) {
+        addLog("決済更新スキップ: 道場・課金枠が未設定です。");
+        return;
+      }
+
       const selected = getSelectedConfirmedEvidences();
       if (selected.length === 0) {
         addLog("決済更新スキップ: 選択されたCONFIRMEDがありません。 ");
@@ -957,6 +962,10 @@
       const payload = {
         mode: "payment_evidence_post_selected",
         teacher_id: currentTeacherId,
+        reception_date: todayValue(),
+        location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId,
+        reception_session_id: receptionSessionId || makeReceptionSessionId(),
         evidence_items: selected.map(function(evidence) {
           return {
             evidence_id: evidence.evidence_id

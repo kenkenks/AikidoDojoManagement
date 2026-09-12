@@ -616,3 +616,109 @@ function runner_webInterface_paymentRemoteConfirmedToPosted_TEST() {
     billing_block_id: "B_KYO_MON_1030_1230"
   });
 }
+
+/**
+ * PayPayコード登録のWeb境界を検証する。
+ * 対象は CONFIRMED だが evidence_code / confirmed_at が欠けた修復対象Evidence。
+ * Browserを介さず doPost(mode=paypay_code_record) を通し、09 DTOの補完まで確認する。
+ */
+function runner_webInterface_paypayCodeRecordRepair(input) {
+  input = input || {};
+
+  const evidenceId = String(input.evidence_id || "").trim();
+  const memberId = String(input.member_id || "").trim();
+  const receptionDate = String(input.reception_date || "").trim();
+  const evidenceCode = String(input.evidence_code || "WEB-RUNNER-PAYPAY-CODE").trim();
+  const checks = [];
+
+  if (!evidenceId) throw new Error("evidence_id がありません。");
+  if (!memberId) throw new Error("member_id がありません。");
+  if (!receptionDate) throw new Error("reception_date がありません。");
+  if (!evidenceCode) throw new Error("evidence_code がありません。");
+
+  const before = runner_webInterface_get_({
+    action: "payment_evidence_list",
+    statuses: "CONFIRMED",
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
+  });
+  const targetBefore = (before.evidences || []).find(function(row) {
+    return String(row.evidence_id || "") === evidenceId;
+  });
+
+  runner_webInterface_assert_(checks,
+    !!targetBefore,
+    "対象EvidenceがCONFIRMED一覧に存在", targetBefore ? targetBefore.evidence_id : "", evidenceId);
+
+  if (!targetBefore) {
+    return runner_webInterface_finish_("WEB-PAYPAY-CODE-RECORD-001", checks, {
+      before: before
+    });
+  }
+
+  runner_webInterface_assert_(checks,
+    String(targetBefore.evidence_code || "") === "",
+    "実行前 evidence_code は空", targetBefore.evidence_code || "", "");
+
+  // 既にコードがある正常CONFIRMEDを誤って上書きしない。
+  if (String(targetBefore.evidence_code || "") !== "") {
+    return runner_webInterface_finish_("WEB-PAYPAY-CODE-RECORD-001", checks, {
+      targetBefore: targetBefore,
+      message: "正常CONFIRMEDのためPOSTを中止しました。"
+    });
+  }
+
+  const postResult = runner_webInterface_post_({
+    mode: "paypay_code_record",
+    member_id: memberId,
+    evidence_code: evidenceCode,
+    evidence_items: [
+      { evidence_id: evidenceId }
+    ],
+    source: "runner_webInterface_paypayCodeRecordRepair"
+  });
+
+  const after = runner_webInterface_get_({
+    action: "payment_evidence_list",
+    statuses: "CONFIRMED",
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
+  });
+  const targetAfter = (after.evidences || []).find(function(row) {
+    return String(row.evidence_id || "") === evidenceId;
+  });
+
+  runner_webInterface_assert_(checks,
+    postResult && postResult.ok === true,
+    "paypay_code_record WEB POST", postResult && postResult.ok, true);
+  runner_webInterface_assert_(checks,
+    !!targetAfter,
+    "POST後もCONFIRMEDとして存在", targetAfter ? targetAfter.evidence_id : "", evidenceId);
+  runner_webInterface_assert_(checks,
+    targetAfter && String(targetAfter.evidence_code || "") === evidenceCode,
+    "evidence_code が09へ反映", targetAfter ? targetAfter.evidence_code : "", evidenceCode);
+  runner_webInterface_assert_(checks,
+    targetAfter && !!String(targetAfter.confirmed_at || ""),
+    "confirmed_at が09へ反映", targetAfter ? targetAfter.confirmed_at : "", "non-empty");
+
+  return runner_webInterface_finish_("WEB-PAYPAY-CODE-RECORD-001", checks, {
+    targetBefore: targetBefore,
+    postPayload: {
+      member_id: memberId,
+      evidence_id: evidenceId,
+      evidence_code: evidenceCode
+    },
+    postResult: postResult,
+    targetAfter: targetAfter
+  });
+}
+
+/** Apps Script エディタから引数なしで実行する入口。 */
+function runner_webInterface_paypayCodeRecordRepair_TEST() {
+  return runner_webInterface_paypayCodeRecordRepair({
+    evidence_id: "PAYPAY-ebff2937",
+    member_id: "M001",
+    reception_date: "2026-10-05",
+    evidence_code: "WEB-RUNNER-PAYPAY-CODE"
+  });
+}
