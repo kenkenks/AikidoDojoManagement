@@ -48,7 +48,7 @@
     <h2>決済コード</h2>
     <label>PayPay決済コード</label>
     <input id="paypayCode" class="code-input" placeholder="PayPayの決済コードを貼り付け">
-    <button class="primary member" onclick="recordPayPayCode()">決済コードを登録</button>
+    <button id="recordPayPayButton" class="primary member" onclick="recordPayPayCode()">決済コードを登録</button>
     <div id="recordResult" class="note"></div>
   </section>
 
@@ -60,10 +60,50 @@
   <p class="note"><a href="member_home.html">会員ホームへ戻る</a></p>
 
   <script src="virtual_session.js"></script>
+  <script src="system_context.js"></script>
   <script>
     const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
 
     let currentPayPay = null;
+    let paypayRecordSending = false;
+
+    function getReceptionDate() {
+      const systemContext = window.DOJO_SYSTEM_CONTEXT || null;
+      if (systemContext && systemContext.system_now) {
+        return String(systemContext.system_now).slice(0, 10);
+      }
+
+      const session = window.DojoVirtualSession ? DojoVirtualSession.get() : null;
+      const context = session && session.context ? session.context : {};
+      if (context.reception_date) {
+        return String(context.reception_date).slice(0, 10);
+      }
+
+      return new Date().toLocaleDateString("sv-SE");
+    }
+
+    function setRecordControlState(info) {
+      const button = document.getElementById("recordPayPayButton");
+      const input = document.getElementById("paypayCode");
+      if (!button || !input) return;
+
+      const evidenceItems = info && Array.isArray(info.evidenceItems) ? info.evidenceItems : [];
+      const hasRequested = evidenceItems.some(function(evidence) {
+        return String(evidence.status || "").toUpperCase() === "REQUESTED";
+      });
+      const alreadyRegistered = evidenceItems.length > 0 && !hasRequested;
+
+      button.disabled = paypayRecordSending || alreadyRegistered;
+      input.disabled = alreadyRegistered;
+
+      if (paypayRecordSending) {
+        button.textContent = "送信中...";
+      } else if (alreadyRegistered) {
+        button.textContent = "決済コード登録済み";
+      } else {
+        button.textContent = "決済コードを登録";
+      }
+    }
 
     window.addEventListener("load", function() {
       const params = new URLSearchParams(window.location.search);
@@ -139,7 +179,7 @@
           action: "paypay_code_start",
           member_id: memberId,
           plan_id: resolvedPlanId,
-          reception_date: context.reception_date || new Date().toLocaleDateString("sv-SE"),
+          reception_date: getReceptionDate(),
           location_id: locationId,
           billing_block_id: billingBlockId,
           teacher_id: teacherId
@@ -189,11 +229,27 @@
         li.textContent = "対象エビデンスなし";
         evidenceList.appendChild(li);
       }
+
+      setRecordControlState(info);
     }
 
     function recordPayPayCode() {
       if (!currentPayPay) {
         setMessage("recordResult", "会費情報を先に表示してください。", "error");
+        return;
+      }
+
+      if (paypayRecordSending) {
+        return;
+      }
+
+      const evidenceItems = currentPayPay.evidenceItems || [];
+      const requestedItems = evidenceItems.filter(function(evidence) {
+        return String(evidence.status || "").toUpperCase() === "REQUESTED";
+      });
+      if (requestedItems.length === 0) {
+        setMessage("recordResult", "決済コードは登録済みです。", "ok");
+        setRecordControlState(currentPayPay);
         return;
       }
 
@@ -203,24 +259,20 @@
         return;
       }
 
-      const evidenceItems = currentPayPay.evidenceItems || [];
-      if (evidenceItems.length === 0) {
-        setMessage("recordResult", "登録対象の決済エビデンスがありません。", "error");
-        return;
-      }
-
       const payload = {
         mode: "paypay_code_record",
         member_id: currentPayPay.memberId,
         plan_id: currentPayPay.planId,
         evidence_code: code,
-        evidence_items: evidenceItems,
+        evidence_items: requestedItems,
         location_id: currentPayPay.locationId || "",
         billing_block_id: currentPayPay.billingBlockId || "",
         teacher_id: currentPayPay.teacherId || "PAYPAY_MEMBER",
         source: "paypay_code.html"
       };
 
+      paypayRecordSending = true;
+      setRecordControlState(currentPayPay);
       addLog("PayPayコード登録送信予定: " + JSON.stringify(payload));
       setMessage("recordResult", "決済コードを送信しています...", "note");
 
@@ -232,10 +284,17 @@
         },
         body: JSON.stringify(payload)
       }).then(function() {
+        requestedItems.forEach(function(evidence) {
+          evidence.status = "CONFIRMED";
+        });
+        paypayRecordSending = false;
+        setRecordControlState(currentPayPay);
         setMessage("recordResult", "決済コード登録要求を送信しました。先生の決済更新後に入金反映されます。", "ok");
         addLog("PayPayコード登録要求完了");
       }).catch(function(error) {
-        setMessage("recordResult", "決済コード登録送信に失敗しました。", "error");
+        paypayRecordSending = false;
+        setRecordControlState(currentPayPay);
+        setMessage("recordResult", "決済コード登録送信に失敗しました。再送できます。", "error");
         addLog("PayPayコード登録送信エラー: " + error);
       });
     }
