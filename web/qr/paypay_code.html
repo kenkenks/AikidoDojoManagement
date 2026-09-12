@@ -79,7 +79,42 @@
         return String(context.reception_date).slice(0, 10);
       }
 
-      return new Date().toLocaleDateString("sv-SE");
+      // 業務日付にブラウザ端末時計は使わない。
+      // 空なら GAS 側 paypay_code_start が sup_today(ctx) で確定する。
+      return "";
+    }
+
+    function waitForSystemContext() {
+      if (window.DOJO_SYSTEM_CONTEXT && window.DOJO_SYSTEM_CONTEXT.system_now) {
+        return Promise.resolve(window.DOJO_SYSTEM_CONTEXT);
+      }
+
+      return new Promise(function(resolve) {
+        let settled = false;
+
+        function finish(value) {
+          if (settled) return;
+          settled = true;
+          window.removeEventListener("dojo-system-context", onReady);
+          window.removeEventListener("dojo-system-context-error", onError);
+          resolve(value || null);
+        }
+
+        function onReady(event) {
+          finish(event && event.detail ? event.detail : window.DOJO_SYSTEM_CONTEXT);
+        }
+
+        function onError(event) {
+          addLog(
+            "System Context取得失敗: " +
+            ((event && event.detail && event.detail.message) || "不明なエラー")
+          );
+          finish(null);
+        }
+
+        window.addEventListener("dojo-system-context", onReady);
+        window.addEventListener("dojo-system-context-error", onError);
+      });
     }
 
     function setRecordControlState(info) {
@@ -106,6 +141,18 @@
     }
 
     window.addEventListener("load", function() {
+      initializePayPayPage();
+    });
+
+    async function initializePayPayPage() {
+      const systemContext = await waitForSystemContext();
+
+      if (systemContext && systemContext.system_now) {
+        addLog("System Context確定: system_now=" + systemContext.system_now);
+      } else {
+        addLog("System Context未取得。受付日はVirtualSessionまたはGAS側で確定します。");
+      }
+
       const params = new URLSearchParams(window.location.search);
       const queryMemberId = params.get("member_id") || "";
       const planId = params.get("plan_id") || "";
@@ -128,7 +175,7 @@
           (planId ? " / plan_id=" + planId + " (互換用)" : ""));
         startPayPayCode();
       }
-    });
+    }
 
     function startPayPayCode() {
       const memberId = document.getElementById("memberId").value.trim();
@@ -169,8 +216,11 @@
         const billingBlockId = context.billing_block_id || "";
         const teacherId = context.teacher_id || "";
 
+        const receptionDate = getReceptionDate();
+
         addLog(
-          "受付Scope: location_id=" + (locationId || "(空)") +
+          "受付Context: reception_date=" + (receptionDate || "(GAS側確定)") +
+          " / location_id=" + (locationId || "(空)") +
           " / billing_block_id=" + (billingBlockId || "(空)") +
           " / teacher_id=" + (teacherId || "PAYPAY_MEMBER")
         );
@@ -179,7 +229,7 @@
           action: "paypay_code_start",
           member_id: memberId,
           plan_id: resolvedPlanId,
-          reception_date: getReceptionDate(),
+          reception_date: receptionDate,
           location_id: locationId,
           billing_block_id: billingBlockId,
           teacher_id: teacherId
