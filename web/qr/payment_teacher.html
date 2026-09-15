@@ -626,10 +626,42 @@
         currentBillingBlockName = result.billing_block_name || currentBillingBlockId;
         document.getElementById("billingBlockName").textContent = currentBillingBlockName;
         addLog("課金枠確認完了: " + currentBillingBlockName);
-        loadRegisteredScopeSummary();
-        loadPaymentEvidenceLists();
+        loadPaymentScreenRead();
       }).catch(function(error) {
         addLog("課金枠確認失敗: " + (error.message || String(error)));
+      });
+    }
+
+    function loadPaymentScreenRead() {
+      addLog("決済画面情報取得開始");
+      return jsonp(GAS_URL, {
+        action: "payment_screen_read",
+        reception_date: todayValue(),
+        location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId,
+        payment_method: "PAYPAY"
+      }).then(function(result) {
+        if (!result || result.ok !== true) throw new Error((result && result.message) || "決済画面情報を取得できませんでした。");
+        const summary = result.summary || {};
+        const confirmedResult = result.confirmed || {};
+        const postedResult = result.posted || {};
+
+        document.getElementById("registeredCashTotal").textContent = formatYen(summary.cash_total);
+        document.getElementById("registeredPaypayTotal").textContent = formatYen(summary.paypay_total);
+        document.getElementById("registeredGrandTotal").textContent = formatYen(summary.total_amount);
+        document.getElementById("registeredPaymentCount").textContent = Number(summary.payment_count || 0);
+        document.getElementById("expectedCollectionTotal").textContent = formatYen(summary.expected_total || 0);
+        document.getElementById("attendanceMemberCount").textContent = Number(summary.attendance_member_count || 0);
+        renderAttendancePaymentWarnings(summary.reconciliation_items || []);
+        renderRegisteredPayments(summary.payments || []);
+
+        confirmedEvidences = Array.isArray(confirmedResult.evidences) ? confirmedResult.evidences : [];
+        postedEvidences = Array.isArray(postedResult.evidences) ? postedResult.evidences : [];
+        renderConfirmedEvidences();
+        renderPostedEvidences();
+        addLog("決済画面情報取得完了: 集計=" + Number(summary.payment_count || 0) + "件 / CONFIRMED=" + confirmedEvidences.length + " / POSTED=" + postedEvidences.length);
+      }).catch(function(error) {
+        addLog("決済画面情報取得失敗: " + (error.message || String(error)));
       });
     }
 

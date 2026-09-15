@@ -173,6 +173,25 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  if (params.action === "payment_screen_read") {
+    const mapped = {
+      reception_date: params.reception_date || "",
+      location_id: params.location_id || "",
+      billing_block_id: params.billing_block_id || "",
+      target_month: params.target_month || sup_targetMonth(ctx),
+      payment_method: params.payment_method || "PAYPAY"
+    };
+    webTraceLog_("IN", traceId, { action: params.action, reception_date: mapped.reception_date, location_id: mapped.location_id, billing_block_id: mapped.billing_block_id });
+    const result = safelyExecute_(function() {
+      const summary = paymentReception_getScopeSummary(mapped, ctx);
+      const confirmed = paymentEvidenceQuery_list({ target_month:mapped.target_month, statuses:"CONFIRMED", payment_method:mapped.payment_method }, ctx);
+      const posted = paymentEvidenceQuery_list({ target_month:mapped.target_month, statuses:"POSTED", payment_method:mapped.payment_method }, ctx);
+      return { ok: summary && summary.ok === true && confirmed && confirmed.ok === true && posted && posted.ok === true, summary:summary, confirmed:confirmed, posted:posted };
+    });
+    webTraceLog_("OUT", traceId, { action: params.action, ok: result && result.ok === true });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "payment_reception_summary") {
     const mapped = {
       reception_date: params.reception_date || "",
