@@ -127,47 +127,32 @@ function runner_webInterface_paymentScreenRead(input) {
   });
   perf.attendance_session_info_ms = Date.now() - startedAt;
 
+  // Browser と同じく、決済画面の Summary / CONFIRMED / POSTED は1回で取得する。
   startedAt = Date.now();
-  const summary = runner_webInterface_get_({
-    action: "payment_reception_summary",
+  const screenRead = runner_webInterface_get_({
+    action: "payment_screen_read",
     reception_date: receptionDate,
     location_id: locationId,
     billing_block_id: billingBlockId,
-    callback: callback
-  });
-  perf.payment_reception_summary_ms = Date.now() - startedAt;
-
-  // Evidence一覧は現在の先生画面と同じく課金枠条件を渡さない。
-  startedAt = Date.now();
-  const confirmed = runner_webInterface_get_({
-    action: "payment_evidence_list",
-    statuses: "CONFIRMED",
     payment_method: "PAYPAY",
-    reception_date: receptionDate,
     callback: callback
   });
-  perf.payment_evidence_confirmed_ms = Date.now() - startedAt;
-
-  startedAt = Date.now();
-  const posted = runner_webInterface_get_({
-    action: "payment_evidence_list",
-    statuses: "POSTED",
-    payment_method: "PAYPAY",
-    reception_date: receptionDate,
-    callback: callback
-  });
-  perf.payment_evidence_posted_ms = Date.now() - startedAt;
+  perf.payment_screen_read_ms = Date.now() - startedAt;
   perf.total_ms = Date.now() - totalStartedAt;
   Logger.log("[PERF-RELOAD] " + JSON.stringify(perf));
 
+  const summary = screenRead && screenRead.summary ? screenRead.summary : {};
+  const confirmed = screenRead && screenRead.confirmed ? screenRead.confirmed : {};
+  const posted = screenRead && screenRead.posted ? screenRead.posted : {};
+
   runner_webInterface_assert_(checks, session && session.ok === true,
     "attendance_session_info WEB入口", session && session.ok, true);
-  runner_webInterface_assert_(checks, summary && summary.ok === true,
-    "payment_reception_summary WEB入口", summary && summary.ok, true);
+  runner_webInterface_assert_(checks, screenRead && screenRead.ok === true,
+    "payment_screen_read WEB入口", screenRead && screenRead.ok, true);
   runner_webInterface_assert_(checks, confirmed && confirmed.ok === true,
-    "payment_evidence_list CONFIRMED WEB入口", confirmed && confirmed.ok, true);
+    "payment_screen_read CONFIRMED", confirmed && confirmed.ok, true);
   runner_webInterface_assert_(checks, posted && posted.ok === true,
-    "payment_evidence_list POSTED WEB入口", posted && posted.ok, true);
+    "payment_screen_read POSTED", posted && posted.ok, true);
 
   runner_webInterface_assert_(checks,
     String(summary.location_id || "") === locationId,
@@ -179,8 +164,6 @@ function runner_webInterface_paymentScreenRead(input) {
     String(summary.reception_date || "") === receptionDate,
     "summary reception_date 往復", summary.reception_date || "", receptionDate);
 
-  // payment_reception_summary の画面表示DTO契約。
-  // Query/Read Model の読み元を変更しても、この契約が維持されることを同じRunnerで確認する。
   runner_webInterface_assert_(checks,
     Array.isArray(summary.payments),
     "summary DTO payments", Array.isArray(summary.payments), true);

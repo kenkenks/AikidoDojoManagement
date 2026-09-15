@@ -184,8 +184,9 @@ function doGet(e) {
     webTraceLog_("IN", traceId, { action: params.action, reception_date: mapped.reception_date, location_id: mapped.location_id, billing_block_id: mapped.billing_block_id });
     const result = safelyExecute_(function() {
       const summary = paymentReception_getScopeSummary(mapped, ctx);
-      const confirmed = paymentEvidenceQuery_list({ target_month:mapped.target_month, statuses:"CONFIRMED", payment_method:mapped.payment_method }, ctx);
-      const posted = paymentEvidenceQuery_list({ target_month:mapped.target_month, statuses:"POSTED", payment_method:mapped.payment_method }, ctx);
+      const evidenceReadModel = paymentEvidenceQuery_loadReadModel_(ctx);
+      const confirmed = paymentEvidenceQuery_listFromReadModel_({ target_month:mapped.target_month, statuses:"CONFIRMED", payment_method:mapped.payment_method }, evidenceReadModel);
+      const posted = paymentEvidenceQuery_listFromReadModel_({ target_month:mapped.target_month, statuses:"POSTED", payment_method:mapped.payment_method }, evidenceReadModel);
       return { ok: summary && summary.ok === true && confirmed && confirmed.ok === true && posted && posted.ok === true, summary:summary, confirmed:confirmed, posted:posted };
     });
     webTraceLog_("OUT", traceId, { action: params.action, ok: result && result.ok === true });

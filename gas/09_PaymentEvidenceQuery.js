@@ -25,13 +25,15 @@
 
 function paymentEvidenceQuery_list(data, ctx) {
   ctx = ensureSheetContext(ctx || createSheetContext());
-  data = data || {};
+  return paymentEvidenceQuery_listFromReadModel_(data, paymentEvidenceQuery_loadReadModel_(ctx));
+}
 
-  const targetMonth = normalizeMonth(data.target_month || data.targetMonth || paymentEvidenceQuery_currentMonth_());
-  const methodFilter = normalizeId_(data.payment_method || data.paymentMethod || "");
-  const locationFilter = normalizeId_(data.location_id || data.locationId || "");
-  const billingBlockFilter = normalizeId_(data.billing_block_id || data.billingBlockId || "");
-  const statuses = paymentEvidenceQuery_parseStatuses_(data.statuses || data.status || "CONFIRMED");
+/**
+ * Payment Evidence 一覧用の Read Model を1回だけロードする。
+ * 同一画面で複数 status を生成する場合は、この結果を共有する。
+ */
+function paymentEvidenceQuery_loadReadModel_(ctx) {
+  ctx = ensureSheetContext(ctx || createSheetContext());
 
   const invoicesById = {};
   getInvoices(ctx).forEach(function(invoice) {
@@ -43,7 +45,30 @@ function paymentEvidenceQuery_list(data, ctx) {
     memberNames[normalizeId_(member["member_id"])] = String(member["氏名"] || "");
   });
 
-  const rows = getPaymentEvidences(ctx)
+  return {
+    invoicesById: invoicesById,
+    memberNames: memberNames,
+    evidences: getPaymentEvidences(ctx)
+  };
+}
+
+/**
+ * ロード済み Read Model から Evidence DTO を生成する。
+ * Sheet I/O は行わない。
+ */
+function paymentEvidenceQuery_listFromReadModel_(data, readModel) {
+  data = data || {};
+  readModel = readModel || { invoicesById:{}, memberNames:{}, evidences:[] };
+
+  const targetMonth = normalizeMonth(data.target_month || data.targetMonth || paymentEvidenceQuery_currentMonth_());
+  const methodFilter = normalizeId_(data.payment_method || data.paymentMethod || "");
+  const locationFilter = normalizeId_(data.location_id || data.locationId || "");
+  const billingBlockFilter = normalizeId_(data.billing_block_id || data.billingBlockId || "");
+  const statuses = paymentEvidenceQuery_parseStatuses_(data.statuses || data.status || "CONFIRMED");
+  const invoicesById = readModel.invoicesById || {};
+  const memberNames = readModel.memberNames || {};
+
+  const rows = (readModel.evidences || [])
     .filter(function(evidence) {
       const status = normalizeId_(evidence["status"]);
       if (statuses.length > 0 && statuses.indexOf(status) < 0) return false;
@@ -61,9 +86,7 @@ function paymentEvidenceQuery_list(data, ctx) {
         ? normalizeMonth(invoice["target_month"])
         : normalizeMonth(evidence["target_month"] || "");
 
-      if (targetMonth && month !== targetMonth) return false;
-
-      return true;
+      return !targetMonth || month === targetMonth;
     })
     .map(function(evidence) {
       const invoice = invoicesById[normalizeId_(evidence["invoice_id"])] || {};
