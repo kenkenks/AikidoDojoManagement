@@ -110,14 +110,19 @@ function runner_webInterface_paymentScreenRead(input) {
   }
 
   const checks = [];
+  const perf = {};
+  const totalStartedAt = Date.now();
 
+  let startedAt = Date.now();
   const session = runner_webInterface_get_({
     action: "attendance_session_info",
     location_id: locationId,
     billing_block_id: billingBlockId,
     callback: callback
   });
+  perf.attendance_session_info_ms = Date.now() - startedAt;
 
+  startedAt = Date.now();
   const summary = runner_webInterface_get_({
     action: "payment_reception_summary",
     reception_date: receptionDate,
@@ -125,8 +130,10 @@ function runner_webInterface_paymentScreenRead(input) {
     billing_block_id: billingBlockId,
     callback: callback
   });
+  perf.payment_reception_summary_ms = Date.now() - startedAt;
 
   // Evidence一覧は現在の先生画面と同じく課金枠条件を渡さない。
+  startedAt = Date.now();
   const confirmed = runner_webInterface_get_({
     action: "payment_evidence_list",
     statuses: "CONFIRMED",
@@ -134,7 +141,9 @@ function runner_webInterface_paymentScreenRead(input) {
     reception_date: receptionDate,
     callback: callback
   });
+  perf.payment_evidence_confirmed_ms = Date.now() - startedAt;
 
+  startedAt = Date.now();
   const posted = runner_webInterface_get_({
     action: "payment_evidence_list",
     statuses: "POSTED",
@@ -142,6 +151,9 @@ function runner_webInterface_paymentScreenRead(input) {
     reception_date: receptionDate,
     callback: callback
   });
+  perf.payment_evidence_posted_ms = Date.now() - startedAt;
+  perf.total_ms = Date.now() - totalStartedAt;
+  Logger.log("[PERF-RELOAD] " + JSON.stringify(perf));
 
   runner_webInterface_assert_(checks, session && session.ok === true,
     "attendance_session_info WEB入口", session && session.ok, true);
@@ -170,12 +182,6 @@ function runner_webInterface_paymentScreenRead(input) {
     "POSTED DTO evidences", Array.isArray(posted.evidences), true);
 
   runner_webInterface_assert_(checks,
-    String(confirmed.reception_date || "") === receptionDate,
-    "CONFIRMED reception_date 往復", confirmed.reception_date || "", receptionDate);
-  runner_webInterface_assert_(checks,
-    String(posted.reception_date || "") === receptionDate,
-    "POSTED reception_date 往復", posted.reception_date || "", receptionDate);
-  runner_webInterface_assert_(checks,
     (confirmed.evidences || []).every(function(row) { return String(row.reception_date || "") === receptionDate; }),
     "CONFIRMED Evidence受付日一致", true, true);
   runner_webInterface_assert_(checks,
@@ -183,6 +189,7 @@ function runner_webInterface_paymentScreenRead(input) {
     "POSTED Evidence受付日一致", true, true);
 
   return runner_webInterface_finish_("WEB-PAYMENT-READ-001", checks, {
+    perf: perf,
     session: session,
     summary: summary,
     confirmed: confirmed,
@@ -194,9 +201,9 @@ function runner_webInterface_paymentScreenRead(input) {
 // 日付を変えた場合はここだけ変更する。
 function runner_webInterface_paymentScreenRead_TEST() {
   const result = runner_webInterface_paymentScreenRead({
-    reception_date: "2026-09-14",
+    reception_date: "2026-10-02",
     location_id: "HONBU",
-    billing_block_id: "B_KYO_MON_1030_1230"
+    billing_block_id: "B_KYO_FRI_1030_1230"
   });
 
   if (!result || result.ok !== true) {

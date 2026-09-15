@@ -626,7 +626,6 @@
         currentBillingBlockName = result.billing_block_name || currentBillingBlockId;
         document.getElementById("billingBlockName").textContent = currentBillingBlockName;
         addLog("課金枠確認完了: " + currentBillingBlockName);
-        loadRegisteredScopeSummary();
         loadPaymentEvidenceLists();
       }).catch(function(error) {
         addLog("課金枠確認失敗: " + (error.message || String(error)));
@@ -988,7 +987,6 @@
         addLog("選択決済更新要求完了。数秒後に一覧・受付集計を再取得します。 ");
         window.setTimeout(function() {
           loadPaymentEvidenceLists();
-          loadRegisteredScopeSummary();
         }, 2500);
       }).catch(function(err) {
         addLog("選択決済更新エラー: " + err);
@@ -1283,7 +1281,6 @@
   initializeReceptionScopeFromUrl();
   window.addEventListener("dojo-system-context", function() {
     receptionSessionId = makeReceptionSessionId();
-    loadRegisteredScopeSummary();
   });
 
 </script>
