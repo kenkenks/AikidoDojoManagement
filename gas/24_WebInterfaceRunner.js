@@ -99,6 +99,11 @@ function runner_webInterface_paymentScreenRead(input) {
   const receptionDate = String(input.reception_date || "").trim();
   const locationId = String(input.location_id || "").trim();
   const billingBlockId = String(input.billing_block_id || "").trim();
+  const expectedInvoiceId = String(input.expected_invoice_id || "").trim();
+  const expectedMemberId = String(input.expected_member_id || "").trim();
+  const expectedMemberName = String(input.expected_member_name || "").trim();
+  const expectedPayPayTotal = input.expected_paypay_total;
+  const expectedPaymentCount = input.expected_payment_count;
   const callback = "runnerWebCallback";
 
   if (!receptionDate || !locationId || !billingBlockId) {
@@ -174,6 +179,52 @@ function runner_webInterface_paymentScreenRead(input) {
     String(summary.reception_date || "") === receptionDate,
     "summary reception_date 往復", summary.reception_date || "", receptionDate);
 
+  // payment_reception_summary の画面表示DTO契約。
+  // Query/Read Model の読み元を変更しても、この契約が維持されることを同じRunnerで確認する。
+  runner_webInterface_assert_(checks,
+    Array.isArray(summary.payments),
+    "summary DTO payments", Array.isArray(summary.payments), true);
+
+  if (expectedPayPayTotal !== undefined && expectedPayPayTotal !== null && expectedPayPayTotal !== "") {
+    runner_webInterface_assert_(checks,
+      Number(summary.paypay_total || 0) === Number(expectedPayPayTotal),
+      "summary PayPay合計", Number(summary.paypay_total || 0), Number(expectedPayPayTotal));
+  }
+  if (expectedPaymentCount !== undefined && expectedPaymentCount !== null && expectedPaymentCount !== "") {
+    runner_webInterface_assert_(checks,
+      Number(summary.payment_count || 0) === Number(expectedPaymentCount),
+      "summary 入金件数", Number(summary.payment_count || 0), Number(expectedPaymentCount));
+  }
+
+  if (expectedInvoiceId) {
+    const summaryPayment = (summary.payments || []).find(function(row) {
+      return String(row.invoice_id || "") === expectedInvoiceId;
+    });
+    runner_webInterface_assert_(checks, !!summaryPayment,
+      "summary payments 対象請求", summaryPayment ? summaryPayment.invoice_id : "", expectedInvoiceId);
+
+    if (expectedMemberId) {
+      runner_webInterface_assert_(checks,
+        summaryPayment && String(summaryPayment.member_id || "") === expectedMemberId,
+        "summary payments member_id", summaryPayment ? summaryPayment.member_id : "", expectedMemberId);
+    }
+    if (expectedMemberName) {
+      runner_webInterface_assert_(checks,
+        summaryPayment && String(summaryPayment.member_name || "") === expectedMemberName,
+        "summary payments member_name", summaryPayment ? summaryPayment.member_name : "", expectedMemberName);
+    }
+  }
+
+  runner_webInterface_assert_(checks,
+    Array.isArray(summary.reconciliation_items),
+    "summary DTO reconciliation_items", Array.isArray(summary.reconciliation_items), true);
+  runner_webInterface_assert_(checks,
+    Number.isFinite(Number(summary.attendance_member_count)),
+    "summary DTO attendance_member_count", summary.attendance_member_count, "number");
+  runner_webInterface_assert_(checks,
+    Number.isFinite(Number(summary.outstanding_total)),
+    "summary DTO outstanding_total", summary.outstanding_total, "number");
+
   runner_webInterface_assert_(checks,
     Array.isArray(confirmed.evidences),
     "CONFIRMED DTO evidences", Array.isArray(confirmed.evidences), true);
@@ -203,7 +254,12 @@ function runner_webInterface_paymentScreenRead_TEST() {
   const result = runner_webInterface_paymentScreenRead({
     reception_date: "2026-10-02",
     location_id: "HONBU",
-    billing_block_id: "B_KYO_FRI_1030_1230"
+    billing_block_id: "B_KYO_FRI_1030_1230",
+    expected_invoice_id: "INV-2026-10-G001-M001-55239935",
+    expected_member_id: "M001",
+    expected_member_name: "山田太郎",
+    expected_paypay_total: 1500,
+    expected_payment_count: 1
   });
 
   if (!result || result.ok !== true) {
