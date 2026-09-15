@@ -626,6 +626,7 @@
         currentBillingBlockName = result.billing_block_name || currentBillingBlockId;
         document.getElementById("billingBlockName").textContent = currentBillingBlockName;
         addLog("課金枠確認完了: " + currentBillingBlockName);
+        loadRegisteredScopeSummary();
         loadPaymentEvidenceLists();
       }).catch(function(error) {
         addLog("課金枠確認失敗: " + (error.message || String(error)));
