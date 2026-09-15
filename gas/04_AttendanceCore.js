@@ -178,6 +178,10 @@ function attendanceCore_registerBatch_(options, ctx) {
 
   appendAttendanceRows(rowsToAppend, ctx);
 
+  // 07へ保存した同じ出席事実を、その場で20 Read Modelへ投影する。
+  // 取消対象も同時に渡し、View側の明細から除外する。
+  paymentStatusView_projectAttendances_(rowsToAppend, rowsToCancel, ctx);
+
   return {
     ok: true,
     attendance_session_id: sessionId,

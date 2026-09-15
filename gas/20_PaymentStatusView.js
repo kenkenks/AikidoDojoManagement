@@ -80,6 +80,36 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   const otherPaidTotal = paidTotal - cashPaidTotal - paypayPaidTotal;
   const paymentCount = groupPayments.length;
 
+  // Read Modelの個別明細はCommand時の直接Projectionに加え、
+  // Source of Truth(06/07)からも同じ形へ再構築できるようにする。
+  // これによりView削除・列追加後も refresh/refreshAll だけで復旧できる。
+  const invoiceMemberIds = {};
+  (invoices || []).forEach(function(invoice) {
+    const invoiceId = normalizeId_(invoice["invoice_id"]);
+    if (invoiceId) {
+      invoiceMemberIds[invoiceId] = normalizeId_(invoice["member_id"]);
+    }
+  });
+  const receptionPayments = groupPayments.map(function(payment) {
+    const invoiceId = normalizeId_(payment["invoice_id"]);
+    return paymentStatusView_makePaymentDetailFromRow_(payment, {
+      member_id: normalizeId_(payment["member_id"]) || invoiceMemberIds[invoiceId] || normalizeId_(memberId),
+      billing_group_id: normalizeId_(payment["billing_group_id"]) || normalizeId_(billingGroupId)
+    });
+  }).filter(function(item) {
+    return !!item.payment_id && !!item.member_id;
+  });
+
+  const attendanceItems = (attendances || []).filter(function(attendance) {
+    return isActiveMasterRow_(attendance) &&
+      normalizeId_(attendance["member_id"]) === normalizeId_(memberId) &&
+      normalizeMonth(attendance["target_month"] || attendance["稽古日"]) === normalizedTargetMonth;
+  }).map(function(attendance) {
+    return paymentStatusView_makeAttendanceDetailFromRow_(attendance);
+  }).filter(function(item) {
+    return !!item.attendance_id;
+  });
+
   // 09_決済エビデンス自体には target_month を持たない。
   // 対象月は evidence が参照する 05_請求明細から収集する。
   // Viewはここで業務判断せず、正本間の既存参照関係をたどって情報を集約するだけ。
@@ -147,6 +177,8 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
       paypayPaidTotal,
       otherPaidTotal,
       paymentCount,
+      receptionPayments,
+      attendanceItems,
       evidenceRequestedCount,
       evidenceConfirmedCount,
       evidencePostedCount,
@@ -182,6 +214,8 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
       paypayPaidTotal,
       otherPaidTotal,
       paymentCount,
+      receptionPayments,
+      attendanceItems,
       evidenceRequestedCount,
       evidenceConfirmedCount,
       evidencePostedCount,
@@ -257,6 +291,8 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
     paypayPaidTotal,
     otherPaidTotal,
     paymentCount,
+    receptionPayments,
+    attendanceItems,
     evidenceRequestedCount,
     evidenceConfirmedCount,
     evidencePostedCount,
@@ -313,6 +349,8 @@ function paymentStatusView_buildRow(memberId, targetMonth, ctx) {
     s06_paypay_paid_total: Number(ctx.paypayPaidTotal || 0),
     s06_other_paid_total: Number(ctx.otherPaidTotal || 0),
     s06_payment_count: Number(ctx.paymentCount || 0),
+    s06_reception_payments_json: JSON.stringify(ctx.receptionPayments || []),
+    s07_attendance_items_json: JSON.stringify(ctx.attendanceItems || []),
     s07_lesson_count: Number(ctx.lessonCount || 0),
     s07_attended_today: !!ctx.todayAttendanceRegistered,
     s09_cash_request_count: Number(ctx.cashRequestsLen || 0),
@@ -334,6 +372,8 @@ function paymentStatusView_buildRow(memberId, targetMonth, ctx) {
     invoice_summary: dto.s05_invoice_summary,
     invoice_items_json: dto.s05_invoice_items_json,
     unpaid_invoice_items_json: dto.s05_unpaid_invoice_items_json,
+    reception_payments_json: dto.s06_reception_payments_json,
+    attendance_items_json: dto.s07_attendance_items_json,
     会員名: dto.s01_member_name,
     会費タイプ: dto.s04_plan_type,
     請求額: dto.s05_billed_total,
@@ -369,6 +409,8 @@ function paymentStatusView_schemaTemplate_() {
     invoice_summary: "",
     invoice_items_json: "[]",
     unpaid_invoice_items_json: "[]",
+    reception_payments_json: "[]",
+    attendance_items_json: "[]",
     会員名: "",
     会費タイプ: "",
     請求額: 0,
@@ -391,6 +433,139 @@ function paymentStatusView_schemaTemplate_() {
     メッセージ: "",
     更新日時: ""
   };
+}
+
+
+// Source of Truth再構築とCommand直接Projectionで同じdetail形を使う。
+function paymentStatusView_makePaymentDetailFromRow_(payment, fallback) {
+  payment = payment || {};
+  fallback = fallback || {};
+  return {
+    payment_id: normalizeId_(payment.payment_id || payment["payment_id"]),
+    reception_date: paymentStatusTeacher_normalizeDate_(payment.reception_date || payment["reception_date"] || payment["日時"]),
+    target_month: normalizeMonth(payment.target_month || payment["target_month"]),
+    member_id: normalizeId_(payment.member_id || payment["member_id"] || fallback.member_id),
+    billing_group_id: normalizeId_(payment.billing_group_id || payment["billing_group_id"] || fallback.billing_group_id),
+    invoice_id: normalizeId_(payment.invoice_id || payment["invoice_id"]),
+    amount: Number(payment["入金額"] || payment["金額"] || payment.amount || 0),
+    payment_method: paymentEvidence_normalizePaymentMethod_(payment["支払方法"] || payment.payment_method),
+    paid_at: paymentStatusTeacher_formatDateTime_(payment["日時"] || payment.paid_at),
+    location_id: normalizeId_(payment.location_id || payment["location_id"]),
+    billing_block_id: normalizeId_(payment.billing_block_id || payment["billing_block_id"]),
+    teacher_id: normalizeId_(payment.teacher_id || payment["teacher_id"]),
+    reception_session_id: normalizeId_(payment.reception_session_id || payment["reception_session_id"])
+  };
+}
+
+function paymentStatusView_makeAttendanceDetailFromRow_(row) {
+  row = row || {};
+  return {
+    attendance_id: normalizeId_(row.attendance_id || row["attendance_id"]),
+    attendance_date: paymentStatusTeacher_normalizeDate_(row["稽古日"] || row.attendance_date),
+    target_month: normalizeMonth(row.target_month || row["target_month"] || row["稽古日"]),
+    member_id: normalizeId_(row.member_id || row["member_id"]),
+    location_id: normalizeId_(row.location_id || row["location_id"]),
+    slot_id: normalizeId_(row.slot_id || row["slot_id"]),
+    billing_block_id: normalizeId_(row.billing_block_id || row["billing_block_id"]),
+    teacher_id: normalizeId_(row.teacher_id || row["teacher_id"]),
+    attendance_session_id: normalizeId_(row.attendance_session_id || row["attendance_session_id"]),
+    status: String(row["状態"] || row.status || "")
+  };
+}
+
+// ==============================
+// Command -> View detail projection
+// ==============================
+// 受付画面で必要になる個別事実は、06/07を表示時に再読込するのではなく、
+// 事実が確定したCommand側から member × month Viewへそのまま投影する。
+// 06/07は正本のまま、20はRead Modelとして検索用の複製を保持する。
+function paymentStatusView_projectPayment_(payment, ctx) {
+  ctx = ensureSheetContext(ctx);
+  paymentStatusView_ensureViewHeaders_(paymentStatusView_schemaTemplate_(), ctx);
+
+  const memberId = normalizeId_(payment && payment.member_id);
+  const targetMonth = normalizeMonth(payment && payment.target_month);
+  const paymentId = normalizeId_(payment && payment.payment_id);
+  if (!memberId || !targetMonth || !paymentId) return { ok: false, reason: "INVALID_PAYMENT_PROJECTION" };
+
+  const items = paymentStatusView_readDetailItems_(memberId, targetMonth, "reception_payments_json", ctx);
+  const projected = paymentStatusView_makePaymentDetailFromRow_(payment);
+
+  paymentStatusView_upsertDetailItem_(items, "payment_id", projected);
+  paymentStatusView_update(memberId, targetMonth, {
+    reception_payments_json: JSON.stringify(items)
+  }, ctx);
+  invalidateFeeStatusView(ctx);
+  return { ok: true, item: projected };
+}
+
+function paymentStatusView_projectAttendances_(attendanceRows, cancelledRows, ctx) {
+  ctx = ensureSheetContext(ctx);
+  paymentStatusView_ensureViewHeaders_(paymentStatusView_schemaTemplate_(), ctx);
+
+  const changes = {};
+  (attendanceRows || []).forEach(function(row) {
+    const memberId = normalizeId_(row.member_id);
+    const targetMonth = normalizeMonth(row.target_month || String(row["稽古日"] || "").slice(0, 7));
+    const attendanceId = normalizeId_(row.attendance_id);
+    if (!memberId || !targetMonth || !attendanceId) return;
+    const key = targetMonth + "|" + memberId;
+    if (!changes[key]) changes[key] = { memberId: memberId, targetMonth: targetMonth, add: [], remove: {} };
+    changes[key].add.push(paymentStatusView_makeAttendanceDetailFromRow_(row));
+  });
+
+  (cancelledRows || []).forEach(function(row) {
+    const memberId = normalizeId_(row.member_id);
+    const targetMonth = normalizeMonth(row.target_month || String(row["稽古日"] || "").slice(0, 7));
+    const attendanceId = normalizeId_(row.attendance_id);
+    if (!memberId || !targetMonth || !attendanceId) return;
+    const key = targetMonth + "|" + memberId;
+    if (!changes[key]) changes[key] = { memberId: memberId, targetMonth: targetMonth, add: [], remove: {} };
+    changes[key].remove[attendanceId] = true;
+  });
+
+  Object.keys(changes).forEach(function(key) {
+    const change = changes[key];
+    let items = paymentStatusView_readDetailItems_(change.memberId, change.targetMonth, "attendance_items_json", ctx);
+    items = items.filter(function(item) { return !change.remove[normalizeId_(item.attendance_id)]; });
+    change.add.forEach(function(item) { paymentStatusView_upsertDetailItem_(items, "attendance_id", item); });
+    paymentStatusView_update(change.memberId, change.targetMonth, { attendance_items_json: JSON.stringify(items) }, ctx);
+  });
+
+  invalidateFeeStatusView(ctx);
+  return { ok: true, updated_rows: Object.keys(changes).length };
+}
+
+function paymentStatusView_readDetailItems_(memberId, targetMonth, columnName, ctx) {
+  const sheet = getRequiredSheet_("20_会費状態View", ctx);
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return [];
+  const headers = values[0].map(function(header) { return String(header).trim(); });
+  const memberCol = headers.indexOf("member_id");
+  const monthCol = headers.indexOf("target_month");
+  const detailCol = headers.indexOf(columnName);
+  if (memberCol < 0 || monthCol < 0 || detailCol < 0) return [];
+
+  for (let i = 1; i < values.length; i++) {
+    if (normalizeId_(values[i][memberCol]) !== normalizeId_(memberId)) continue;
+    if (normalizeMonth(values[i][monthCol]) !== normalizeMonth(targetMonth)) continue;
+    try {
+      const parsed = JSON.parse(String(values[i][detailCol] || "[]"));
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  }
+  return [];
+}
+
+function paymentStatusView_upsertDetailItem_(items, idField, item) {
+  const id = normalizeId_(item && item[idField]);
+  const index = (items || []).findIndex(function(existing) {
+    return normalizeId_(existing && existing[idField]) === id;
+  });
+  if (index >= 0) items[index] = item;
+  else items.push(item);
 }
 
 // ==============================

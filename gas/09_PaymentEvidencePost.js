@@ -54,12 +54,17 @@ function paymentEvidence_post(input, ctx) {
       ctx
     );
 
+    // payment は Make 時点で受付Scopeを含めて確定済み。
+    // 06を後から再読込せず、その同じ事実を20 Read Modelへ投影する。
+    const viewPaymentProjection = paymentStatusView_projectPayment_(payment, ctx);
+
     return {
       ok: true,
       payment,
       registerResult,
       statusUpdate,
-      viewUpdate
+      viewUpdate,
+      viewPaymentProjection
     };
 
   } finally {

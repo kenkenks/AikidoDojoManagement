@@ -44,42 +44,40 @@ function paymentReception_getScopeSummary(data, ctx) {
 
   const targetMonth = normalizeMonth(String(receptionDate || "").slice(0, 7));
 
-  // 20_会費状態View を受付Summaryの月次Read Modelとして先に読む。
-  // 会員名・請求グループ・invoice→member は既存Viewだけで復元できるため、
-  // 01_会員マスタ / 05_請求明細をSummary表示のために再Readしない。
+  // 受付Summaryは20_会費状態ViewだけをReadする。
+  // 入金・出席の受付明細もViewへ投影済みなので、06/07を表示時に再Readしない。
   const readModel = paymentReception_buildReadModelFromView_(targetMonth, ctx);
-
-  const rows = getPayments(ctx).filter(function(payment) {
-    return paymentStatusTeacher_normalizeDate_(payment["reception_date"] || payment["日時"]) === receptionDate &&
-      normalizeId_(payment["location_id"]) === locationId &&
-      normalizeId_(payment["billing_block_id"]) === billingBlockId;
+  const rows = readModel.receptionPayments.filter(function(payment) {
+    return paymentStatusTeacher_normalizeDate_(payment.reception_date) === receptionDate &&
+      normalizeId_(payment.location_id) === locationId &&
+      normalizeId_(payment.billing_block_id) === billingBlockId;
   });
-  const cashTotal = paymentReception_sumMethod_(rows, "CASH");
-  const paypayTotal = paymentReception_sumMethod_(rows, "PAYPAY");
+
+  const cashTotal = paymentReception_sumViewMethod_(rows, "CASH");
+  const paypayTotal = paymentReception_sumViewMethod_(rows, "PAYPAY");
   const total = rows.reduce(function(sum, row) {
-    return sum + Number(row["入金額"] || row["金額"] || 0);
+    return sum + Number(row.amount || 0);
   }, 0);
 
   const payments = rows.map(function(row) {
-    const invoiceId = normalizeId_(row["invoice_id"]);
-    const memberId = normalizeId_(row["member_id"]) || readModel.invoiceMemberIds[invoiceId] || "";
-    const method = paymentEvidence_normalizePaymentMethod_(row["支払方法"]);
+    const memberId = normalizeId_(row.member_id);
+    const method = paymentEvidence_normalizePaymentMethod_(row.payment_method);
     return {
-      payment_id: normalizeId_(row["payment_id"]),
+      payment_id: normalizeId_(row.payment_id),
       member_id: memberId,
       member_name: readModel.memberNames[memberId] || "",
-      billing_group_id: normalizeId_(row["billing_group_id"]) || readModel.memberToGroup[memberId] || "",
-      invoice_id: invoiceId,
-      target_month: normalizeMonth(row["target_month"]),
-      amount: Number(row["入金額"] || row["金額"] || 0),
+      billing_group_id: normalizeId_(row.billing_group_id) || readModel.memberToGroup[memberId] || "",
+      invoice_id: normalizeId_(row.invoice_id),
+      target_month: normalizeMonth(row.target_month),
+      amount: Number(row.amount || 0),
       payment_method: method,
-      payment_method_label: method === "CASH" ? "現金" : (method === "PAYPAY" ? "PayPay" : String(row["支払方法"] || "その他")),
-      paid_at: paymentStatusTeacher_formatDateTime_(row["日時"])
+      payment_method_label: method === "CASH" ? "現金" : (method === "PAYPAY" ? "PayPay" : String(row.payment_method || "その他")),
+      paid_at: String(row.paid_at || "")
     };
   });
 
   const reconciliation = paymentReception_makeAttendanceReconciliation_(
-    receptionDate, locationId, billingBlockId, rows, readModel, ctx
+    receptionDate, locationId, billingBlockId, rows, readModel
   );
 
   return {
@@ -100,15 +98,16 @@ function paymentReception_getScopeSummary(data, ctx) {
   };
 }
 
-// 20_会費状態View の既存列だけから受付Summary用の参照Mapを作る。
-// Viewのgrain(member × month)は変更せず、invoice_items_json に既に投影済みの
-// invoice/member/group関係も利用する。
+// 20_会費状態Viewだけから受付Summary用Read Modelを構築する。
+// Viewのgrain(member × month)は維持し、明細JSONをメモリ上で展開する。
 function paymentReception_buildReadModelFromView_(targetMonth, ctx) {
   const memberNames = {};
   const memberToGroup = {};
   const groupMembers = {};
   const invoiceMemberIds = {};
   const unpaidByGroup = {};
+  const receptionPayments = [];
+  const attendanceItems = [];
 
   getSheetRows(ctx, "20_会費状態View").forEach(function(viewRow) {
     if (normalizeMonth(viewRow["target_month"]) !== normalizeMonth(targetMonth)) return;
@@ -133,6 +132,13 @@ function paymentReception_buildReadModelFromView_(targetMonth, ctx) {
       const invoiceMemberId = normalizeId_(item.member_id);
       if (invoiceId && invoiceMemberId) invoiceMemberIds[invoiceId] = invoiceMemberId;
     });
+
+    paymentReception_parseViewItems_(viewRow["reception_payments_json"]).forEach(function(item) {
+      receptionPayments.push(item);
+    });
+    paymentReception_parseViewItems_(viewRow["attendance_items_json"]).forEach(function(item) {
+      attendanceItems.push(item);
+    });
   });
 
   return {
@@ -140,25 +146,37 @@ function paymentReception_buildReadModelFromView_(targetMonth, ctx) {
     memberToGroup: memberToGroup,
     groupMembers: groupMembers,
     invoiceMemberIds: invoiceMemberIds,
-    unpaidByGroup: unpaidByGroup
+    unpaidByGroup: unpaidByGroup,
+    receptionPayments: receptionPayments,
+    attendanceItems: attendanceItems
   };
 }
 
+function paymentReception_parseViewItems_(value) {
+  const text = String(value || "").trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (e) {
+    return [];
+  }
+}
+
 // 出席と入金は独立した事実として扱い、先生が例外だけ確認できる形へ整形する。
-// 支払い先行をエラーにはせず「支払いあり・出席なし」として返す。
-function paymentReception_makeAttendanceReconciliation_(receptionDate, locationId, billingBlockId, scopePayments, readModel, ctx) {
+function paymentReception_makeAttendanceReconciliation_(receptionDate, locationId, billingBlockId, scopePayments, readModel) {
   const memberNames = readModel.memberNames;
   const memberToGroup = readModel.memberToGroup;
   const groupMembers = readModel.groupMembers;
   const unpaidByGroup = readModel.unpaidByGroup;
 
   const attendedMembers = {};
-  getAttendances(ctx).forEach(function(row) {
-    if (paymentStatusTeacher_normalizeDate_(row["稽古日"]) !== receptionDate) return;
-    if (normalizeId_(row["location_id"]) !== locationId) return;
-    if (normalizeId_(row["billing_block_id"]) !== billingBlockId) return;
-    if (normalizeId_(row["状態"]) === "取消") return;
-    const memberId = normalizeId_(row["member_id"]);
+  (readModel.attendanceItems || []).forEach(function(row) {
+    if (paymentStatusTeacher_normalizeDate_(row.attendance_date) !== receptionDate) return;
+    if (normalizeId_(row.location_id) !== locationId) return;
+    if (normalizeId_(row.billing_block_id) !== billingBlockId) return;
+    if (normalizeId_(row.status) === "取消") return;
+    const memberId = normalizeId_(row.member_id);
     if (memberId) attendedMembers[memberId] = true;
   });
 
@@ -170,9 +188,8 @@ function paymentReception_makeAttendanceReconciliation_(receptionDate, locationI
 
   const scopePaidGroups = {};
   (scopePayments || []).forEach(function(payment) {
-    const invoiceId = normalizeId_(payment["invoice_id"]);
-    const memberId = normalizeId_(payment["member_id"]) || readModel.invoiceMemberIds[invoiceId] || "";
-    const groupId = normalizeId_(payment["billing_group_id"]) || memberToGroup[memberId];
+    const memberId = normalizeId_(payment.member_id) || readModel.invoiceMemberIds[normalizeId_(payment.invoice_id)] || "";
+    const groupId = normalizeId_(payment.billing_group_id) || memberToGroup[memberId];
     if (groupId) scopePaidGroups[groupId] = true;
   });
 
@@ -196,16 +213,14 @@ function paymentReception_makeAttendanceReconciliation_(receptionDate, locationI
   Object.keys(scopePaidGroups).forEach(function(groupId) {
     if (attendedGroups[groupId]) return;
     const groupScopePayments = (scopePayments || []).filter(function(payment) {
-      const invoiceId = normalizeId_(payment["invoice_id"]);
-      const memberId = normalizeId_(payment["member_id"]) || readModel.invoiceMemberIds[invoiceId] || "";
-      return (normalizeId_(payment["billing_group_id"]) || memberToGroup[memberId]) === groupId;
+      const memberId = normalizeId_(payment.member_id) || readModel.invoiceMemberIds[normalizeId_(payment.invoice_id)] || "";
+      return (normalizeId_(payment.billing_group_id) || memberToGroup[memberId]) === groupId;
     });
     const amount = groupScopePayments.reduce(function(sum, payment) {
-      return sum + Number(payment["入金額"] || payment["金額"] || 0);
+      return sum + Number(payment.amount || 0);
     }, 0);
     const payerIds = Array.from(new Set(groupScopePayments.map(function(payment) {
-      const invoiceId = normalizeId_(payment["invoice_id"]);
-      return normalizeId_(payment["member_id"]) || readModel.invoiceMemberIds[invoiceId] || "";
+      return normalizeId_(payment.member_id) || readModel.invoiceMemberIds[normalizeId_(payment.invoice_id)] || "";
     }).filter(Boolean)));
     items.push({
       status: "PAID_WITHOUT_ATTENDANCE",
@@ -223,6 +238,13 @@ function paymentReception_makeAttendanceReconciliation_(receptionDate, locationI
     attendance_member_count: Object.keys(attendedMembers).length,
     items: items
   };
+}
+
+function paymentReception_sumViewMethod_(rows, method) {
+  return (rows || []).reduce(function(sum, row) {
+    const normalized = paymentEvidence_normalizePaymentMethod_(row.payment_method);
+    return sum + (normalized === method ? Number(row.amount || 0) : 0);
+  }, 0);
 }
 
 
