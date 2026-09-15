@@ -722,3 +722,222 @@ function runner_webInterface_paypayCodeRecordRepair_TEST() {
     evidence_code: "WEB-RUNNER-PAYPAY-CODE"
   });
 }
+
+// --------------------------------------------------
+// PayPay WEB E2E Runner
+// Browser E2E と同じ業務順序を doGet / doPost 境界だけで一周する。
+// 試験データの作成・Evidence ID の引継ぎも Runner 内で完結する。
+// 最初に壊れた契約で停止し、前から順にバグを修正できるようにする。
+// --------------------------------------------------
+function runner_webInterface_paypayE2E(input) {
+  input = input || {};
+
+  const memberId = String(input.member_id || "").trim();
+  const planId = String(input.plan_id || "").trim();
+  const teacherId = String(input.teacher_id || "").trim();
+  const receptionDate = String(input.reception_date || "").trim();
+  const locationId = String(input.location_id || "").trim();
+  const billingBlockId = String(input.billing_block_id || "").trim();
+  const evidenceCode = String(input.evidence_code || ("WEB-E2E-PAYPAY-" + new Date().getTime())).trim();
+  const checks = [];
+  const detail = {};
+
+  if (!memberId || !planId || !teacherId || !receptionDate || !locationId || !billingBlockId) {
+    return {
+      ok: false,
+      runner: "WEB-PAYPAY-E2E-001",
+      phase: "input",
+      message: "member_id / plan_id / teacher_id / reception_date / location_id / billing_block_id を指定してください。"
+    };
+  }
+
+  // 1. 会員 PayPay 開始。受付Scopeはまだ確定させない。
+  const start = runner_webInterface_get_({
+    action: "paypay_code_start",
+    member_id: memberId,
+    plan_id: planId,
+    reception_date: receptionDate,
+    location_id: "",
+    billing_block_id: "",
+    teacher_id: "PAYPAY_MEMBER"
+  });
+  detail.start = start;
+
+  runner_webInterface_assert_(checks, start && start.ok === true,
+    "PayPay開始 WEB入口", start && start.ok, true);
+
+  const requestedItems = start && Array.isArray(start.evidenceItems) ? start.evidenceItems : [];
+  const requested = requestedItems.find(function(row) {
+    return String(row.status || "") === "REQUESTED";
+  }) || requestedItems[0] || null;
+
+  runner_webInterface_assert_(checks, !!requested,
+    "REQUESTED Evidence生成", requested ? requested.evidence_id : "", "non-empty");
+
+  if (!start || start.ok !== true || !requested) {
+    return runner_webInterface_finish_("WEB-PAYPAY-E2E-001", checks, detail);
+  }
+
+  const evidenceId = String(requested.evidence_id || "");
+  detail.evidence_id = evidenceId;
+
+  // DTOではなく09をQuery経由で再読込して契約を確認する。
+  const requestedList = runner_webInterface_get_({
+    action: "payment_evidence_list",
+    statuses: "REQUESTED",
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
+  });
+  const requestedRow = (requestedList.evidences || []).find(function(row) {
+    return String(row.evidence_id || "") === evidenceId;
+  });
+  detail.requested = requestedRow;
+
+  runner_webInterface_assert_(checks, !!requestedRow,
+    "09 REQUESTEDとして存在", requestedRow ? requestedRow.evidence_id : "", evidenceId);
+  runner_webInterface_assert_(checks, requestedRow && String(requestedRow.reception_date || "") === receptionDate,
+    "REQUESTED reception_date", requestedRow ? requestedRow.reception_date : "", receptionDate);
+  runner_webInterface_assert_(checks, requestedRow && String(requestedRow.location_id || "") === "",
+    "REQUESTED location_id は空", requestedRow ? requestedRow.location_id : "", "");
+  runner_webInterface_assert_(checks, requestedRow && String(requestedRow.billing_block_id || "") === "",
+    "REQUESTED billing_block_id は空", requestedRow ? requestedRow.billing_block_id : "", "");
+  runner_webInterface_assert_(checks, requestedRow && String(requestedRow.teacher_id || "") === "",
+    "REQUESTED teacher_id は空", requestedRow ? requestedRow.teacher_id : "", "");
+
+  // 前段契約が壊れていれば、その状態を後続処理で汚さずここで止める。
+  if (checks.some(function(c) { return c.ok !== true; })) {
+    detail.phase = "requested_contract";
+    return runner_webInterface_finish_("WEB-PAYPAY-E2E-001", checks, detail);
+  }
+
+  // 2. 会員がPayPay決済コードを登録 -> CONFIRMED。
+  const record = runner_webInterface_post_({
+    mode: "paypay_code_record",
+    member_id: memberId,
+    evidence_code: evidenceCode,
+    evidence_items: [{ evidence_id: evidenceId }],
+    source: "runner_webInterface_paypayE2E"
+  });
+  detail.record = record;
+  runner_webInterface_assert_(checks, record && record.ok === true,
+    "PayPayコード登録 WEB POST", record && record.ok, true);
+
+  const confirmedList = runner_webInterface_get_({
+    action: "payment_evidence_list",
+    statuses: "CONFIRMED",
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
+  });
+  const confirmedRow = (confirmedList.evidences || []).find(function(row) {
+    return String(row.evidence_id || "") === evidenceId;
+  });
+  detail.confirmed = confirmedRow;
+
+  runner_webInterface_assert_(checks, !!confirmedRow,
+    "09 CONFIRMEDとして存在", confirmedRow ? confirmedRow.evidence_id : "", evidenceId);
+  runner_webInterface_assert_(checks, confirmedRow && String(confirmedRow.evidence_code || "") === evidenceCode,
+    "CONFIRMED evidence_code", confirmedRow ? confirmedRow.evidence_code : "", evidenceCode);
+  runner_webInterface_assert_(checks, confirmedRow && !!String(confirmedRow.confirmed_at || ""),
+    "CONFIRMED confirmed_at", confirmedRow ? confirmedRow.confirmed_at : "", "non-empty");
+  runner_webInterface_assert_(checks, confirmedRow && String(confirmedRow.location_id || "") === "",
+    "CONFIRMED location_id は空", confirmedRow ? confirmedRow.location_id : "", "");
+  runner_webInterface_assert_(checks, confirmedRow && String(confirmedRow.billing_block_id || "") === "",
+    "CONFIRMED billing_block_id は空", confirmedRow ? confirmedRow.billing_block_id : "", "");
+  runner_webInterface_assert_(checks, confirmedRow && String(confirmedRow.teacher_id || "") === "",
+    "CONFIRMED teacher_id は空", confirmedRow ? confirmedRow.teacher_id : "", "");
+
+  if (checks.some(function(c) { return c.ok !== true; })) {
+    detail.phase = "confirmed_contract";
+    return runner_webInterface_finish_("WEB-PAYPAY-E2E-001", checks, detail);
+  }
+
+  // 3. 先生受付直前の集計を保存。
+  const beforeSummary = runner_webInterface_get_({
+    action: "payment_reception_summary",
+    reception_date: receptionDate,
+    location_id: locationId,
+    billing_block_id: billingBlockId
+  });
+  detail.beforeSummary = beforeSummary;
+
+  // 4. 先生受付 -> POSTED。ここで初めて受付Scopeを確定する。
+  const post = runner_webInterface_post_({
+    mode: "payment_evidence_post_selected",
+    teacher_id: teacherId,
+    reception_date: receptionDate,
+    location_id: locationId,
+    billing_block_id: billingBlockId,
+    evidence_items: [{ evidence_id: evidenceId }],
+    count: 1,
+    source: "runner_webInterface_paypayE2E"
+  });
+  detail.post = post;
+  runner_webInterface_assert_(checks, post && post.ok === true,
+    "先生PayPay受付 WEB POST", post && post.ok, true);
+
+  const postedList = runner_webInterface_get_({
+    action: "payment_evidence_list",
+    statuses: "POSTED",
+    payment_method: "PAYPAY",
+    reception_date: receptionDate
+  });
+  const postedRow = (postedList.evidences || []).find(function(row) {
+    return String(row.evidence_id || "") === evidenceId;
+  });
+  detail.posted = postedRow;
+
+  runner_webInterface_assert_(checks, !!postedRow,
+    "09 POSTEDとして存在", postedRow ? postedRow.evidence_id : "", evidenceId);
+  runner_webInterface_assert_(checks, postedRow && !!String(postedRow.payment_log_id || ""),
+    "POSTED payment_log_id", postedRow ? postedRow.payment_log_id : "", "non-empty");
+  runner_webInterface_assert_(checks, postedRow && String(postedRow.reception_date || "") === receptionDate,
+    "POSTED reception_date は先生受付日", postedRow ? postedRow.reception_date : "", receptionDate);
+  runner_webInterface_assert_(checks, postedRow && String(postedRow.location_id || "") === locationId,
+    "POSTED location_id は先生受付Scope", postedRow ? postedRow.location_id : "", locationId);
+  runner_webInterface_assert_(checks, postedRow && String(postedRow.billing_block_id || "") === billingBlockId,
+    "POSTED billing_block_id は先生受付Scope", postedRow ? postedRow.billing_block_id : "", billingBlockId);
+
+  // 5. 06を経由した先生集計まで確認する。
+  const afterSummary = runner_webInterface_get_({
+    action: "payment_reception_summary",
+    reception_date: receptionDate,
+    location_id: locationId,
+    billing_block_id: billingBlockId
+  });
+  detail.afterSummary = afterSummary;
+
+  const amount = Number((postedRow && postedRow.amount) || (confirmedRow && confirmedRow.amount) || 0);
+  const beforePayPay = Number(beforeSummary && beforeSummary.paypay_total || 0);
+  const beforeCount = Number(beforeSummary && beforeSummary.payment_count || 0);
+  const beforeOutstanding = Number(beforeSummary && beforeSummary.outstanding_total || 0);
+  const afterPayPay = Number(afterSummary && afterSummary.paypay_total || 0);
+  const afterCount = Number(afterSummary && afterSummary.payment_count || 0);
+  const afterOutstanding = Number(afterSummary && afterSummary.outstanding_total || 0);
+
+  runner_webInterface_assert_(checks, afterSummary && afterSummary.ok === true,
+    "payment_reception_summary WEB入口", afterSummary && afterSummary.ok, true);
+  runner_webInterface_assert_(checks, amount > 0 && afterPayPay >= beforePayPay + amount,
+    "課金枠集計 PayPay反映", afterPayPay, ">= " + (beforePayPay + amount));
+  runner_webInterface_assert_(checks, afterCount >= beforeCount + 1,
+    "課金枠集計 入金件数反映", afterCount, ">= " + (beforeCount + 1));
+
+  if (amount > 0 && beforeOutstanding >= amount) {
+    runner_webInterface_assert_(checks, afterOutstanding <= beforeOutstanding - amount,
+      "未回収額が支払額分減少", afterOutstanding, "<= " + (beforeOutstanding - amount));
+  }
+
+  detail.phase = "complete";
+  return runner_webInterface_finish_("WEB-PAYPAY-E2E-001", checks, detail);
+}
+
+/** Apps Script エディタから引数なしで一周する入口。 */
+function runner_webInterface_paypayE2E_TEST() {
+  return runner_webInterface_paypayE2E({
+    member_id: "M001",
+    plan_id: "P002",
+    teacher_id: "T001",
+    reception_date: "2026-10-05",
+    location_id: "HONBU",
+    billing_block_id: "B_KYO_MON_1030_1230"
+  });
+}

@@ -85,6 +85,7 @@ function paymentEvidenceQuery_list(data, ctx) {
         amount: Number(evidence["amount"] || invoice["請求予定額"] || invoice["金額"] || 0),
         status: status,
         evidence_code: normalizeId_(evidence["evidence_code"]),
+        reception_date: paymentEvidenceQuery_formatDate_(evidence["reception_date"]),
         requested_at: paymentEvidenceQuery_formatDateTime_(evidence["requested_at"]),
         confirmed_at: paymentEvidenceQuery_formatDateTime_(evidence["confirmed_at"]),
         posted_at: paymentEvidenceQuery_formatDateTime_(evidence["posted_at"]),
@@ -250,6 +251,21 @@ function paymentEvidenceQuery_parseStatuses_(value) {
 
 function paymentEvidenceQuery_currentMonth_(ctx) {
   return sup_targetMonth(ctx);
+}
+
+function paymentEvidenceQuery_formatDate_(value) {
+  if (!value) return "";
+
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+  }
+
+  const text = String(value || "").trim();
+  const match = text.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/);
+  if (match) {
+    return match[1] + "-" + ("0" + match[2]).slice(-2) + "-" + ("0" + match[3]).slice(-2);
+  }
+  return text;
 }
 
 function paymentEvidenceQuery_formatDateTime_(value) {

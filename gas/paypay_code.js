@@ -10,8 +10,16 @@ function paypayCode_start(data, ctx) {
 
   const memberId = normalizeId_(data.member_id || data.memberId);
   const planId = normalizeId_(data.plan_id || data.planId);
-  const teacherId = normalizeId_(data.teacher_id || data.teacherId || 'PAYPAY_MEMBER');
+  // 会員PayPayの REQUESTED / CONFIRMED は受付場所・課金枠・先生を確定しない。
+  // reception_date だけを業務日として保持し、受付Scopeは先生POST時に確定する。
+  const teacherId = 'PAYPAY_MEMBER';
   const scope = paypayCode_resolveReceptionScope_(data, ctx);
+  // reception_date は受付Scopeではなく、PayPay操作の業務日。
+  // Browser/Runnerが明示しない場合も System Context を含む ctx の業務日を使う。
+  const receptionDate = normalizeId_(
+    data.reception_date || data.receptionDate || scope.reception_date || sup_today(ctx)
+  );
+  scope.reception_date = receptionDate;
 
   if (!memberId) {
     return { ok: false, success: false, message: 'member_id がありません。' };
@@ -84,9 +92,10 @@ function paypayCode_start(data, ctx) {
         member_id: invoice.member_id || memberId,
         payment_method: 'PAYPAY',
         amount: Number(paymentInfo.amount || 0),
-        location_id: scope.location_id,
-        billing_block_id: scope.billing_block_id,
-        teacher_id: teacherId,
+        reception_date: receptionDate,
+        location_id: '',
+        billing_block_id: '',
+        teacher_id: '',
         reception_session_id: normalizeId_(data.reception_session_id || data.receptionSessionId),
         remarks: 'paypay_code.html start'
       }, ctx);
@@ -373,26 +382,23 @@ function paypayCode_repairReusableEvidenceScope_(row, scope, ctx) {
   const evidenceId = normalizeId_(row.evidence_id || row['evidence_id']);
   if (!evidenceId) return row;
 
-  const currentLocationId = normalizeId_(row.location_id || row['location_id']);
-  const currentBillingBlockId = normalizeId_(row.billing_block_id || row['billing_block_id']);
-  const desiredLocationId = normalizeId_(scope.location_id);
-  const desiredBillingBlockId = normalizeId_(scope.billing_block_id);
-
-  // 既存値と現在Scopeが食い違う場合は、別受付の可能性があるため上書きしない。
-  if (currentLocationId && desiredLocationId && currentLocationId !== desiredLocationId) {
-    return row;
-  }
-  if (currentBillingBlockId && desiredBillingBlockId &&
-      currentBillingBlockId !== desiredBillingBlockId) {
-    return row;
-  }
-
+  // 会員PayPayの active Evidence は「受付前」。
+  // 過去実装で混入した先生受付Scopeを再利用時に除去する。
+  // reception_date は業務日なので保持/補完する。
+  const desiredReceptionDate = normalizeId_(scope.reception_date || scope.receptionDate);
   const updates = {};
-  if (!currentLocationId && desiredLocationId) {
-    updates.location_id = desiredLocationId;
+
+  if (normalizeId_(row.location_id || row['location_id'])) {
+    updates.location_id = '';
   }
-  if (!currentBillingBlockId && desiredBillingBlockId) {
-    updates.billing_block_id = desiredBillingBlockId;
+  if (normalizeId_(row.billing_block_id || row['billing_block_id'])) {
+    updates.billing_block_id = '';
+  }
+  if (normalizeId_(row.teacher_id || row['teacher_id'])) {
+    updates.teacher_id = '';
+  }
+  if (!normalizeId_(row.reception_date || row['reception_date']) && desiredReceptionDate) {
+    updates.reception_date = desiredReceptionDate;
   }
 
   if (Object.keys(updates).length === 0) {
