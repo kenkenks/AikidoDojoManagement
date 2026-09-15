@@ -19,18 +19,49 @@
     </div>
   </section>
   <p class="note"><a href="index.html">入口へ戻る</a></p>
+  <section class="card">
+    <h2>操作ログ</h2>
+    <pre id="operationLog" style="white-space:pre-wrap;word-break:break-word;margin:0;"></pre>
+  </section>
   <script src="virtual_session.js"></script>
   <script>
+    const teacherHomeStartedAt = Date.now();
+    function teacherHomeLog(message) {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, "0");
+      const mm = String(now.getMinutes()).padStart(2, "0");
+      const ss = String(now.getSeconds()).padStart(2, "0");
+      const elapsed = Date.now() - teacherHomeStartedAt;
+      const line = "[" + hh + ":" + mm + ":" + ss + "] [TEACHER-HOME +" + elapsed + "ms] " + message;
+      const root = document.getElementById("operationLog");
+      if (root) root.textContent = line + "\n" + root.textContent;
+      console.log(line);
+    }
+    teacherHomeLog("init start");
     const queryTeacherId = new URLSearchParams(location.search).get("teacher_id") || "";
+    teacherHomeLog("virtual session read start");
     if (queryTeacherId) DojoVirtualSession.loginTeacher(queryTeacherId, "PAGE_URL");
     const teacherSession = DojoVirtualSession.get();
+    teacherHomeLog("virtual session read complete: " + (teacherSession && teacherSession.role === "TEACHER" ? teacherSession.teacher_id : "not logged in"));
     if (teacherSession && teacherSession.role === "TEACHER") {
       document.getElementById("loginIdentity").textContent = "先生 " + teacherSession.teacher_id + " でログイン中";
     }
+    window.addEventListener("dojo-system-context", function(event) {
+      const data = event.detail || {};
+      teacherHomeLog("system_context callback: system_now=" + (data.system_now || "") + " target_month=" + (data.target_month || "") + " time_travel=" + !!data.time_travel_enabled);
+      teacherHomeLog("header render complete");
+    });
+    window.addEventListener("dojo-system-context-error", function(event) {
+      const detail = event.detail || {};
+      teacherHomeLog("system_context error: " + (detail.message || "unknown error"));
+    });
+    teacherHomeLog("system_context JSONP start");
+
     function logoutSession() {
       DojoVirtualSession.logout();
       location.href = "index.html";
     }
+    teacherHomeLog("teacher home synchronous init complete");
   </script>
   <script src="system_context.js"></script>
 </body></html>
