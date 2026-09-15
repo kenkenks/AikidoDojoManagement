@@ -56,15 +56,26 @@ function paymentReception_getScopeSummary(data, ctx) {
   getMembers(ctx).forEach(function(member) {
     memberNames[normalizeId_(member["member_id"])] = String(member["氏名"] || "");
   });
+
+  // PayPayのPOSTED入金ログでは member_id が空になる場合がある。
+  // invoice_id は保持されているため、請求明細から member_id を復元する。
+  const invoiceMemberIds = {};
+  getInvoices(ctx).forEach(function(invoice) {
+    const invoiceId = normalizeId_(invoice["invoice_id"]);
+    if (!invoiceId) return;
+    invoiceMemberIds[invoiceId] = normalizeId_(invoice["member_id"]);
+  });
+
   const payments = rows.map(function(row) {
-    const memberId = normalizeId_(row["member_id"]);
+    const invoiceId = normalizeId_(row["invoice_id"]);
+    const memberId = normalizeId_(row["member_id"]) || invoiceMemberIds[invoiceId] || "";
     const method = paymentEvidence_normalizePaymentMethod_(row["支払方法"]);
     return {
       payment_id: normalizeId_(row["payment_id"]),
       member_id: memberId,
       member_name: memberNames[memberId] || "",
       billing_group_id: normalizeId_(row["billing_group_id"]),
-      invoice_id: normalizeId_(row["invoice_id"]),
+      invoice_id: invoiceId,
       target_month: normalizeMonth(row["target_month"]),
       amount: Number(row["入金額"] || row["金額"] || 0),
       payment_method: method,

@@ -921,6 +921,26 @@ function runner_webInterface_paypayE2E(input) {
   runner_webInterface_assert_(checks, afterCount >= beforeCount + 1,
     "課金枠集計 入金件数反映", afterCount, ">= " + (beforeCount + 1));
 
+  // Browser E2Eで発見した表示契約もRunnerで検証する。
+  // payment_reception_summary.payments[] に、今回POSTした支払いの会員情報が入ること。
+  const summaryPayment = ((afterSummary && afterSummary.payments) || []).find(function(row) {
+    return String(row.invoice_id || "") === String((postedRow && postedRow.invoice_id) || "");
+  });
+  const expectedMemberId = String((postedRow && postedRow.member_id) || memberId || "");
+  const expectedMemberName = String((postedRow && postedRow.member_name) || "");
+
+  runner_webInterface_assert_(checks, !!summaryPayment,
+    "課金枠集計 payments に対象支払が存在", summaryPayment ? summaryPayment.invoice_id : "",
+    (postedRow && postedRow.invoice_id) || "non-empty");
+  runner_webInterface_assert_(checks, summaryPayment && String(summaryPayment.member_id || "") === expectedMemberId,
+    "課金枠集計 payments member_id", summaryPayment ? summaryPayment.member_id : "", expectedMemberId);
+  runner_webInterface_assert_(checks, summaryPayment && !!String(summaryPayment.member_name || ""),
+    "課金枠集計 payments member_name が空でない", summaryPayment ? summaryPayment.member_name : "", "non-empty");
+  if (expectedMemberName) {
+    runner_webInterface_assert_(checks, summaryPayment && String(summaryPayment.member_name || "") === expectedMemberName,
+      "課金枠集計 payments member_name", summaryPayment ? summaryPayment.member_name : "", expectedMemberName);
+  }
+
   if (amount > 0 && beforeOutstanding >= amount) {
     runner_webInterface_assert_(checks, afterOutstanding <= beforeOutstanding - amount,
       "未回収額が支払額分減少", afterOutstanding, "<= " + (beforeOutstanding - amount));
@@ -939,5 +959,53 @@ function runner_webInterface_paypayE2E_TEST() {
     reception_date: "2026-10-05",
     location_id: "HONBU",
     billing_block_id: "B_KYO_MON_1030_1230"
+  });
+}
+
+// --------------------------------------------------
+// REGRESSION Runner
+// Browser E2Eで検出した「登録済み一覧の会員名未設定」を、
+// payment_reception_summary の読み取りだけで再現する。
+// 既存のPOSTED決済を参照するだけで、データは更新しない。
+// --------------------------------------------------
+function runner_webInterface_paymentSummaryMemberNameRegression_TEST() {
+  const checks = [];
+  const expected = {
+    reception_date: "2026-10-02",
+    location_id: "HONBU",
+    billing_block_id: "B_KYO_FRI_1030_1230",
+    invoice_id: "INV-2026-10-G001-M001-55239935",
+    member_id: "M001",
+    member_name: "山田太郎"
+  };
+
+  const summary = runner_webInterface_get_({
+    action: "payment_reception_summary",
+    reception_date: expected.reception_date,
+    location_id: expected.location_id,
+    billing_block_id: expected.billing_block_id
+  });
+
+  runner_webInterface_assert_(checks, summary && summary.ok === true,
+    "payment_reception_summary WEB入口", summary && summary.ok, true);
+
+  const payment = (summary && summary.payments || []).find(function(row) {
+    return String(row.invoice_id || "") === expected.invoice_id;
+  });
+
+  runner_webInterface_assert_(checks, !!payment,
+    "対象支払が課金枠集計に存在", payment ? payment.invoice_id : "", expected.invoice_id);
+
+  if (payment) {
+    runner_webInterface_assert_(checks, String(payment.member_id || "") === expected.member_id,
+      "課金枠集計 payments member_id", payment.member_id || "", expected.member_id);
+    runner_webInterface_assert_(checks, String(payment.member_name || "") === expected.member_name,
+      "課金枠集計 payments member_name", payment.member_name || "", expected.member_name);
+  }
+
+  return runner_webInterface_finish_("WEB-PAYMENT-SUMMARY-MEMBER-REGRESSION-001", checks, {
+    expected: expected,
+    summary: summary,
+    payment: payment || null
   });
 }
