@@ -254,6 +254,97 @@ function runner_webInterface_paymentScreenRead_TEST() {
 }
 
 // --------------------------------------------------
+// System Context Runner
+// 先生ホームの共通ヘッダが利用する system_context WEB API を単独で診断する。
+// Browser の JSONP と同じ doGet 境界を通し、応答時間と契約を確認する。
+// --------------------------------------------------
+function runner_webInterface_systemContext(input) {
+  input = input || {};
+
+  const expectedSystemDate = String(input.expected_system_date || "").trim();
+  const expectedTargetMonth = String(input.expected_target_month || "").trim();
+  const callback = "runnerSystemContextCallback";
+  const checks = [];
+  const startedAt = Date.now();
+
+  Logger.log("[PERF-SYSTEM-CONTEXT] start");
+
+  const response = runner_webInterface_get_({
+    action: "system_context",
+    callback: callback
+  });
+
+  const elapsedMs = Date.now() - startedAt;
+  Logger.log("[PERF-SYSTEM-CONTEXT] elapsed_ms=" + elapsedMs);
+
+  runner_webInterface_assert_(checks,
+    !!response,
+    "system_context WEB入口",
+    !!response,
+    true);
+  runner_webInterface_assert_(checks,
+    response && response.ok === true,
+    "system_context ok",
+    response && response.ok,
+    true);
+  runner_webInterface_assert_(checks,
+    typeof (response && response.time_travel_enabled) === "boolean",
+    "time_travel_enabled boolean",
+    response && response.time_travel_enabled,
+    "boolean");
+  runner_webInterface_assert_(checks,
+    !!String(response && response.system_now || "").trim(),
+    "system_now 取得",
+    response && response.system_now,
+    "non-empty");
+  runner_webInterface_assert_(checks,
+    !!String(response && response.target_month || "").trim(),
+    "target_month 取得",
+    response && response.target_month,
+    "non-empty");
+  runner_webInterface_assert_(checks,
+    !!String(response && response.timezone || "").trim(),
+    "timezone 取得",
+    response && response.timezone,
+    "non-empty");
+
+  if (expectedSystemDate) {
+    runner_webInterface_assert_(checks,
+      String(response && response.system_now || "").indexOf(expectedSystemDate) === 0,
+      "system_now テスト日付",
+      response && response.system_now,
+      expectedSystemDate + " ...");
+  }
+
+  if (expectedTargetMonth) {
+    runner_webInterface_assert_(checks,
+      String(response && response.target_month || "") === expectedTargetMonth,
+      "target_month テスト月",
+      response && response.target_month,
+      expectedTargetMonth);
+  }
+
+  return runner_webInterface_finish_("WEB-SYSTEM-CONTEXT-001", checks, {
+    perf: { system_context_ms: elapsedMs },
+    response: response
+  });
+}
+
+function runner_webInterface_systemContext_TEST() {
+  const result = runner_webInterface_systemContext({
+    expected_system_date: "2026-10-02",
+    expected_target_month: "2026-10"
+  });
+
+  if (!result || result.ok !== true) {
+    throw new Error("[WEB Interface FAIL] system context: " + JSON.stringify(result));
+  }
+
+  Logger.log("[WEB Interface PASS] system context");
+  return result;
+}
+
+// --------------------------------------------------
 // Reception Date wiring Runner
 // 既存REQUESTED/CONFIRMEDの空受付Contextを、実Web GET(paypay_code_start)で補完し、
 // reception_date 指定Queryから対象Evidenceを取得できることを確認する。
