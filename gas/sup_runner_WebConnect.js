@@ -4,6 +4,9 @@
 // Code.js 全入口ランナー
 // ========================================
 
+
+
+
 function runner_code_runAllEntrances() {
   const results = [];
 
@@ -100,7 +103,10 @@ function runner_code_doGet_attendanceSessionInfo() {
       }
     };
 
-    return runner_code_content_(doGet(e));
+    Logger.log("[RUNNER] attendance_session_info request=" + JSON.stringify(e.parameter));
+    const content = runner_code_content_(doGet(e));
+    Logger.log("[RUNNER] attendance_session_info response=" + content);
+    return content;
   });
 }
 
@@ -115,7 +121,10 @@ function runner_code_doGet_memberAttendanceState() {
       }
     };
 
-    return runner_code_content_(doGet(e));
+    Logger.log("[RUNNER] member_attendance_state request=" + JSON.stringify(e.parameter));
+    const content = runner_code_content_(doGet(e));
+    Logger.log("[RUNNER] member_attendance_state response=" + content);
+    return content;
   });
 }
 
@@ -133,6 +142,8 @@ function runner_code_doPost_attendanceBatch() {
       attendance_items: [
         {
           member_id: "M001",
+          current_rank: "成人初段",
+          plan_id: "P002",
           slot_ids: [
             "KYO_MON_1030",
             "KYO_MON_1130"
@@ -148,7 +159,10 @@ function runner_code_doPost_attendanceBatch() {
       }
     };
 
-    return runner_code_content_(doPost(e));
+    Logger.log("[RUNNER] attendance_batch request=" + JSON.stringify(payload));
+    const content = runner_code_content_(doPost(e));
+    Logger.log("[RUNNER] attendance_batch response=" + content);
+    return content;
   });
 }
 
