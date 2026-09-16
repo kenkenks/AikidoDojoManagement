@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>先生ホーム</title><link rel="stylesheet" href="common.css"></head>
 <body class="teacher">
   <h1>🥋 先生ホーム</h1>
-  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><button onclick="logoutSession()">ログアウト</button></section>
+  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><span id="gasResponseTime" class="note">GAS応答：計測中...</span><button onclick="logoutSession()">ログアウト</button></section>
   <section class="card">
     <h2>先生メニュー</h2>
     <div class="grid">
@@ -46,15 +46,25 @@
     if (teacherSession && teacherSession.role === "TEACHER") {
       document.getElementById("loginIdentity").textContent = "先生 " + teacherSession.teacher_id + " でログイン中";
     }
+    let systemContextStartedAt = null;
+    function renderGasResponseTime(label) {
+      const root = document.getElementById("gasResponseTime");
+      if (root) root.textContent = "GAS応答：" + label;
+    }
     window.addEventListener("dojo-system-context", function(event) {
       const data = event.detail || {};
+      const elapsedMs = systemContextStartedAt == null ? null : Date.now() - systemContextStartedAt;
+      if (elapsedMs != null) renderGasResponseTime((elapsedMs / 1000).toFixed(2) + "秒");
       teacherHomeLog("system_context callback: system_now=" + (data.system_now || "") + " target_month=" + (data.target_month || "") + " time_travel=" + !!data.time_travel_enabled);
       teacherHomeLog("header render complete");
     });
     window.addEventListener("dojo-system-context-error", function(event) {
       const detail = event.detail || {};
+      const elapsedMs = systemContextStartedAt == null ? null : Date.now() - systemContextStartedAt;
+      renderGasResponseTime(elapsedMs == null ? "TIMEOUT" : "TIMEOUT (" + (elapsedMs / 1000).toFixed(2) + "秒)");
       teacherHomeLog("system_context error: " + (detail.message || "unknown error"));
     });
+    systemContextStartedAt = Date.now();
     teacherHomeLog("system_context JSONP start");
 
     function logoutSession() {
