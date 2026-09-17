@@ -155,6 +155,14 @@ function doGet(e) {
     return createJsonOrJsonpOutput_(result, params.callback);
   }
 
+  // DEV/TEST用の孤立Webページから現在のTime Travel設定を参照する。
+  if (params.action === "time_travel_admin") {
+    const result = safelyExecute_(function() {
+      return sup_timeTravel_getAdminSetting();
+    });
+    return createJsonOrJsonpOutput_(result, params.callback);
+  }
+
   if (params.action === "diagnostic_post_result") {
     const token = String(params.token || "").trim();
     const cached = token ? CacheService.getScriptCache().get("DIAG_POST_" + token) : "";
@@ -449,6 +457,15 @@ function doPost(e) {
 
     if (data.mode === "paypay_code_record") {
       return paypayCode_record(data, ctx);
+    }
+
+    // DEV/TEST用Time Travel設定。保存・検証ロジックは既存関数へ一本化する。
+    if (data.mode === "time_travel_set") {
+      return sup_timeTravel_saveAdminSetting({
+        enabled: data.enabled,
+        now: data.now || "",
+        target_month: data.target_month || ""
+      });
     }
 
     if (data.mode === "payment_evidence_post_selected") {
