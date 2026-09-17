@@ -109,6 +109,7 @@
     let attendanceSessionId = createSessionId();
     let submitting = false;
     let rankOptions = [];
+    let entryMemberId = "";
 
     initializeAttendanceContext();
 
@@ -127,6 +128,7 @@
       const context = session && session.context ? session.context : {};
       const urlTeacherId = String(query.get("teacher_id") || "").trim();
       const urlMemberId = String(query.get("member_id") || "").trim();
+      entryMemberId = urlMemberId;
 
       currentLocationId = String(query.get("location_id") || context.location_id || "").trim();
       currentBillingBlockId = String(query.get("billing_block_id") || context.billing_block_id || "").trim();
@@ -298,6 +300,11 @@
         document.getElementById("billingBlockId").className = "ok";
         clearCandidates(true);
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
+        if (entryMemberId) {
+          const memberId = entryMemberId;
+          entryMemberId = "";
+          addMemberCandidate(memberId);
+        }
       }).catch(function (error) {
         currentSlots = [];
         renderCandidates();
