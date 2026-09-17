@@ -40,6 +40,7 @@
     .progress.near { background: #fff3cd; color: #6d4c00; font-weight: bold; }
     .progress.ready { background: #dff3e6; color: #176b45; font-weight: bold; }
     .empty { color: #777; }
+    .action-guide { margin: 3px; padding: 10px 12px; border: 1px solid #d6b36a; border-radius: 8px; background: #fff8e6; color: var(--amber); font-weight: bold; }
     .latest { font-size: 13px; word-break: break-all; }
     #log { padding-left: 20px; margin-bottom: 0; }
     @media (max-width: 420px) { .key-grid { grid-template-columns: 1fr; } }
@@ -78,6 +79,7 @@
       <option value="exam">審査が近い順</option>
     </select>
     <div id="memberCandidates" class="empty">会員QRを読み取ってください。</div>
+    <div id="teacherQrGuide" class="action-guide" hidden>先生QRを読み取ってください。</div>
     <button id="sendButton" class="primary" type="button" onclick="sendCandidatesToGas()">選択した出席を登録</button>
     <button type="button" onclick="clearCandidates()">会員一覧をクリア</button>
   </section>
@@ -762,7 +764,13 @@
     }
 
     function updateSendButton() {
-      document.getElementById("sendButton").disabled = !(
+      const sendButton = document.getElementById("sendButton");
+      const teacherQrGuide = document.getElementById("teacherQrGuide");
+      const waitingForTeacher = !currentTeacherId;
+
+      teacherQrGuide.hidden = !waitingForTeacher;
+      sendButton.hidden = waitingForTeacher;
+      sendButton.disabled = !(
         !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
         memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.loaded && item.current_rank; })
       );
