@@ -25,9 +25,9 @@ function paypayCode_start(data, ctx) {
     return { ok: false, success: false, message: 'member_id がありません。' };
   }
 
-  if (!planId) {
-    return { ok: false, success: false, message: 'plan_id がありません。' };
-  }
+  // plan_id は旧QR等から明示される場合だけ優先する。
+  // 空の場合は getMemberPaymentInfo_ が当月の 04_月次選択から復元する。
+  // これにより Browser 側の事前 getPaymentInfo を不要にする。
 
   // 04/05/20 を準備し、画面表示用DTOを取得する。
   // PayPay開始処理全体で同じSheetContextを使い、宣言・請求生成後の

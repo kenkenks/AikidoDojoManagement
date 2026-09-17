@@ -188,68 +188,45 @@
         return;
       }
 
-      addLog("会費情報取得開始: member_id=" + memberId);
+      const session = window.DojoVirtualSession ? DojoVirtualSession.get() : null;
+      const context = session && session.context ? session.context : {};
+      const locationId = context.location_id || "";
+      const billingBlockId = context.billing_block_id || "";
+      const teacherId = context.teacher_id || "";
+      const receptionDate = getReceptionDate();
+
+      addLog("PayPay受付開始: member_id=" + memberId +
+        (legacyPlanId ? " / plan_id=" + legacyPlanId : " / plan_id=(GAS側で確定)"));
+      addLog(
+        "受付Context: reception_date=" + (receptionDate || "(GAS側確定)") +
+        " / location_id=" + (locationId || "(空)") +
+        " / billing_block_id=" + (billingBlockId || "(空)") +
+        " / teacher_id=" + (teacherId || "PAYPAY_MEMBER")
+      );
       setMessage("startResult", "会費情報を取得しています...", "note");
 
+      // paypay_code_start 自身が会費情報取得・plan_id解決・REQUESTED作成まで行う。
+      // 事前の getPaymentInfo は同じ請求情報を二重取得するため呼ばない。
       jsonp(GAS_URL, {
-        action: "getPaymentInfo",
+        action: "paypay_code_start",
         member_id: memberId,
-        plan_id: legacyPlanId || ""
-      }).then(function(info) {
-        addLog("GAS応答(getPaymentInfo): " + JSON.stringify(info));
-
-        if (!info || info.success !== true) {
-          setMessage("startResult", (info && info.message) || "会費情報を取得できませんでした。", "error");
-          return;
-        }
-
-        const resolvedPlanId = info.planId || "";
-        if (!resolvedPlanId) {
-          setMessage("startResult", "会費情報から plan_id を確定できませんでした。", "error");
-          return;
-        }
-
-        document.getElementById("planId").value = resolvedPlanId;
-        addLog("plan_id確定: " + resolvedPlanId + " (会費情報)");
-
-        const session = window.DojoVirtualSession ? DojoVirtualSession.get() : null;
-        const context = session && session.context ? session.context : {};
-        const locationId = context.location_id || "";
-        const billingBlockId = context.billing_block_id || "";
-        const teacherId = context.teacher_id || "";
-
-        const receptionDate = getReceptionDate();
-
-        addLog(
-          "受付Context: reception_date=" + (receptionDate || "(GAS側確定)") +
-          " / location_id=" + (locationId || "(空)") +
-          " / billing_block_id=" + (billingBlockId || "(空)") +
-          " / teacher_id=" + (teacherId || "PAYPAY_MEMBER")
-        );
-
-        return jsonp(GAS_URL, {
-          action: "paypay_code_start",
-          member_id: memberId,
-          plan_id: resolvedPlanId,
-          reception_date: receptionDate,
-          location_id: locationId,
-          billing_block_id: billingBlockId,
-          teacher_id: teacherId
-        });
+        plan_id: legacyPlanId || "",
+        reception_date: receptionDate,
+        location_id: locationId,
+        billing_block_id: billingBlockId,
+        teacher_id: teacherId
       }).then(function(result) {
-        if (!result) return;
-
         addLog("GAS応答(paypay_code_start): " + JSON.stringify(result));
 
-        if (result.ok !== true) {
-          setMessage("startResult", result.message || "PayPay情報を取得できませんでした。", "error");
+        if (!result || result.ok !== true) {
+          setMessage("startResult", (result && result.message) || "PayPay情報を取得できませんでした。", "error");
           return;
         }
 
+        document.getElementById("planId").value = result.planId || legacyPlanId || "";
         currentPayPay = result;
         renderPaymentInfo(result);
         setMessage("startResult", "会費情報を取得しました。", "ok");
-
       }).catch(function(error) {
         addLog("PayPay開始失敗: " + (error.message || String(error)));
         setMessage("startResult", "会費情報取得に失敗しました。", "error");
