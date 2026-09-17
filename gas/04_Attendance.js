@@ -319,7 +319,14 @@ function registerAttendanceBatchLocked_(data, ctx) {
       };
     }
 
-    const billingResult = billingMonthlyAccept(memberId, planId, ctx);
+    // この後で出席確定 → 都度請求同期 → 最終View refreshまで行うため、
+    // 月次選択時点の中間View refreshは遅延する。
+    const billingResult = billingMonthlyAccept(
+      memberId,
+      planId,
+      ctx,
+      { deferViewRefresh: true }
+    );
     if (!billingResult || billingResult.ok !== true) {
       return {
         ok: false,

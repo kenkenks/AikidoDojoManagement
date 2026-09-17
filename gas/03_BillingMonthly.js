@@ -19,8 +19,10 @@
  * NOTE
  * billing_acceptMonthlySelection() は旧互換入口として残す。
  */
-function billingMonthlyAccept(memberId, plan_id, ctx) {
+function billingMonthlyAccept(memberId, plan_id, ctx, options) {
   ctx = ensureSheetContext(ctx || createSheetContext());
+  options = options || {};
+  const deferViewRefresh = options.deferViewRefresh === true;
 
   let billingContext;
   let invoice;
@@ -35,12 +37,18 @@ function billingMonthlyAccept(memberId, plan_id, ctx) {
     // PayPay画面の再表示や既存REQUESTED再利用時に、同じ宣言を
     // 「登録済みエラー」として止めない。
     if (billingContext.alreadySelected === true) {
-      viewUpdate =
-        paymentStatusView_refresh(
-          billingContext.memberId,
-          billingContext.targetMonth,
-          ctx
-        );
+      viewUpdate = deferViewRefresh
+        ? {
+            ok: true,
+            deferred: true,
+            row_updated: false,
+            reason: "DEFERRED_BY_CALLER"
+          }
+        : paymentStatusView_refresh(
+            billingContext.memberId,
+            billingContext.targetMonth,
+            ctx
+          );
 
       return {
         ok: true,
@@ -62,13 +70,21 @@ function billingMonthlyAccept(memberId, plan_id, ctx) {
     // Record Invoice
     billingRecordAppendInvoice_(invoice, ctx);
 
-    // Refresh View
-    viewUpdate =
-      paymentStatusView_refresh(
-        billingContext.memberId,
-        billingContext.targetMonth,
-        ctx
-      );
+    // Refresh View.
+    // attendance_batch など、後段で確定状態を必ずrefreshする呼出元だけ遅延を許可する。
+    // DTO互換のため viewUpdate 自体は常に返し、遅延時も ok/deferred を明示する。
+    viewUpdate = deferViewRefresh
+      ? {
+          ok: true,
+          deferred: true,
+          row_updated: false,
+          reason: "DEFERRED_BY_CALLER"
+        }
+      : paymentStatusView_refresh(
+          billingContext.memberId,
+          billingContext.targetMonth,
+          ctx
+        );
 
   } catch (e) {
     return { ok: false, message: e.message };

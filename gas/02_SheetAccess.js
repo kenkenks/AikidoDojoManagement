@@ -43,7 +43,14 @@ function appendObjectsByHeader_(sheet, objects) {
     return Object.prototype.hasOwnProperty.call(object, header) ? object[header] : "";
   }));
 
+  const t0 = Date.now();
   sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
+  console.log(
+    "[PERF-WRITE] sheet=" + sheet.getName() +
+    " op=append rows=" + rows.length +
+    " cols=" + headers.length +
+    " ms=" + (Date.now() - t0)
+  );
 }
 
 function appendAttendanceRows(attendanceRows, ctx) {
@@ -113,10 +120,16 @@ function cancelAttendanceRows(attendanceRows, teacherId, reason, ctx) {
   attendanceRows.forEach(row => {
     const rowNumber = Number(row._rowNumber);
     if (!rowNumber || rowNumber < 2) throw new Error("取消対象の行番号が不正です。");
+    const t0 = Date.now();
     sheet.getRange(rowNumber, headerInfo.map["状態"] + 1).setValue("取消");
     sheet.getRange(rowNumber, headerInfo.map["取消日時"] + 1).setValue(cancelledAt);
     sheet.getRange(rowNumber, headerInfo.map["取消者teacher_id"] + 1).setValue(teacherId);
     sheet.getRange(rowNumber, headerInfo.map["取消理由"] + 1).setValue(reason || "画面同期による選択解除");
+    console.log(
+      "[PERF-WRITE] sheet=" + sheet.getName() +
+      " op=cancel row=" + rowNumber +
+      " cells=4 ms=" + (Date.now() - t0)
+    );
   });
 
   invalidateAttendances(ctx);

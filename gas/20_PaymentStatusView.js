@@ -574,6 +574,7 @@ function paymentStatusView_upsertDetailItem_(items, idField, item) {
 function paymentStatusView_update(memberId, targetMonth, updateValues, ctx) {
   paymentStatusView_ensureViewHeaders_(updateValues, ctx);
 
+  const t0 = Date.now();
   upsertViewRow(
     "20_会費状態View",
     ["target_month", "member_id"],
@@ -582,6 +583,14 @@ function paymentStatusView_update(memberId, targetMonth, updateValues, ctx) {
       member_id: memberId
     },
     updateValues
+  );
+  console.log(
+    "[PERF-WRITE] sheet=20_会費状態View" +
+    " op=upsert" +
+    " fields=" + Object.keys(updateValues || {}).length +
+    " member_id=" + normalizeId_(memberId) +
+    " target_month=" + normalizeMonth(targetMonth) +
+    " ms=" + (Date.now() - t0)
   );
 }
 
@@ -611,9 +620,15 @@ function paymentStatusView_ensureViewHeaders_(updateValues, ctx) {
 
   if (missing.length === 0) return;
 
+  const t0 = Date.now();
   sheet
     .getRange(1, headers.length + 1, 1, missing.length)
     .setValues([missing]);
+  console.log(
+    "[PERF-WRITE] sheet=20_会費状態View" +
+    " op=append_headers rows=1 cols=" + missing.length +
+    " ms=" + (Date.now() - t0)
+  );
 }
 
 // ==============================

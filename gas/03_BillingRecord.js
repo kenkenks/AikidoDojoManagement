@@ -119,9 +119,19 @@ function billingRecordUpdateUsageInvoice_(invoiceId, values, ctx) {
   }
   if (rowNo < 0) throw new Error("更新対象の請求明細が見つかりません: " + invoiceId);
 
-  Object.keys(values || {}).forEach(function(key) {
-    const col = header.map[key];
-    if (col !== undefined) sheet.getRange(rowNo, col + 1).setValue(values[key]);
+  const writeKeys = Object.keys(values || {}).filter(function(key) {
+    return header.map[key] !== undefined;
   });
+  const t0 = Date.now();
+  writeKeys.forEach(function(key) {
+    const col = header.map[key];
+    sheet.getRange(rowNo, col + 1).setValue(values[key]);
+  });
+  console.log(
+    "[PERF-WRITE] sheet=" + sheet.getName() +
+    " op=update row=" + rowNo +
+    " cells=" + writeKeys.length +
+    " ms=" + (Date.now() - t0)
+  );
   invalidateInvoices(ctx);
 }
