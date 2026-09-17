@@ -3,7 +3,7 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>会員ホーム</title><link rel="stylesheet" href="common.css"></head>
 <body class="member">
   <h1>🥋 会員ホーム</h1>
-  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><button onclick="logoutSession()">ログアウト</button></section>
+  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><span id="gasResponseTime" class="note">GAS応答：計測中...</span><button onclick="logoutSession()">ログアウト</button></section>
   <section class="card">
     <h2>会員メニュー</h2>
     <div class="grid">
@@ -26,6 +26,21 @@
       document.getElementById("attendanceSummaryLink").href =
         "attendance_summary.html?member_id=" + encodeURIComponent(memberId);
     }
+    let systemContextStartedAt = null;
+    function renderGasResponseTime(label) {
+      const root = document.getElementById("gasResponseTime");
+      if (root) root.textContent = "GAS応答：" + label;
+    }
+    window.addEventListener("dojo-system-context", function() {
+      const elapsedMs = systemContextStartedAt == null ? null : Date.now() - systemContextStartedAt;
+      if (elapsedMs != null) renderGasResponseTime((elapsedMs / 1000).toFixed(2) + "秒");
+    });
+    window.addEventListener("dojo-system-context-error", function() {
+      const elapsedMs = systemContextStartedAt == null ? null : Date.now() - systemContextStartedAt;
+      renderGasResponseTime(elapsedMs == null ? "TIMEOUT" : "TIMEOUT (" + (elapsedMs / 1000).toFixed(2) + "秒)");
+    });
+    systemContextStartedAt = Date.now();
+
     function logoutSession() {
       DojoVirtualSession.logout();
       location.href = "index.html";
