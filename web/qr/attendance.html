@@ -111,13 +111,16 @@
     let submitting = false;
     let rankOptions = [];
     let entryMemberId = "";
+    let attendanceInfoRequestSeq = 0;
+    let attendanceInfoInFlightKey = "";
+    let attendanceInfoLoadedKey = "";
 
     initializeAttendanceContext();
 
     document.getElementById("attendanceDate").textContent = currentAttendanceDate();
     window.addEventListener("dojo-system-context", function() {
       document.getElementById("attendanceDate").textContent = currentAttendanceDate();
-      if (currentLocationId) loadAttendanceSessionInfo();
+      refreshAttendanceSessionInfoIfNeeded();
     });
     updateSendButton();
     loadRankOptions();
@@ -147,7 +150,7 @@
 
       if (currentLocationId) {
         addLog(query.get("location_id") ? "URLの道場情報を読み込みました。" : "Sessionの道場情報を復元しました。");
-        loadAttendanceSessionInfo();
+        refreshAttendanceSessionInfoIfNeeded();
       }
     }
 
@@ -214,7 +217,7 @@
         renderKeys();
         addLog(parsed.billing_block_id ? "道場・課金枠QRを読み取りました。" : "道場QRを読み取りました。課金枠を自動判定します。");
         beep();
-        loadAttendanceSessionInfo();
+        refreshAttendanceSessionInfoIfNeeded();
         return;
       }
       if (parsed.teacher_id) {
@@ -257,7 +260,19 @@
       }
     }
 
-    function loadAttendanceSessionInfo() {
+    function attendanceSessionInfoKey() {
+      return currentLocationId + "|" + currentBillingBlockId;
+    }
+
+    function refreshAttendanceSessionInfoIfNeeded() {
+      if (!currentLocationId) return false;
+      const key = attendanceSessionInfoKey();
+      if (attendanceInfoInFlightKey === key || attendanceInfoLoadedKey === key) return false;
+      loadAttendanceSessionInfo(key);
+      return true;
+    }
+
+    function loadAttendanceSessionInfo(requestKey) {
       if (!currentLocationId) {
         currentSlots = [];
         renderCandidates();
@@ -265,6 +280,9 @@
         return;
       }
 
+      const key = requestKey || attendanceSessionInfoKey();
+      const requestSeq = ++attendanceInfoRequestSeq;
+      attendanceInfoInFlightKey = key;
       const params = {
         action: "attendance_session_info",
         location_id: currentLocationId
@@ -272,6 +290,7 @@
       if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
 
       jsonp(GAS_URL, params).then(function (data) {
+        if (requestSeq !== attendanceInfoRequestSeq) return;
         if (!data.ok) throw new Error(data.message || "稽古枠を取得できませんでした。");
         document.getElementById("locationId").textContent = data.location_name + " (" + data.location_id + ")";
         document.getElementById("locationId").className = "ok";
@@ -296,15 +315,19 @@
         document.getElementById("billingBlockId").className = "ok";
         clearCandidates(true);
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
+        attendanceInfoLoadedKey = attendanceSessionInfoKey();
         if (entryMemberId) {
           const memberId = entryMemberId;
           entryMemberId = "";
           addMemberCandidate(memberId);
         }
       }).catch(function (error) {
+        if (requestSeq !== attendanceInfoRequestSeq) return;
         currentSlots = [];
         renderCandidates();
         addLog(error.message || String(error), "error");
+      }).finally(function () {
+        if (requestSeq === attendanceInfoRequestSeq) attendanceInfoInFlightKey = "";
       });
     }
 
@@ -331,7 +354,7 @@
       currentBillingBlockId = billingBlockId;
       persistAttendanceContext();
       renderKeys();
-      loadAttendanceSessionInfo();
+      refreshAttendanceSessionInfoIfNeeded();
     }
 
     function addMemberCandidate(memberId) {
