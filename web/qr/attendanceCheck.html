@@ -71,8 +71,8 @@
   </section>
 
   <section id="blockChoiceCard" class="card" hidden>
-    <h2>課金枠を選択</h2>
-    <div class="warn">現在時刻から一つに絞れませんでした。</div>
+    <h2>稽古枠を選択</h2>
+    <div id="blockChoiceGuide" class="note">現在時刻から自動選択します。必要なら変更できます。</div>
     <select id="blockChoice" onchange="selectBillingBlock(this.value)"></select>
   </section>
 
@@ -333,17 +333,17 @@
           setKey("billingBlockId", "");
           updateSendButton();
           renderBlockChoices(data.billing_block_candidates || []);
-          addLog(data.message || "課金枠を選択してください。", "warn");
+          addLog(data.message || "稽古枠を選択してください。", "warn");
           return;
         }
 
-        document.getElementById("blockChoiceCard").hidden = true;
         currentBillingBlockId = data.billing_block_id;
         currentSlots = data.slots || [];
         persistAttendanceContext();
         document.getElementById("billingBlockId").textContent = data.billing_block_name;
         document.getElementById("billingBlockId").className = "ok";
         clearCandidates(true);
+        renderBlockChoices(data.billing_block_candidates || [], currentBillingBlockId, data.inferred === true);
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
         loadTeacherAttendanceOverview();
       }).catch(function (error) {
@@ -353,21 +353,29 @@
       });
     }
 
-    function renderBlockChoices(candidates) {
+    function renderBlockChoices(candidates, selectedBillingBlockId, inferred) {
       const card = document.getElementById("blockChoiceCard");
       const select = document.getElementById("blockChoice");
+      const guide = document.getElementById("blockChoiceGuide");
       select.innerHTML = "";
       const emptyOption = document.createElement("option");
       emptyOption.value = "";
-      emptyOption.textContent = candidates.length ? "課金枠を選んでください" : "選択できる課金枠がありません";
+      emptyOption.textContent = candidates.length ? "稽古枠を選んでください" : "選択できる稽古枠がありません";
       select.appendChild(emptyOption);
       candidates.forEach(function (candidate) {
         const option = document.createElement("option");
         option.value = candidate.billing_block_id;
         option.textContent = candidate.label + "（" + candidate.start_time + "–" + candidate.end_time + "）";
+        option.selected = candidate.billing_block_id === selectedBillingBlockId;
         select.appendChild(option);
       });
       select.disabled = candidates.length === 0;
+      if (guide) {
+        guide.textContent = selectedBillingBlockId
+          ? (inferred ? "現在時刻から自動選択しました。必要なら変更できます。" : "選択中の稽古枠です。必要なら変更できます。")
+          : "現在時刻から一つに絞れませんでした。稽古枠を選択してください。";
+        guide.className = selectedBillingBlockId ? "note" : "warn";
+      }
       card.hidden = false;
     }
 

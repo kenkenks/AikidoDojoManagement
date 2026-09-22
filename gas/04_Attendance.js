@@ -30,20 +30,29 @@ function getAttendanceSessionInfo(params, ctx) {
   );
   if (!location) return { ok: false, message: "有効な道場が見つかりません。" };
 
-  if (billingBlockId) {
-    return buildAttendanceSessionInfo_(location, billingBlockId, false, ctx);
-  }
-
   const now = parseSessionDateTime_(params.at, ctx);
   const candidates = findBillingBlockCandidates_(locationId, now, ctx);
+
+  if (billingBlockId) {
+    return attachAttendanceBlockCandidates_(
+      buildAttendanceSessionInfo_(location, billingBlockId, false, ctx),
+      candidates
+    );
+  }
   const exactCandidates = candidates.filter(candidate => candidate.is_current);
   const nearbyCandidates = candidates.filter(candidate => candidate.is_nearby);
 
   if (exactCandidates.length === 1) {
-    return buildAttendanceSessionInfo_(location, exactCandidates[0].billing_block_id, true, ctx);
+    return attachAttendanceBlockCandidates_(
+      buildAttendanceSessionInfo_(location, exactCandidates[0].billing_block_id, true, ctx),
+      candidates
+    );
   }
   if (exactCandidates.length === 0 && nearbyCandidates.length === 1) {
-    return buildAttendanceSessionInfo_(location, nearbyCandidates[0].billing_block_id, true, ctx);
+    return attachAttendanceBlockCandidates_(
+      buildAttendanceSessionInfo_(location, nearbyCandidates[0].billing_block_id, true, ctx),
+      candidates
+    );
   }
 
   const choices = exactCandidates.length > 1
@@ -55,16 +64,27 @@ function getAttendanceSessionInfo(params, ctx) {
     location_id: locationId,
     location_name: String(location["表示名"] || location["道場名"] || locationId),
     requires_selection: true,
-    billing_block_candidates: choices.map(candidate => ({
-      billing_block_id: candidate.billing_block_id,
-      label: candidate.label,
-      start_time: candidate.start_time,
-      end_time: candidate.end_time
-    })),
+    billing_block_candidates: mapAttendanceBlockCandidates_(choices),
     message: choices.length > 0
       ? "課金枠を自動判定できませんでした。候補から選択してください。"
       : "本日の課金枠がありません。"
   };
+}
+
+
+function mapAttendanceBlockCandidates_(candidates) {
+  return (candidates || []).map(candidate => ({
+    billing_block_id: candidate.billing_block_id,
+    label: candidate.label,
+    start_time: candidate.start_time,
+    end_time: candidate.end_time
+  }));
+}
+
+function attachAttendanceBlockCandidates_(result, candidates) {
+  if (!result || result.ok !== true) return result;
+  result.billing_block_candidates = mapAttendanceBlockCandidates_(candidates);
+  return result;
 }
 
 function buildAttendanceSessionInfo_(location, billingBlockId, inferred, ctx) {
