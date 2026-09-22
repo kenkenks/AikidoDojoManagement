@@ -305,6 +305,7 @@
     let paymentList = [];
     let confirmedEvidences = [];
     let postedEvidences = [];
+    let receptionRefreshPromise = Promise.resolve();
 
     function saveReceptionScopeToSession() {
       const session = DojoVirtualSession.get();
@@ -609,46 +610,78 @@
 
     function updateReceptionScope() {
       updateCompletionButton();
-      if (!currentLocationId || !currentBillingBlockId) return;
+      if (!currentLocationId || !currentBillingBlockId) return receptionRefreshPromise;
 
-      // reception_date は System Context の業務日付を唯一の基準にする。
-      // system_context.js の応答前に先行すると todayValue() が実日付へ
-      // fallback し、Time Travel 中の受付日と画面表示日が不一致になる。
-      if (!window.DOJO_SYSTEM_CONTEXT || !window.DOJO_SYSTEM_CONTEXT.system_now) {
-        addLog("システム時刻待ち: 会費受付情報の取得を保留します。");
-        return;
-      }
+      const locationId = currentLocationId;
+      const billingBlockId = currentBillingBlockId;
+      const receptionDate = todayValue();
 
-      receptionSessionId = makeReceptionSessionId();
-      jsonp(GAS_URL, {
-        action: "attendance_session_info",
-        location_id: currentLocationId,
-        billing_block_id: currentBillingBlockId
-      }).then(function(result) {
-        if (!result || result.ok !== true) {
-          currentBillingBlockName = "";
-          document.getElementById("billingBlockName").textContent = (result && result.message) || "課金枠を確認できませんでした。";
-          addLog("課金枠確認エラー: " + ((result && result.message) || "ok=false"));
-          return;
-        }
-        currentBillingBlockName = result.billing_block_name || currentBillingBlockId;
-        document.getElementById("billingBlockName").textContent = currentBillingBlockName;
-        addLog("課金枠確認完了: " + currentBillingBlockName);
-        loadPaymentScreenRead();
-      }).catch(function(error) {
-        addLog("課金枠確認失敗: " + (error.message || String(error)));
-      });
+      receptionRefreshPromise = receptionRefreshPromise
+        .catch(function() {
+          // 前回の失敗で後続更新を止めない。
+        })
+        .then(async function() {
+          // 待ち行列にいる間にScopeが変わった要求は実行しない。
+          if (locationId !== currentLocationId || billingBlockId !== currentBillingBlockId) {
+            addLog("受付範囲更新スキップ: 古い受付範囲 " + locationId + " / " + billingBlockId);
+            return;
+          }
+
+          receptionSessionId = makeReceptionSessionId();
+          const result = await jsonp(GAS_URL, {
+            action: "attendance_session_info",
+            location_id: locationId,
+            billing_block_id: billingBlockId
+          });
+
+          // 通信中にScopeが変わった場合も後段へ進めない。
+          if (locationId !== currentLocationId || billingBlockId !== currentBillingBlockId) {
+            addLog("課金枠確認応答を破棄: 古い受付範囲 " + locationId + " / " + billingBlockId);
+            return;
+          }
+
+          if (!result || result.ok !== true) {
+            currentBillingBlockName = "";
+            document.getElementById("billingBlockName").textContent =
+              (result && result.message) || "課金枠を確認できませんでした。";
+            addLog("課金枠確認エラー: " + ((result && result.message) || "ok=false"));
+            return;
+          }
+
+          currentBillingBlockName = result.billing_block_name || billingBlockId;
+          document.getElementById("billingBlockName").textContent = currentBillingBlockName;
+          addLog("課金枠確認完了: " + currentBillingBlockName);
+
+          await loadPaymentScreenRead({
+            receptionDate: receptionDate,
+            locationId: locationId,
+            billingBlockId: billingBlockId
+          });
+        })
+        .catch(function(error) {
+          addLog("受付範囲更新失敗: " + (error.message || String(error)));
+        });
+
+      return receptionRefreshPromise;
     }
 
-    function loadPaymentScreenRead() {
+    function loadPaymentScreenRead(scope) {
+      const receptionDate = scope.receptionDate;
+      const locationId = scope.locationId;
+      const billingBlockId = scope.billingBlockId;
+
       addLog("決済画面情報取得開始");
       return jsonp(GAS_URL, {
         action: "payment_screen_read",
-        reception_date: todayValue(),
-        location_id: currentLocationId,
-        billing_block_id: currentBillingBlockId,
+        reception_date: receptionDate,
+        location_id: locationId,
+        billing_block_id: billingBlockId,
         payment_method: "PAYPAY"
       }).then(function(result) {
+        if (locationId !== currentLocationId || billingBlockId !== currentBillingBlockId) {
+          addLog("決済画面情報応答を破棄: 古い受付範囲 " + locationId + " / " + billingBlockId);
+          return;
+        }
         if (!result || result.ok !== true) throw new Error((result && result.message) || "決済画面情報を取得できませんでした。");
         const summary = result.summary || {};
         const confirmedResult = result.confirmed || {};
@@ -1256,7 +1289,7 @@
       document.getElementById("billingBlockId").textContent = currentBillingBlockId;
       document.getElementById("billingBlockId").className = "ok";
     }
-    updateReceptionScope();
+    refreshReceptionScopeWhenSystemContextReady();
   }
 
   //　未使用予備 
@@ -1319,13 +1352,26 @@
       });
   }
 
-  initializeReceptionScopeFromUrl();
-  window.addEventListener("dojo-system-context", function() {
-    // System Context 到着後に、保留していた受付スコープを確定する。
-    // これにより payment_screen_read の reception_date も
-    // Time Travel を含む system_now と必ず一致する。
+  let receptionScopeInitialized = false;
+
+  function refreshReceptionScopeWhenSystemContextReady() {
+    if (!window.DOJO_SYSTEM_CONTEXT || !window.DOJO_SYSTEM_CONTEXT.system_now) {
+      return;
+    }
+    receptionScopeInitialized = true;
     updateReceptionScope();
+  }
+
+  window.addEventListener("dojo-system-context", function() {
+    receptionSessionId = makeReceptionSessionId();
+    refreshReceptionScopeWhenSystemContextReady();
   });
+
+  window.addEventListener("dojo-system-context-error", function() {
+    addLog("システム時刻を取得できないため、会費受付情報の取得を保留します。");
+  });
+
+  initializeReceptionScopeFromUrl();
 
 </script>
   <script src="system_context.js"></script>
