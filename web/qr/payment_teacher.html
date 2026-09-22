@@ -611,6 +611,14 @@
       updateCompletionButton();
       if (!currentLocationId || !currentBillingBlockId) return;
 
+      // reception_date は System Context の業務日付を唯一の基準にする。
+      // system_context.js の応答前に先行すると todayValue() が実日付へ
+      // fallback し、Time Travel 中の受付日と画面表示日が不一致になる。
+      if (!window.DOJO_SYSTEM_CONTEXT || !window.DOJO_SYSTEM_CONTEXT.system_now) {
+        addLog("システム時刻待ち: 会費受付情報の取得を保留します。");
+        return;
+      }
+
       receptionSessionId = makeReceptionSessionId();
       jsonp(GAS_URL, {
         action: "attendance_session_info",
@@ -1313,7 +1321,10 @@
 
   initializeReceptionScopeFromUrl();
   window.addEventListener("dojo-system-context", function() {
-    receptionSessionId = makeReceptionSessionId();
+    // System Context 到着後に、保留していた受付スコープを確定する。
+    // これにより payment_screen_read の reception_date も
+    // Time Travel を含む system_now と必ず一致する。
+    updateReceptionScope();
   });
 
 </script>
