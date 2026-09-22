@@ -9,6 +9,7 @@
     :root { color-scheme: light; --green: #176b45; --amber: #9b6100; --red: #b3261e; }
     * { box-sizing: border-box; }
     body { font-family: sans-serif; margin: 0; padding: 16px; background: #e8f5e9; color: #222; }
+    body { background: #E8F5E9;}   /* 先生・出席 */
     .role-badge { display:inline-block; padding:4px 8px; border-radius:999px; background:#d7efe0; color:#176b45; font-size:12px; font-weight:bold; margin-bottom:8px; }
     .top-nav { margin:0 0 12px; }
     .top-nav a { display:inline-block; margin:0 6px 6px 0; padding:7px 10px; border-radius:8px; border:1px solid #b7d8c4; background:#fff; color:#176b45; text-decoration:none; font-size:14px; }
@@ -39,17 +40,28 @@
     .progress { margin-top: 6px; padding: 7px 9px; border-radius: 7px; background: #f4f8fb; font-size: 14px; }
     .progress.near { background: #fff3cd; color: #6d4c00; font-weight: bold; }
     .progress.ready { background: #dff3e6; color: #176b45; font-weight: bold; }
+    .overview-toolbar { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
+    .overview-list { margin-top:10px; }
+    .overview-row { display:grid; grid-template-columns:minmax(140px, 1fr) auto; gap:6px 12px; align-items:center; padding:10px 6px; border-top:1px solid #e5e5e5; }
+    .overview-row:first-child { border-top:0; }
+    .overview-name { font-weight:bold; }
+    .overview-rank { text-align:right; font-weight:bold; }
+    .overview-progress { grid-column:1 / -1; font-size:14px; padding:6px 8px; border-radius:6px; background:#f4f8fb; }
+    .overview-row.near .overview-progress { background:#fff3cd; color:#6d4c00; font-weight:bold; }
+    .overview-row.ready .overview-progress { background:#dff3e6; color:#176b45; font-weight:bold; }
     .empty { color: #777; }
-    .action-guide { margin: 3px; padding: 10px 12px; border: 1px solid #d6b36a; border-radius: 8px; background: #fff8e6; color: var(--amber); font-weight: bold; }
     .latest { font-size: 13px; word-break: break-all; }
     #log { padding-left: 20px; margin-bottom: 0; }
-    @media (max-width: 420px) { .key-grid { grid-template-columns: 1fr; } }
+    @media (max-width: 520px) {
+      .key-grid { grid-template-columns: 1fr; }
+      .overview-row { grid-template-columns:minmax(120px, 1fr) auto; }
+    }
   </style>
 </head>
 <body>
-  <div class="role-badge">会員画面</div>
-  <h1>合気道 出席受付</h1>
-  <nav class="top-nav"><a href="member_home.html">会員ホーム</a><a href="paypay_code.html">PayPay決済コード登録</a><a href="index.html">入口</a></nav>
+  <div class="role-badge">先生画面</div>
+  <h1>合気道 出席確認(先生)</h1>
+  <nav class="top-nav"><a href="teacher_home.html">先生ホーム</a><a href="index.html">入口</a></nav>
 
   <section class="card key-grid">
     <div class="key"><span class="label">道場</span><span id="locationId" class="warn">未設定</span></div>
@@ -59,9 +71,25 @@
   </section>
 
   <section id="blockChoiceCard" class="card" hidden>
-    <h2>課金枠を選択</h2>
-    <div class="warn">現在時刻から一つに絞れませんでした。</div>
+    <h2>稽古枠を選択</h2>
+    <div id="blockChoiceGuide" class="note">現在時刻から自動選択します。必要なら変更できます。</div>
     <select id="blockChoice" onchange="selectBillingBlock(this.value)"></select>
+  </section>
+
+  <section class="card">
+    <h2>本日の出席者 <span id="overviewCount">0名</span></h2>
+    <div class="overview-toolbar">
+      <label>並び順
+        <select id="overviewSort" onchange="renderTeacherOverview()">
+          <option value="exam">審査が近い順</option>
+          <option value="rank">級・段順</option>
+          <option value="name">氏名順</option>
+        </select>
+      </label>
+      <button type="button" onclick="loadTeacherAttendanceOverview()">更新</button>
+    </div>
+    <div id="overviewStatus" class="empty">道場を設定すると本日の出席者を表示します。</div>
+    <div id="teacherOverview" class="overview-list"></div>
   </section>
 
   <section class="card">
@@ -79,7 +107,6 @@
       <option value="exam">審査が近い順</option>
     </select>
     <div id="memberCandidates" class="empty">会員QRを読み取ってください。</div>
-    <div id="teacherQrGuide" class="action-guide" hidden>先生QRを読み取ってください。</div>
     <button id="sendButton" class="primary" type="button" onclick="sendCandidatesToGas()">選択した出席を登録</button>
     <button type="button" onclick="clearCandidates()">会員一覧をクリア</button>
   </section>
@@ -96,8 +123,7 @@
 
   <script src="virtual_session.js"></script>
   <script>
-    const SESSION_PRIMARY_ROLE = "MEMBER";
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwtpuZUDHMescE7Sz71SiIHn4l-SH_DJwQtKCQb251d7qGnmhvIN0f1txRHMMjHm88ebQ/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
     const memberNameMap = { M001: "山田太郎", M002: "川本花子", M003: "佐藤一郎" };
 
     let html5QrCode = null;
@@ -111,48 +137,61 @@
     let lastReadTime = 0;
     let attendanceSessionId = createSessionId();
     let submitting = false;
+    let teacherOverviewItems = [];
     let rankOptions = [];
-    let entryMemberId = "";
-    let attendanceInfoRequestSeq = 0;
-    let attendanceInfoInFlightKey = "";
-    let attendanceInfoLoadedKey = "";
-
-    initializeAttendanceContext();
 
     document.getElementById("attendanceDate").textContent = currentAttendanceDate();
     window.addEventListener("dojo-system-context", function() {
       document.getElementById("attendanceDate").textContent = currentAttendanceDate();
-      refreshAttendanceSessionInfoIfNeeded();
+      if (currentLocationId) loadAttendanceSessionInfo();
     });
     updateSendButton();
     loadRankOptions();
+    initializeFromPageUrl();
 
+    function loadRankOptions() {
+      return jsonp(GAS_URL, { action: "attendance_rank_options" }).then(function(data) {
+        if (!data.ok) throw new Error(data.message || "級段位マスタを取得できませんでした。");
+        rankOptions = Array.isArray(data.rank_options) ? data.rank_options : [];
+        renderCandidates();
+        renderTeacherOverview();
+      }).catch(function(error) {
+        addLog("級段位マスタ取得エラー: " + (error.message || String(error)), "error");
+      });
+    }
 
-    function initializeAttendanceContext() {
+    function initializeFromPageUrl() {
       const query = new URLSearchParams(window.location.search);
-      const session = DojoVirtualSession.get();
-      const context = session && session.context ? session.context : {};
       const urlTeacherId = String(query.get("teacher_id") || "").trim();
-      const urlMemberId = String(query.get("member_id") || "").trim();
-      entryMemberId = urlMemberId ||
-        (SESSION_PRIMARY_ROLE === "MEMBER" && session && session.role === "MEMBER" ? session.member_id : "");
 
+      if (urlTeacherId) {
+        DojoVirtualSession.loginTeacher(urlTeacherId, "PAGE_URL");
+      }
+
+      const session = DojoVirtualSession.get();
+      if (!session || session.role !== "TEACHER") {
+        window.location.replace("./index.html");
+        return;
+      }
+
+      const context = session.context || {};
       currentLocationId = String(query.get("location_id") || context.location_id || "").trim();
       currentBillingBlockId = String(query.get("billing_block_id") || context.billing_block_id || "").trim();
-      currentTeacherId = String(urlTeacherId ||
-        (session && session.role === "TEACHER" ? session.teacher_id : "") ||
-        context.teacher_id || "").trim();
-
-      if (SESSION_PRIMARY_ROLE === "MEMBER" && urlMemberId) {
-        DojoVirtualSession.loginMember(urlMemberId, "PAGE_URL");
-      }
+      currentTeacherId = String(urlTeacherId || session.teacher_id || context.teacher_id || "").trim();
 
       persistAttendanceContext();
       renderKeys();
 
       if (currentLocationId) {
         addLog(query.get("location_id") ? "URLの道場情報を読み込みました。" : "Sessionの道場情報を復元しました。");
-        refreshAttendanceSessionInfoIfNeeded();
+        loadAttendanceSessionInfo();
+        return;
+      }
+
+      if (currentBillingBlockId) {
+        addLog("課金枠を設定しました。続けて道場QRを読み取ってください。", "warn");
+      } else if (currentTeacherId) {
+        addLog("先生を設定しました。続けて道場QRと課金枠QRを読み取ってください。", "warn");
       }
     }
 
@@ -163,16 +202,6 @@
         location_id: currentLocationId,
         teacher_id: currentTeacherId,
         billing_block_id: currentBillingBlockId
-      });
-    }
-
-    function loadRankOptions() {
-      return jsonp(GAS_URL, { action: "attendance_rank_options" }).then(function(data) {
-        if (!data.ok) throw new Error(data.message || "級段位マスタを取得できませんでした。");
-        rankOptions = Array.isArray(data.rank_options) ? data.rank_options : [];
-        renderCandidates();
-      }).catch(function(error) {
-        addLog("級段位マスタ取得エラー: " + (error.message || String(error)), "error");
       });
     }
 
@@ -213,17 +242,32 @@
       const parsed = parseQrText(decodedText);
       if (parsed.location_id || parsed.billing_block_id) {
         if (parsed.location_id) currentLocationId = parsed.location_id;
-        currentBillingBlockId = parsed.billing_block_id || "";
+        if (parsed.billing_block_id) currentBillingBlockId = parsed.billing_block_id;
         currentSlots = [];
         persistAttendanceContext();
         renderKeys();
-        addLog(parsed.billing_block_id ? "道場・課金枠QRを読み取りました。" : "道場QRを読み取りました。課金枠を自動判定します。");
+        if (parsed.location_id && parsed.billing_block_id) {
+          addLog("道場・課金枠QRを読み取りました。");
+        } else if (parsed.location_id) {
+          addLog(currentBillingBlockId
+            ? "道場QRを読み取りました。設定済みの課金枠と照合します。"
+            : "道場QRを読み取りました。課金枠を自動判定します。");
+        } else {
+          addLog(currentLocationId
+            ? "課金枠QRを読み取りました。設定済みの道場と照合します。"
+            : "課金枠QRを読み取りました。続けて道場QRを読み取ってください。",
+            currentLocationId ? "" : "warn");
+        }
         beep();
-        refreshAttendanceSessionInfoIfNeeded();
+        if (currentLocationId) loadAttendanceSessionInfo();
         return;
       }
       if (parsed.teacher_id) {
         currentTeacherId = parsed.teacher_id;
+        const currentSession = DojoVirtualSession.get();
+        if (!currentSession || currentSession.role !== "TEACHER" || currentSession.teacher_id !== currentTeacherId) {
+          DojoVirtualSession.loginTeacher(currentTeacherId, "SCREEN_QR");
+        }
         persistAttendanceContext();
         renderKeys();
         addLog("先生QR読取: " + currentTeacherId);
@@ -262,19 +306,7 @@
       }
     }
 
-    function attendanceSessionInfoKey() {
-      return currentLocationId + "|" + currentBillingBlockId;
-    }
-
-    function refreshAttendanceSessionInfoIfNeeded() {
-      if (!currentLocationId) return false;
-      const key = attendanceSessionInfoKey();
-      if (attendanceInfoInFlightKey === key || attendanceInfoLoadedKey === key) return false;
-      loadAttendanceSessionInfo(key);
-      return true;
-    }
-
-    function loadAttendanceSessionInfo(requestKey) {
+    function loadAttendanceSessionInfo() {
       if (!currentLocationId) {
         currentSlots = [];
         renderCandidates();
@@ -282,9 +314,6 @@
         return;
       }
 
-      const key = requestKey || attendanceSessionInfoKey();
-      const requestSeq = ++attendanceInfoRequestSeq;
-      attendanceInfoInFlightKey = key;
       const params = {
         action: "attendance_session_info",
         location_id: currentLocationId
@@ -292,7 +321,6 @@
       if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
 
       jsonp(GAS_URL, params).then(function (data) {
-        if (requestSeq !== attendanceInfoRequestSeq) return;
         if (!data.ok) throw new Error(data.message || "稽古枠を取得できませんでした。");
         document.getElementById("locationId").textContent = data.location_name + " (" + data.location_id + ")";
         document.getElementById("locationId").className = "ok";
@@ -305,49 +333,49 @@
           setKey("billingBlockId", "");
           updateSendButton();
           renderBlockChoices(data.billing_block_candidates || []);
-          addLog(data.message || "課金枠を選択してください。", "warn");
+          addLog(data.message || "稽古枠を選択してください。", "warn");
           return;
         }
 
-        document.getElementById("blockChoiceCard").hidden = true;
         currentBillingBlockId = data.billing_block_id;
         currentSlots = data.slots || [];
         persistAttendanceContext();
         document.getElementById("billingBlockId").textContent = data.billing_block_name;
         document.getElementById("billingBlockId").className = "ok";
         clearCandidates(true);
+        renderBlockChoices(data.billing_block_candidates || [], currentBillingBlockId, data.inferred === true);
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
-        attendanceInfoLoadedKey = attendanceSessionInfoKey();
-        if (entryMemberId) {
-          const memberId = entryMemberId;
-          entryMemberId = "";
-          addMemberCandidate(memberId);
-        }
+        loadTeacherAttendanceOverview();
       }).catch(function (error) {
-        if (requestSeq !== attendanceInfoRequestSeq) return;
         currentSlots = [];
         renderCandidates();
         addLog(error.message || String(error), "error");
-      }).finally(function () {
-        if (requestSeq === attendanceInfoRequestSeq) attendanceInfoInFlightKey = "";
       });
     }
 
-    function renderBlockChoices(candidates) {
+    function renderBlockChoices(candidates, selectedBillingBlockId, inferred) {
       const card = document.getElementById("blockChoiceCard");
       const select = document.getElementById("blockChoice");
+      const guide = document.getElementById("blockChoiceGuide");
       select.innerHTML = "";
       const emptyOption = document.createElement("option");
       emptyOption.value = "";
-      emptyOption.textContent = candidates.length ? "課金枠を選んでください" : "選択できる課金枠がありません";
+      emptyOption.textContent = candidates.length ? "稽古枠を選んでください" : "選択できる稽古枠がありません";
       select.appendChild(emptyOption);
       candidates.forEach(function (candidate) {
         const option = document.createElement("option");
         option.value = candidate.billing_block_id;
         option.textContent = candidate.label + "（" + candidate.start_time + "–" + candidate.end_time + "）";
+        option.selected = candidate.billing_block_id === selectedBillingBlockId;
         select.appendChild(option);
       });
       select.disabled = candidates.length === 0;
+      if (guide) {
+        guide.textContent = selectedBillingBlockId
+          ? (inferred ? "現在時刻から自動選択しました。必要なら変更できます。" : "選択中の稽古枠です。必要なら変更できます。")
+          : "現在時刻から一つに絞れませんでした。稽古枠を選択してください。";
+        guide.className = selectedBillingBlockId ? "note" : "warn";
+      }
       card.hidden = false;
     }
 
@@ -356,7 +384,77 @@
       currentBillingBlockId = billingBlockId;
       persistAttendanceContext();
       renderKeys();
-      refreshAttendanceSessionInfoIfNeeded();
+      loadAttendanceSessionInfo();
+    }
+
+    function loadTeacherAttendanceOverview() {
+      const status = document.getElementById("overviewStatus");
+      if (!currentLocationId) {
+        teacherOverviewItems = [];
+        status.textContent = "道場を設定すると本日の出席者を表示します。";
+        renderTeacherOverview();
+        return Promise.resolve(false);
+      }
+      status.textContent = "本日の出席者を読み込み中…";
+      const params = {
+        action: "teacher_attendance_today",
+        attendance_date: currentAttendanceDate(),
+        location_id: currentLocationId
+      };
+      if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
+      return jsonp(GAS_URL, params).then(function(data) {
+        if (!data.ok) throw new Error(data.message || "本日の出席者を取得できませんでした。");
+        teacherOverviewItems = data.attendance_items || [];
+        status.className = teacherOverviewItems.length ? "" : "empty";
+        status.textContent = teacherOverviewItems.length ? "" : "本日の出席者はまだ登録されていません。";
+        document.getElementById("overviewCount").textContent = data.member_count + "名";
+        renderTeacherOverview();
+        return true;
+      }).catch(function(error) {
+        teacherOverviewItems = [];
+        status.textContent = error.message || String(error);
+        status.className = "error";
+        renderTeacherOverview();
+        return false;
+      });
+    }
+
+    function renderTeacherOverview() {
+      const container = document.getElementById("teacherOverview");
+      const mode = document.getElementById("overviewSort").value;
+      const items = teacherOverviewItems.slice().sort(function(left, right) {
+        if (mode === "rank") {
+          return Number(left.rank_sort_order || rankSortValue(left.current_rank)) - Number(right.rank_sort_order || rankSortValue(right.current_rank)) || left.member_name.localeCompare(right.member_name, "ja");
+        }
+        if (mode === "name") return left.member_name.localeCompare(right.member_name, "ja");
+        const leftRemaining = left.remaining_training_count === null ? 999999 : left.remaining_training_count;
+        const rightRemaining = right.remaining_training_count === null ? 999999 : right.remaining_training_count;
+        return leftRemaining - rightRemaining || left.member_name.localeCompare(right.member_name, "ja");
+      });
+      container.innerHTML = "";
+      items.forEach(function(item) {
+        const row = document.createElement("div");
+        row.className = "overview-row" + (item.examination_ready ? " ready" : (item.remaining_training_count !== null && item.remaining_training_count <= 5 ? " near" : ""));
+        const name = document.createElement("div");
+        name.className = "overview-name";
+        name.textContent = item.member_name || item.member_id;
+        const rank = document.createElement("div");
+        rank.className = "overview-rank";
+        rank.textContent = item.current_rank || "未登録";
+        const progress = document.createElement("div");
+        progress.className = "overview-progress";
+        if (item.required_training_count > 0) {
+          const target = item.next_rank ? item.next_rank : "次回審査";
+          progress.textContent = item.training_count + "/" + item.required_training_count +
+            (item.examination_ready
+              ? "（" + target + "の必要稽古数到達・先生確認）"
+              : "（" + target + "まであと " + item.remaining_training_count + "回）");
+        } else {
+          progress.textContent = item.training_count + "回（審査基準未設定）";
+        }
+        row.append(name, rank, progress);
+        container.appendChild(row);
+      });
     }
 
     function addMemberCandidate(memberId) {
@@ -380,17 +478,11 @@
         member_id: memberId,
         member_name: "",
         current_rank: "",
-        next_rank: "",
-        rank_changed: false,
         training_count: 0,
         required_training_count: 0,
         remaining_training_count: null,
         examination_ready: false,
         slot_ids: [],
-        billing_plan_id: "",
-        billing_plan_name: "",
-        billing_plan_selected: false,
-        billing_plan_candidates: [],
         loaded: false,
         load_error: ""
       });
@@ -415,23 +507,12 @@
         candidate.current_rank = data.current_rank || candidate.current_rank || "";
         if (!savedOnly) {
           candidate.member_name = data.member_name || "";
-          candidate.next_rank = data.next_rank || "";
-          candidate.rank_changed = false;
           candidate.training_count = Number(data.training_count || 0);
           candidate.required_training_count = Number(data.required_training_count || 0);
           candidate.remaining_training_count = data.remaining_training_count === null
             ? null
             : Number(data.remaining_training_count);
           candidate.examination_ready = data.examination_ready === true;
-          candidate.billing_plan_id = data.billing_plan_id || candidate.billing_plan_id || "";
-          candidate.billing_plan_name = data.billing_plan_name || candidate.billing_plan_name || "";
-          candidate.billing_plan_selected = data.billing_plan_selected === true;
-          candidate.billing_plan_candidates = Array.isArray(data.billing_plan_candidates)
-            ? data.billing_plan_candidates
-            : [];
-          if (!candidate.billing_plan_id && candidate.billing_plan_candidates.length === 1) {
-            candidate.billing_plan_id = candidate.billing_plan_candidates[0].plan_id;
-          }
         }
         candidate.loaded = true;
         candidate.load_error = "";
@@ -537,28 +618,19 @@
         const rankSelect = document.createElement("select");
         buildRankOptions(rankSelect, candidate.current_rank);
         rankSelect.disabled = !candidate.loaded || submitting;
-        rankSelect.onchange = function () {
-          candidate.current_rank = rankSelect.value;
-          candidate.rank_changed = true;
-          renderCandidates();
-        };
+        rankSelect.onchange = function () { candidate.current_rank = rankSelect.value; };
         rankRow.append(rankLabel, rankSelect);
         row.appendChild(rankRow);
 
         const progress = document.createElement("div");
         progress.className = "progress";
-        if (candidate.rank_changed) {
-          progress.textContent = "級段位変更後の進捗は、出席登録後に更新します。";
-        } else if (candidate.required_training_count > 0) {
-          const target = candidate.next_rank || "次回審査";
-          progress.textContent = candidate.training_count + "/" + candidate.required_training_count +
-            (candidate.examination_ready
-              ? "（" + target + "の必要稽古数到達・先生確認）"
-              : "（" + target + "まであと " + candidate.remaining_training_count + "回）");
+        if (candidate.required_training_count > 0) {
+          progress.textContent = "稽古数 " + candidate.training_count + "／" + candidate.required_training_count +
+            (candidate.examination_ready ? "（必要稽古数到達・先生確認）" : "（あと" + candidate.remaining_training_count + "回）");
           if (candidate.examination_ready) progress.classList.add("ready");
           else if (candidate.remaining_training_count !== null && candidate.remaining_training_count <= 5) progress.classList.add("near");
         } else {
-          progress.textContent = candidate.training_count + "回（審査基準未設定）";
+          progress.textContent = "稽古数 " + candidate.training_count + "（審査可能数は未設定）";
         }
         row.appendChild(progress);
 
@@ -581,37 +653,6 @@
             row.appendChild(retry);
           }
         }
-
-        const billingRow = document.createElement("div");
-        billingRow.className = "rank-row";
-        const billingLabel = document.createElement("span");
-        billingLabel.textContent = "会費タイプ";
-        billingRow.appendChild(billingLabel);
-        if (candidate.billing_plan_selected) {
-          const fixedPlan = document.createElement("strong");
-          fixedPlan.textContent = candidate.billing_plan_name || candidate.billing_plan_id || "登録済み";
-          billingRow.appendChild(fixedPlan);
-        } else {
-          const planSelect = document.createElement("select");
-          const emptyPlan = document.createElement("option");
-          emptyPlan.value = "";
-          emptyPlan.textContent = "月額／都度を選択";
-          planSelect.appendChild(emptyPlan);
-          candidate.billing_plan_candidates.forEach(function(plan) {
-            const option = document.createElement("option");
-            option.value = plan.plan_id;
-            option.textContent = plan.plan_name || plan.plan_id;
-            option.selected = candidate.billing_plan_id === plan.plan_id;
-            planSelect.appendChild(option);
-          });
-          planSelect.disabled = submitting || !candidate.loaded;
-          planSelect.onchange = function() {
-            candidate.billing_plan_id = planSelect.value;
-            renderCandidates();
-          };
-          billingRow.appendChild(planSelect);
-        }
-        row.appendChild(billingRow);
 
         const slots = document.createElement("div");
         slots.className = "slots";
@@ -651,13 +692,6 @@
         addLog("現在級・段を選択してください: " + rankMissing.map(function(item) { return item.member_id; }).join(", "), "error");
         return;
       }
-      const billingMissing = memberCandidates.filter(function(item) {
-        return item.slot_ids.length > 0 && !item.billing_plan_selected && !item.billing_plan_id;
-      });
-      if (billingMissing.length > 0) {
-        addLog("月額／都度を選択してください: " + billingMissing.map(function(item) { return item.member_id; }).join(", "), "error");
-        return;
-      }
 
       const payload = {
         mode: "attendance_batch",
@@ -671,7 +705,6 @@
           return {
             member_id: item.member_id,
             current_rank: item.current_rank,
-            plan_id: item.billing_plan_id || "",
             slot_ids: item.slot_ids.slice()
           };
         }),
@@ -696,6 +729,8 @@
           if (!receipt.ok) throw new Error(receipt.message || "GASの出席処理に失敗しました。");
           addLog("GASの処理完了を確認しました。保存結果を再確認します。");
           return refreshAllMemberStates(expectedByMember);
+        }).then(function(matches) {
+          return loadTeacherAttendanceOverview().then(function() { return matches; });
         });
       }).catch(function (error) {
         addLog("送信エラー: " + error, "error");
@@ -764,13 +799,7 @@
     }
 
     function updateSendButton() {
-      const sendButton = document.getElementById("sendButton");
-      const teacherQrGuide = document.getElementById("teacherQrGuide");
-      const waitingForTeacher = !currentTeacherId;
-
-      teacherQrGuide.hidden = !waitingForTeacher;
-      sendButton.hidden = waitingForTeacher;
-      sendButton.disabled = !(
+      document.getElementById("sendButton").disabled = !(
         !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
         memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.loaded && item.current_rank; })
       );

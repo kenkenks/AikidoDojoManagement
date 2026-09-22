@@ -97,7 +97,7 @@
   <script src="virtual_session.js"></script>
   <script>
     const SESSION_PRIMARY_ROLE = "MEMBER";
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwtpuZUDHMescE7Sz71SiIHn4l-SH_DJwQtKCQb251d7qGnmhvIN0f1txRHMMjHm88ebQ/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
     const memberNameMap = { M001: "山田太郎", M002: "川本花子", M003: "佐藤一郎" };
 
     let html5QrCode = null;
