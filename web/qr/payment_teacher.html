@@ -305,7 +305,6 @@
     let paymentList = [];
     let confirmedEvidences = [];
     let postedEvidences = [];
-    let receptionRefreshPromise = Promise.resolve();
 
     function saveReceptionScopeToSession() {
       const session = DojoVirtualSession.get();
@@ -610,78 +609,51 @@
 
     function updateReceptionScope() {
       updateCompletionButton();
-      if (!currentLocationId || !currentBillingBlockId) return receptionRefreshPromise;
+      if (!currentLocationId) return;
 
-      const locationId = currentLocationId;
-      const billingBlockId = currentBillingBlockId;
-      const receptionDate = todayValue();
+      receptionSessionId = makeReceptionSessionId();
+      const params = {
+        action: "attendance_session_info",
+        location_id: currentLocationId
+      };
+      if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
 
-      receptionRefreshPromise = receptionRefreshPromise
-        .catch(function() {
-          // 前回の失敗で後続更新を止めない。
-        })
-        .then(async function() {
-          // 待ち行列にいる間にScopeが変わった要求は実行しない。
-          if (locationId !== currentLocationId || billingBlockId !== currentBillingBlockId) {
-            addLog("受付範囲更新スキップ: 古い受付範囲 " + locationId + " / " + billingBlockId);
-            return;
-          }
-
-          receptionSessionId = makeReceptionSessionId();
-          const result = await jsonp(GAS_URL, {
-            action: "attendance_session_info",
-            location_id: locationId,
-            billing_block_id: billingBlockId
-          });
-
-          // 通信中にScopeが変わった場合も後段へ進めない。
-          if (locationId !== currentLocationId || billingBlockId !== currentBillingBlockId) {
-            addLog("課金枠確認応答を破棄: 古い受付範囲 " + locationId + " / " + billingBlockId);
-            return;
-          }
-
-          if (!result || result.ok !== true) {
-            currentBillingBlockName = "";
-            document.getElementById("billingBlockName").textContent =
-              (result && result.message) || "課金枠を確認できませんでした。";
-            addLog("課金枠確認エラー: " + ((result && result.message) || "ok=false"));
-            return;
-          }
-
-          currentBillingBlockName = result.billing_block_name || billingBlockId;
-          document.getElementById("billingBlockName").textContent = currentBillingBlockName;
-          addLog("課金枠確認完了: " + currentBillingBlockName);
-
-          await loadPaymentScreenRead({
-            receptionDate: receptionDate,
-            locationId: locationId,
-            billingBlockId: billingBlockId
-          });
-        })
-        .catch(function(error) {
-          addLog("受付範囲更新失敗: " + (error.message || String(error)));
-        });
-
-      return receptionRefreshPromise;
+      jsonp(GAS_URL, params).then(function(result) {
+        if (!result || result.ok !== true) {
+          currentBillingBlockName = "";
+          document.getElementById("billingBlockName").textContent = (result && result.message) || "課金枠を確認できませんでした。";
+          addLog("課金枠確認エラー: " + ((result && result.message) || "ok=false"));
+          return;
+        }
+        currentBillingBlockId = result.billing_block_id || currentBillingBlockId;
+        if (!currentBillingBlockId) {
+          currentBillingBlockName = "";
+          document.getElementById("billingBlockName").textContent = result.message || "課金枠を確定できませんでした。";
+          addLog("課金枠確認待ち: " + (result.message || "billing_block_id未確定"));
+          return;
+        }
+        currentBillingBlockName = result.billing_block_name || currentBillingBlockId;
+        document.getElementById("billingBlockId").textContent = currentBillingBlockId;
+        document.getElementById("billingBlockId").className = "ok";
+        document.getElementById("billingBlockName").textContent = currentBillingBlockName;
+        saveReceptionScopeToSession();
+        receptionSessionId = makeReceptionSessionId();
+        addLog("課金枠確認完了: " + currentBillingBlockName);
+        loadPaymentScreenRead();
+      }).catch(function(error) {
+        addLog("課金枠確認失敗: " + (error.message || String(error)));
+      });
     }
 
-    function loadPaymentScreenRead(scope) {
-      const receptionDate = scope.receptionDate;
-      const locationId = scope.locationId;
-      const billingBlockId = scope.billingBlockId;
-
+    function loadPaymentScreenRead() {
       addLog("決済画面情報取得開始");
       return jsonp(GAS_URL, {
         action: "payment_screen_read",
-        reception_date: receptionDate,
-        location_id: locationId,
-        billing_block_id: billingBlockId,
+        reception_date: todayValue(),
+        location_id: currentLocationId,
+        billing_block_id: currentBillingBlockId,
         payment_method: "PAYPAY"
       }).then(function(result) {
-        if (locationId !== currentLocationId || billingBlockId !== currentBillingBlockId) {
-          addLog("決済画面情報応答を破棄: 古い受付範囲 " + locationId + " / " + billingBlockId);
-          return;
-        }
         if (!result || result.ok !== true) throw new Error((result && result.message) || "決済画面情報を取得できませんでした。");
         const summary = result.summary || {};
         const confirmedResult = result.confirmed || {};
@@ -1289,7 +1261,7 @@
       document.getElementById("billingBlockId").textContent = currentBillingBlockId;
       document.getElementById("billingBlockId").className = "ok";
     }
-    refreshReceptionScopeWhenSystemContextReady();
+    updateReceptionScope();
   }
 
   //　未使用予備 
@@ -1352,26 +1324,10 @@
       });
   }
 
-  let receptionScopeInitialized = false;
-
-  function refreshReceptionScopeWhenSystemContextReady() {
-    if (!window.DOJO_SYSTEM_CONTEXT || !window.DOJO_SYSTEM_CONTEXT.system_now) {
-      return;
-    }
-    receptionScopeInitialized = true;
-    updateReceptionScope();
-  }
-
+  initializeReceptionScopeFromUrl();
   window.addEventListener("dojo-system-context", function() {
     receptionSessionId = makeReceptionSessionId();
-    refreshReceptionScopeWhenSystemContextReady();
   });
-
-  window.addEventListener("dojo-system-context-error", function() {
-    addLog("システム時刻を取得できないため、会費受付情報の取得を保留します。");
-  });
-
-  initializeReceptionScopeFromUrl();
 
 </script>
   <script src="system_context.js"></script>
