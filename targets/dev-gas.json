@@ -1,0 +1,6 @@
+{
+  "target": "dev-gas",
+  "runtime": "gas",
+  "sourceDir": "gas",
+  "exclude": []
+}

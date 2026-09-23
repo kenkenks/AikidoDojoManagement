@@ -1,4 +1,8 @@
 {
+  "scripts": {
+    "target:build": "node tools/target.mjs build",
+    "target:push": "node tools/target.mjs push"
+  },
   "devDependencies": {
     "@eslint/css": "^1.2.0",
     "@eslint/js": "^10.0.1",

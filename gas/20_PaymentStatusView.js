@@ -526,6 +526,14 @@ function paymentStatusView_projectAttendances_(attendanceRows, cancelledRows, ct
 
   Object.keys(changes).forEach(function(key) {
     const change = changes[key];
+
+    // attendance_items_json だけの部分行を新規作成しない。
+    // まず member × month の正規ViewをSource of Truthから再構築し、
+    // 会員・請求グループ・月次選択・請求・入金などの基本情報を成立させる。
+    paymentStatusView_refresh(change.memberId, change.targetMonth, ctx);
+
+    // refresh後の明細へ今回のCommand結果を冪等に反映する。
+    // Source of Truth側の反映タイミング差があっても、今回確定した出席を欠落させない。
     let items = paymentStatusView_readDetailItems_(change.memberId, change.targetMonth, "attendance_items_json", ctx);
     items = items.filter(function(item) { return !change.remove[normalizeId_(item.attendance_id)]; });
     change.add.forEach(function(item) { paymentStatusView_upsertDetailItem_(items, "attendance_id", item); });

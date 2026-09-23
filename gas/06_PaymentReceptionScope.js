@@ -105,6 +105,11 @@ function paymentReception_buildReadModelFromView_(targetMonth, ctx) {
   const memberToGroup = {};
   const groupMembers = {};
   const invoiceMemberIds = {};
+  // group未払いは member行の代表値ではなく、View内の請求・入金明細から算出する。
+  // member × month Viewでは同一invoice/paymentが複数行に現れる可能性があるため、
+  // IDで重複排除してから billing_group_id 単位へ集計する。
+  const invoiceById = {};
+  const paymentById = {};
   const unpaidByGroup = {};
   const receptionPayments = [];
   const attendanceItems = [];
@@ -123,22 +128,58 @@ function paymentReception_buildReadModelFromView_(targetMonth, ctx) {
       }
     }
 
-    if (groupId && unpaidByGroup[groupId] === undefined) {
-      unpaidByGroup[groupId] = Number(viewRow["未払い額"] || 0);
-    }
-
     paymentStatusView_parseInvoiceItems_(viewRow["invoice_items_json"]).forEach(function(item) {
       const invoiceId = normalizeId_(item.invoice_id);
       const invoiceMemberId = normalizeId_(item.member_id);
       if (invoiceId && invoiceMemberId) invoiceMemberIds[invoiceId] = invoiceMemberId;
+      if (invoiceId && !invoiceById[invoiceId]) invoiceById[invoiceId] = item;
     });
 
     paymentReception_parseViewItems_(viewRow["reception_payments_json"]).forEach(function(item) {
-      receptionPayments.push(item);
+      const paymentId = normalizeId_(item.payment_id);
+      if (paymentId) {
+        if (!paymentById[paymentId]) paymentById[paymentId] = item;
+      } else {
+        // 旧View等でpayment_idが無い明細は表示互換のため保持する。
+        receptionPayments.push(item);
+      }
     });
     paymentReception_parseViewItems_(viewRow["attendance_items_json"]).forEach(function(item) {
       attendanceItems.push(item);
     });
+  });
+
+  // 受付一覧にも重複排除済みの入金明細を合流する。
+  Object.keys(paymentById).forEach(function(paymentId) {
+    receptionPayments.push(paymentById[paymentId]);
+  });
+
+  const billedByGroup = {};
+  Object.keys(invoiceById).forEach(function(invoiceId) {
+    const invoice = invoiceById[invoiceId] || {};
+    // 免除は回収対象に含めない。支払済も入金明細との差引で0になるため請求額には含める。
+    if (String(invoice.status || "") === "免除") return;
+    const invoiceMemberId = normalizeId_(invoice.member_id) || invoiceMemberIds[invoiceId] || "";
+    const invoiceGroupId = normalizeId_(invoice.billing_group_id) || memberToGroup[invoiceMemberId] || "";
+    if (!invoiceGroupId) return;
+    billedByGroup[invoiceGroupId] = Number(billedByGroup[invoiceGroupId] || 0) + Number(invoice.amount || 0);
+  });
+
+  const paidByGroup = {};
+  Object.keys(paymentById).forEach(function(paymentId) {
+    const payment = paymentById[paymentId] || {};
+    const invoiceId = normalizeId_(payment.invoice_id);
+    const paymentMemberId = normalizeId_(payment.member_id) || invoiceMemberIds[invoiceId] || "";
+    const paymentGroupId = normalizeId_(payment.billing_group_id) || memberToGroup[paymentMemberId] || "";
+    if (!paymentGroupId) return;
+    paidByGroup[paymentGroupId] = Number(paidByGroup[paymentGroupId] || 0) + Number(payment.amount || 0);
+  });
+
+  Object.keys(billedByGroup).forEach(function(groupId) {
+    unpaidByGroup[groupId] = Math.max(
+      Number(billedByGroup[groupId] || 0) - Number(paidByGroup[groupId] || 0),
+      0
+    );
   });
 
   return {

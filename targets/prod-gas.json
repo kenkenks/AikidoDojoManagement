@@ -1,0 +1,13 @@
+{
+  "target": "prod-gas",
+  "runtime": "gas",
+  "sourceDir": "gas",
+  "exclude": [
+    "**/*Runner.js",
+    "**/sup_runner_*.js",
+    "**/sup_debug*.js",
+    "**/sup_e2eClean.js",
+    "**/*Diagnostic.js",
+    "**/*Prototype.js"
+  ]
+}
