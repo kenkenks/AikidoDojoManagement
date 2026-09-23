@@ -25,8 +25,9 @@
   </section>
   <section class="card"><h2 id="summaryTitle">当月の先生出席</h2><div id="monthlySummary" class="note">読み込み中です。</div></section>
   <script src="virtual_session.js"></script>
+  <script src="runtime_config.js"></script>
   <script>
-    const GAS_URL="https://script.google.com/macros/s/AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA/exec";
+    const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
     const session=DojoVirtualSession.get();
     let teacherId=session&&session.role==="TEACHER"?session.teacher_id:"";
     let locationId=new URLSearchParams(location.search).get("location_id")||"";

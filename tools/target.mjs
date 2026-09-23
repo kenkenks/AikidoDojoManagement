@@ -1,5 +1,5 @@
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
-import { basename, dirname, join, relative, resolve } from "node:path";
+import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
@@ -12,93 +12,100 @@ if (!["build", "push"].includes(command) || !targetName) {
 }
 
 const profilePath = join(repoRoot, "targets", `${targetName}.json`);
-if (!existsSync(profilePath)) {
-  throw new Error(`Target profile not found: targets/${targetName}.json`);
-}
-
+if (!existsSync(profilePath)) throw new Error(`Target profile not found: targets/${targetName}.json`);
 const profile = JSON.parse(readFileSync(profilePath, "utf8"));
-if (profile.target !== targetName) {
-  throw new Error(`Target name mismatch: ${profile.target} != ${targetName}`);
-}
-if (profile.runtime !== "gas") {
-  throw new Error(`Unsupported runtime: ${profile.runtime}`);
-}
+validateProfile(profile);
 
-const sourceDir = resolve(repoRoot, profile.sourceDir || "gas");
-const outDir = join(repoRoot, ".build", targetName);
+const gasSourceDir = resolve(repoRoot, profile.sourceDir || "gas");
+const webSourceDir = resolve(repoRoot, profile.webSourceDir || "web/qr");
+const outRoot = join(repoRoot, ".build", targetName);
+const gasOutDir = join(outRoot, "gas");
+const webOutDir = join(outRoot, "web", "qr");
 const excludes = (profile.exclude || []).map(globToRegExp);
+const webExcludes = (profile.webExclude || []).map(globToRegExp);
+const gasUrl = `https://script.google.com/macros/s/${profile.gas.deploymentId}/exec`;
 
 build();
+if (command === "push") runClasp(["push"]);
 
-if (command === "push") {
-  prepareClasp();
-  runClasp(["push"]);
+function validateProfile(value) {
+  if (value.target !== targetName) throw new Error(`Target name mismatch: ${value.target} != ${targetName}`);
+  if (value.runtime !== "gas") throw new Error(`Unsupported runtime: ${value.runtime}`);
+  if (!value.gas?.scriptId) throw new Error(`Target ${targetName}: gas.scriptId is not configured.`);
+  if (!value.gas?.deploymentId) throw new Error(`Target ${targetName}: gas.deploymentId is not configured.`);
 }
 
 function build() {
-  rmSync(outDir, { recursive: true, force: true });
-  mkdirSync(outDir, { recursive: true });
+  rmSync(outRoot, { recursive: true, force: true });
+  mkdirSync(gasOutDir, { recursive: true });
+  mkdirSync(webOutDir, { recursive: true });
 
-  const copied = [];
-  const excluded = [];
-
-  for (const file of walk(sourceDir)) {
-    const rel = normalize(relative(sourceDir, file));
+  const copiedGas = [];
+  const excludedGas = [];
+  for (const file of walk(gasSourceDir)) {
+    const rel = normalize(relative(gasSourceDir, file));
     if (rel === ".clasp.json") continue;
-
     if (excludes.some((pattern) => pattern.test(rel))) {
-      excluded.push(rel);
+      excludedGas.push(rel);
       continue;
     }
-
-    const dest = join(outDir, rel);
-    mkdirSync(dirname(dest), { recursive: true });
-    cpSync(file, dest);
-    copied.push(rel);
+    copy(file, join(gasOutDir, rel));
+    copiedGas.push(rel);
   }
 
-  writeFileSync(
-    join(outDir, ".target-build.json"),
-    JSON.stringify({
-      target: targetName,
-      runtime: profile.runtime,
-      sourceDir: profile.sourceDir || "gas",
-      copiedFiles: copied.length,
-      excludedFiles: excluded
-    }, null, 2) + "\n",
-    "utf8"
-  );
+  const excludedWeb = [];
+  for (const file of walk(webSourceDir)) {
+    const rel = normalize(relative(webSourceDir, file));
+    if (webExcludes.some((pattern) => pattern.test(rel))) {
+      excludedWeb.push(rel);
+      continue;
+    }
+    copy(file, join(webOutDir, rel));
+  }
+
+  writeFileSync(join(gasOutDir, ".clasp.json"), JSON.stringify({ scriptId: profile.gas.scriptId, rootDir: "." }, null, 2) + "\n", "utf8");
+  writeFileSync(join(webOutDir, "runtime_config.js"), renderRuntimeConfig(), "utf8");
+  writeFileSync(join(outRoot, ".target-build.json"), JSON.stringify({
+    target: targetName,
+    runtime: profile.runtime,
+    gas: { scriptId: profile.gas.scriptId, deploymentId: profile.gas.deploymentId, webAppUrl: gasUrl },
+    gasCopiedFiles: copiedGas.length,
+    gasExcludedFiles: excludedGas,
+    webExcludedFiles: excludedWeb,
+    webSourceDir: profile.webSourceDir || "web/qr"
+  }, null, 2) + "\n", "utf8");
 
   console.log(`Target: ${targetName}`);
-  console.log(`Output: ${relative(repoRoot, outDir)}`);
-  console.log(`Copied: ${copied.length}`);
-  console.log(`Excluded: ${excluded.length}`);
-  for (const file of excluded) console.log(`  - ${file}`);
+  console.log(`Output: ${relative(repoRoot, outRoot)}`);
+  console.log(`GAS copied: ${copiedGas.length}`);
+  console.log(`GAS excluded: ${excludedGas.length}`);
+  console.log(`Web excluded: ${excludedWeb.length}`);
+  console.log(`Web API: ${gasUrl}`);
+  for (const file of excludedGas) console.log(`  - ${file}`);
 }
 
-function prepareClasp() {
-  const candidates = [
-    join(sourceDir, ".clasp.json"),
-    join(repoRoot, ".clasp.json")
-  ];
-  const claspSource = candidates.find(existsSync);
-  if (!claspSource) {
-    throw new Error(".clasp.json not found in gas/ or repository root.");
-  }
-  cpSync(claspSource, join(outDir, ".clasp.json"));
+function renderRuntimeConfig() {
+  return `(function() {\n  window.DOJO_RUNTIME_CONFIG = Object.freeze(${JSON.stringify({ target: targetName, runtime: profile.runtime, apiBaseUrl: gasUrl }, null, 2)});\n})();\n`;
+}
+
+function copy(source, dest) {
+  mkdirSync(dirname(dest), { recursive: true });
+  cpSync(source, dest);
 }
 
 function runClasp(args) {
-  const executable = process.platform === "win32" ? "clasp.cmd" : "clasp";
-  const result = spawnSync(executable, args, {
-    cwd: outDir,
-    stdio: "inherit",
-    windowsHide: true
-  });
-  if (result.error) throw result.error;
-  if (result.status !== 0) {
-    throw new Error(`clasp ${args.join(" ")} failed: exit ${result.status}`);
+  const npmCli = process.env.npm_execpath;
+  if (!npmCli) {
+    throw new Error("npm execution context not found. Run via: npm run target:push -- <target>");
   }
+
+  const result = spawnSync(
+    process.execPath,
+    [npmCli, "exec", "--", "clasp", ...args],
+    { cwd: gasOutDir, stdio: "inherit", windowsHide: true }
+  );
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`npm exec -- clasp ${args.join(" ")} failed: exit ${result.status}`);
 }
 
 function* walk(dir) {
@@ -115,22 +122,12 @@ function globToRegExp(glob) {
   for (let i = 0; i < normalized.length; i++) {
     const c = normalized[i];
     if (c === "*" && normalized[i + 1] === "*") {
-      if (normalized[i + 2] === "/") {
-        pattern += "(?:.*/)?";
-        i += 2;
-      } else {
-        pattern += ".*";
-        i += 1;
-      }
-    } else if (c === "*") {
-      pattern += "[^/]*";
-    } else {
-      pattern += c.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
-    }
+      if (normalized[i + 2] === "/") { pattern += "(?:.*/)?"; i += 2; }
+      else { pattern += ".*"; i += 1; }
+    } else if (c === "*") pattern += "[^/]*";
+    else pattern += c.replace(/[.+?^${}()|[\]\\]/g, "\\$&");
   }
   return new RegExp(`^${pattern}$`);
 }
 
-function normalize(path) {
-  return path.replaceAll("\\", "/");
-}
+function normalize(path) { return path.replaceAll("\\", "/"); }

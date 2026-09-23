@@ -1,5 +1,5 @@
 (function() {
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbwtpuZUDHMescE7Sz71SiIHn4l-SH_DJwQtKCQb251d7qGnmhvIN0f1txRHMMjHm88ebQ/exec";
+  const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
   const callbackName = "systemContextCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
   const script = document.createElement("script");
   const query = new URLSearchParams({ action:"system_context", callback:callbackName, _ts:Date.now() });

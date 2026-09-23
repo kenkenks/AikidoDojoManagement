@@ -43,8 +43,9 @@
   <section class="card error" id="errorCard" hidden></section>
 
   <script src="virtual_session.js"></script>
+  <script src="runtime_config.js"></script>
   <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbwtpuZUDHMescE7Sz71SiIHn4l-SH_DJwQtKCQb251d7qGnmhvIN0f1txRHMMjHm88ebQ/exec";
+    const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
     const memberSession = DojoVirtualSession.get();
     const initialMemberId = new URLSearchParams(location.search).get("member_id") ||
       (memberSession && memberSession.role === "MEMBER" ? memberSession.member_id : "") || "";

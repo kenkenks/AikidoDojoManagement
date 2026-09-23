@@ -46,8 +46,9 @@
 
   <section class="card"><div id="status">読み込み中です。</div></section>
 </main>
-<script>
-  const GAS_URL = "https://script.google.com/macros/s/AKfycbwtpuZUDHMescE7Sz71SiIHn4l-SH_DJwQtKCQb251d7qGnmhvIN0f1txRHMMjHm88ebQ/exec";
+<script src="runtime_config.js"></script>
+  <script>
+  const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
 
   let callbackSeq = 0;
 

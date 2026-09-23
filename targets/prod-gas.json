@@ -1,7 +1,12 @@
 {
   "target": "prod-gas",
   "runtime": "gas",
+  "gas": {
+    "scriptId": null,
+    "deploymentId": null
+  },
   "sourceDir": "gas",
+  "webSourceDir": "web/qr",
   "exclude": [
     "**/*Runner.js",
     "**/sup_runner_*.js",
@@ -9,5 +14,9 @@
     "**/sup_e2eClean.js",
     "**/*Diagnostic.js",
     "**/*Prototype.js"
+  ],
+  "webExclude": [
+    "**/*.skrold",
+    "**/post_diagnostic.html"
   ]
 }
