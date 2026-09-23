@@ -5,19 +5,8 @@ on:
     branches: [main]
     paths:
       - "web/qr/**"
-      - "targets/**"
-      - "tools/target.mjs"
       - ".github/workflows/pages.yml"
   workflow_dispatch:
-    inputs:
-      target:
-        description: "Target Profile"
-        required: true
-        default: "demo-gas"
-        type: choice
-        options:
-          - demo-gas
-          - dev-gas
 
 permissions:
   contents: read
@@ -36,17 +25,24 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "22"
-      - name: Build target artifact
-        run: node tools/target.mjs build "${{ github.event.inputs.target || 'demo-gas' }}"
+      - name: Pin GitHub Pages to demo GAS
+        shell: bash
+        run: |
+          cat > web/qr/runtime_config.js <<'EOF'
+          (function() {
+            window.DOJO_RUNTIME_CONFIG = Object.freeze({
+              target: "demo-gas",
+              runtime: "gas",
+              apiBaseUrl: "https://script.google.com/macros/s/AKfycbwtpuZUDHMescE7Sz71SiIHn4l-SH_DJwQtKCQb251d7qGnmhvIN0f1txRHMMjHm88ebQ/exec"
+            });
+          })();
+          EOF
       - uses: actions/configure-pages@v5
         with:
           enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .build/${{ github.event.inputs.target || 'demo-gas' }}/web/qr
+          path: web/qr
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
