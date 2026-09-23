@@ -1,5 +1,14 @@
 (function() {
-  const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
+  const runtimeConfig = window.DOJO_RUNTIME_CONFIG;
+  if (!runtimeConfig || !runtimeConfig.apiBaseUrl) {
+    const message = "Runtime Config未読込: system_context.js より先に runtime_config.js を読み込んでください。";
+    window.dispatchEvent(new CustomEvent("dojo-system-context-error", {
+      detail: { message: message }
+    }));
+    throw new Error(message);
+  }
+
+  const GAS_URL = runtimeConfig.apiBaseUrl;
   const callbackName = "systemContextCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
   const script = document.createElement("script");
   const query = new URLSearchParams({ action:"system_context", callback:callbackName, _ts:Date.now() });

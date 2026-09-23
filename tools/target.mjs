@@ -65,6 +65,7 @@ function build() {
 
   writeFileSync(join(gasOutDir, ".clasp.json"), JSON.stringify({ scriptId: profile.gas.scriptId, rootDir: "." }, null, 2) + "\n", "utf8");
   writeFileSync(join(webOutDir, "runtime_config.js"), renderRuntimeConfig(), "utf8");
+  validateWebRuntimeOrder();
   writeFileSync(join(outRoot, ".target-build.json"), JSON.stringify({
     target: targetName,
     runtime: profile.runtime,
@@ -82,6 +83,32 @@ function build() {
   console.log(`Web excluded: ${excludedWeb.length}`);
   console.log(`Web API: ${gasUrl}`);
   for (const file of excludedGas) console.log(`  - ${file}`);
+}
+
+function validateWebRuntimeOrder() {
+  const errors = [];
+
+  for (const file of walk(webOutDir)) {
+    if (!file.toLowerCase().endsWith(".html")) continue;
+
+    const html = readFileSync(file, "utf8");
+    const systemContextIndex = html.indexOf('src="system_context.js"');
+    if (systemContextIndex < 0) continue;
+
+    const runtimeConfigIndex = html.indexOf('src="runtime_config.js"');
+    if (runtimeConfigIndex < 0) {
+      errors.push(`${normalize(relative(webOutDir, file))}: runtime_config.js is missing before system_context.js`);
+      continue;
+    }
+
+    if (runtimeConfigIndex > systemContextIndex) {
+      errors.push(`${normalize(relative(webOutDir, file))}: runtime_config.js must be loaded before system_context.js`);
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new Error("Web runtime dependency order is invalid:\\n" + errors.map((x) => `  - ${x}`).join("\\n"));
+  }
 }
 
 function renderRuntimeConfig() {
