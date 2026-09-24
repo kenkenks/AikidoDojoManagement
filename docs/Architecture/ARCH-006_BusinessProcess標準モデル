@@ -1,262 +1,33 @@
-ARCH-006 Business Process標準モデル
 # ARCH-006 Business Process標準モデル
 
-STATUS: 作成中
+STATUS: ACTIVE
 TYPE: ARCHITECTURE
 AREA: COMMON
 PRIORITY: HIGH
 
-TAG: ARCH
-TAG: BUSINESS_PROCESS
-TAG: WORKFLOW
-TAG: STANDARD
-TAG: RDD
+## 基準
 
----
+デモで確認した業務動作を正とする。Businessは全体を collect → make → record → post に移行する。旧資料の異なる工程記述へ実装を戻さない。
 
-# 1. 目的
+## 工程
 
-業務ごとのBusiness Processを定義する。
+|工程|責務|成果物|
+|---|---|---|
+|collect|DAO Business経由で必要な事実を収集。入力形式を確認し、不要な後続読込を避ける|Context|
+|make|料金・適格性・状態遷移・冪等性を判断し記録内容を生成|記録予定DTOまたは拒否/SKIP結果|
+|record|DAO Businessへ保存を依頼。業務再計算を行わない|保存済み事実・成否|
+|post|確定事実をView/後続業務へ渡し応答を組み立てる|応答DTO・後続結果|
 
-Business Processは
-業務単位のWorkflowであり、
-各工程は成果物（Relay Baton）を
-次工程へ受け渡す。
+排他は工程をまたいで保持する場合がある。収集から記録までの競合、再送、途中失敗を各業務の契約へ明記する。参照専用QueryやSKIPに不要な書込みを作らない。
 
-各ServiceおよびRunnerは、
-Business Processを基準に設計する。
+PaymentEvidenceの入金反映という業務名postと、一般工程postは区別する。入金反映そのものも4工程へ分解できる。各業務の工程統一を理由に、業務間の確定順序を変えない。
 
----
+## DAOとの関係
 
-# 2. 基本方針
+データアクセスはDAO Business → DAO Coreを経由する。保存先API、物理Sheet名・行番号・列配置はDAO Coreだけが知る。業務判断をDAO Coreへ移さない。
 
-Business Processは
-業務ごとに定義する。
+## 移行状況
 
-共通化するのではなく、
-責務が理解できることを優先する。
+2026-09-24 第1段階: 審査費追加請求billingExtraEnsureInvoiceを4工程へ分割。残りのBilling、Attendance、PaymentEvidence、TeacherAttendance、View関連は段階移行中。全移行が完了したとは扱わない。
 
----
-
-# 3. Attendance
-
-```text
-Collect
-    ↓
-Record
-
-Service
-
-AttendanceMember
-
-AttendanceTeacher
-
-AttendanceCore
-
-AttendanceRunner
-4. Billing
-Collect
-    ↓
-Reconcile
-    ↓
-Make
-    ↓
-Record
-
-Service
-
-BillingCollect
-
-BillingReconcile
-
-BillingMake
-
-BillingRecord
-
-BillingCore
-
-BillingRunner
-
-Reconcileは、
-Aggregation Scopeとの整合処理を担当する。
-
-5. Payment
-Request
-    ↓
-Accept
-    ↓
-Record
-    ↓
-Post
-
-Service
-
-PaymentRequest
-
-PaymentAccept
-
-PaymentRecord
-
-PaymentPost
-
-PaymentQuery
-
-PaymentCore
-
-PaymentRunner
-6. Relay Baton
-
-各Business Processは、
-前工程の成果物を受け取り、
-次工程へ受け渡す。
-
-Taskは、
-工程間で受け渡される成果物
-（Relay Baton）
-として扱う。
-
-7. Aggregation Scope
-
-Billingでは
-Reconcile工程において
-Aggregation Scopeとの整合を行う。
-
-現時点では
-13_課金枠マスタを
-Billing用Aggregation Scope
-として運用する。
-
-詳細は
-
-TASK-IDEA-002
-
-を参照。
-
-8. 今後
-
-Business Processは
-
-Attendance
-
-Billing
-
-Payment
-
-で検証する。
-
-十分な実績が得られた時点で、
-Frameworkへ昇格する。
-
-現段階では
-ARCHとして管理する。
-
-9. 関連文書
-
-ARCH-001 サービス構成
-
-ARCH-002 命名規約
-
-ARCH-003 Runner設計
-
-TASK-IDEA-002
-Aggregation Scope構想
-
-TASK-IDEA-003
-Workflow標準化構想
-
-
----
-
-## 私が今回一番追加したいのは「2. 基本方針」です。
-
-```text
-Business Processは
-業務ごとに定義する。
-
-共通化するのではなく、
-責務が理解できることを優先する。
-
-これは、今日二人でたどり着いた重要な結論です。
-
-最初は collect → make → record → post を全業務共通にしようとしていましたが、実際には
-
-Attendance
-Billing
-Payment
-
-で異なるWorkflowになりました。
-
-だから、「Workflowを無理に共通化しない」という設計方針自体をARCHへ残す価値があります。
-
-これが今後、EventやInsuranceを作るときの基準にもなると思います。
-
-
-0円請求の扱い
-
-Billingは0円請求を正当な請求結果として扱う。
-
-請求額が0円の場合、
-実際の支払い行為は発生しない。
-
-そのため、Paymentへ進めず、
-Billing生成時点で支払状態を「免除」または「支払不要」とする。
-
-Paymentは、請求額が1円以上かつ未払いの請求のみを対象とする。
-
-## PaymentEvidence
-
-PaymentEvidenceは、請求明細に対する支払い証跡を管理する。
-
-```text
-Request
-    ↓
-Record
-    ↓
-Post
-    ↓
-Query
-Process	責務
-Request	05_請求明細から09_決済エビデンスをREQUESTEDで作成する
-Record	決済コードを記録し、REQUESTEDをCONFIRMEDへ更新する
-Post	CONFIRMEDを06_入金ログへ反映し、09をPOSTEDへ更新する
-Query	先生画面用に決済エビデンス一覧を取得する
-
-PaymentEvidenceは、DebugとRunnerを分離する。
-
-Debugは個別関数確認に使用する。
-RunnerはStory全体の成立確認に使用する。
-
-Runnerでは、Expected / Actual / Judge 方式を採用する。
-
-
-これを追記したら、次は **TASK-DEV-014-002 PaymentEvidence標準モデル設計** に進みます。
-
-ARCH-006（Business Process標準モデル）に、将来的にはこの図を入れたいですね。
-
-Business Process
-
-Request
-    ↓
-Record
-    ↓
-Post
-    ↓
-Query
-
-====================
-
-Story Runner
-
-Prepare
-    ↓
-Request
-    ↓
-Judge
-    ↓
-Verify
-    ↓
-Summary
-
-つまり、
-
-Business ProcessとRunnerは1対1ではなく、RunnerはBusiness Processを検証するフレームという位置付けです。
+既存の0円免除、同一プラン再送、別プラン拒否、部分入金、受付Scope、出席と支払いの独立性を維持する。

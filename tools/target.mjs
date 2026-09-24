@@ -33,6 +33,9 @@ function validateProfile(value) {
   if (value.runtime !== "gas") throw new Error(`Unsupported runtime: ${value.runtime}`);
   if (!value.gas?.scriptId) throw new Error(`Target ${targetName}: gas.scriptId is not configured.`);
   if (!value.gas?.deploymentId) throw new Error(`Target ${targetName}: gas.deploymentId is not configured.`);
+  if (value.gas.executionApiAccess && (targetName !== "dev-gas" || value.gas.executionApiAccess !== "MYSELF")) {
+    throw new Error("Execution API override is restricted to dev-gas / MYSELF.");
+  }
 }
 
 function build() {
@@ -63,7 +66,16 @@ function build() {
     copy(file, join(webOutDir, rel));
   }
 
-  writeFileSync(join(gasOutDir, ".clasp.json"), JSON.stringify({ scriptId: profile.gas.scriptId, rootDir: "." }, null, 2) + "\n", "utf8");
+  if (profile.gas.executionApiAccess) {
+    const manifestPath = join(gasOutDir, "appsscript.json");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8"));
+    manifest.executionApi = { access: profile.gas.executionApiAccess };
+    writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n", "utf8");
+  }
+  const claspConfig = { scriptId: profile.gas.scriptId, rootDir: "." };
+  // Cloud側で確認したProject IDをprofileへ保存する。GASの関連付け自体は変更しない。
+  if (profile.gas.projectId) claspConfig.projectId = profile.gas.projectId;
+  writeFileSync(join(gasOutDir, ".clasp.json"), JSON.stringify(claspConfig, null, 2) + "\n", "utf8");
   writeFileSync(join(webOutDir, "runtime_config.js"), renderRuntimeConfig(), "utf8");
   validateWebRuntimeOrder();
   writeFileSync(join(outRoot, ".target-build.json"), JSON.stringify({

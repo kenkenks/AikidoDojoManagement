@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import vm from "node:vm";
+import { declaration } from "./source-extract.mjs";
 
 const sessionSource = fs.readFileSync(new URL("../web/qr/virtual_session.js", import.meta.url), "utf8");
 const attendanceHtml = fs.readFileSync(new URL("../web/qr/attendance.html", import.meta.url), "utf8");
@@ -73,6 +74,7 @@ const sandbox = {
   renderKeys() {},
   addLog() {},
   loadAttendanceSessionInfo() {},
+  refreshAttendanceSessionInfoIfNeeded() {},
   updateReceptionScope() {}
 };
 vm.createContext(sandbox);
@@ -84,6 +86,8 @@ function runAttendance(search) {
   sandbox.location.search = search;
   vm.runInContext(`
     (() => {
+      ${declaration(attendanceHtml, "SESSION_PRIMARY_ROLE")}
+      let entryMemberId = "";
       let currentLocationId = "";
       let currentTeacherId = "";
       let currentBillingBlockId = "";

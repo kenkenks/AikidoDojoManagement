@@ -4,8 +4,6 @@
 function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("道場管理")
-    .addItem("請求明細を生成", "generateInvoices")
-    .addSeparator()
     .addItem("会員カードを作成", "generateMemberCards")
     .addItem("会員カードテンプレート作成", "createMemberCardTemplate")
     .addSeparator()

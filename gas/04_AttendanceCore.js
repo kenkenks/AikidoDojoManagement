@@ -94,7 +94,9 @@ function attendanceCore_registerBatch_(options, ctx) {
       return;
     }
 
-    if (slotIds.length === 0) {
+    // 同期画面の全解除は、同じ会員・日付・道場・課金枠の既存出席を取消す。
+    // 新規登録専用の入口では、従来どおり空の選択を拒否する。
+    if (slotIds.length === 0 && !syncUnselected) {
       result.errors.push("slot_ids が指定されていません。");
       results.push(result);
       return;
@@ -196,107 +198,19 @@ function attendanceCore_registerBatch_(options, ctx) {
 }
 
 function attendanceCore_getMemberMap_(ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const members = {};
-  getMembers(ctx).forEach(function(row) {
-    if (isActiveMasterRow_(row)) {
-      members[normalizeId_(row["member_id"])] = row;
-    }
-  });
-  return members;
+  return daoAttendanceGetMemberMap_(ctx);
 }
 
 function attendanceCore_getSlotMap_(locationId, billingBlockId, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const slots = {};
-  getTrainingSlots(ctx).forEach(function(row) {
-    const slotId = normalizeId_(row["slot_id"]);
-
-    if (
-      slotId &&
-      isActiveMasterRow_(row) &&
-      normalizeId_(row["location_id"]) === normalizeId_(locationId) &&
-      normalizeId_(row["billing_block_id"]) === normalizeId_(billingBlockId)
-    ) {
-      slots[slotId] = row;
-    }
-  });
-  return slots;
+  return daoAttendanceGetSlotMap_(locationId, billingBlockId, ctx);
 }
 
 function attendanceCore_findRowsForScope_(params, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const sheet = getRequiredSheet_("07_出席ログ", ctx);
-  assertHeaders_(sheet, [
-    "attendance_id",
-    "稽古日",
-    "member_id",
-    "location_id",
-    "billing_block_id",
-    "slot_id",
-    "teacher_id",
-    "状態"
-  ]);
-
-  const values = sheet.getDataRange().getValues();
-  const headers = values.shift();
-  const attendanceDate = parseAttendanceDate_(params.attendance_date, ctx);
-  const dateText = formatAttendanceDate_(attendanceDate, ctx);
-
-  return values.map(function(valuesRow, index) {
-    const row = { _rowNumber: index + 2 };
-    headers.forEach(function(header, column) {
-      row[header] = valuesRow[column];
-    });
-    return row;
-  }).filter(function(row) {
-    if (formatAttendanceDate_(row["稽古日"], ctx) !== dateText) return false;
-
-    if (params.member_id &&
-        normalizeId_(row["member_id"]) !== normalizeId_(params.member_id)) return false;
-
-    if (params.location_id &&
-        normalizeId_(row["location_id"]) !== normalizeId_(params.location_id)) return false;
-
-    if (params.billing_block_id &&
-        normalizeId_(row["billing_block_id"]) !== normalizeId_(params.billing_block_id)) return false;
-
-    if (params.status &&
-        normalizeId_(row["状態"]) !== normalizeId_(params.status)) return false;
-
-    return normalizeId_(row["状態"]) !== "取消";
-  });
+  return daoAttendanceFindRowsForScope_(params, ctx);
 }
 
 function attendanceCore_updateRows_(rows, updateValues, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  if (!rows || rows.length === 0) return;
-
-  const sheet = getRequiredSheet_("07_出席ログ", ctx);
-  const headerInfo = getHeaderMap_(sheet);
-  const now = sup_now(ctx);
-
-  rows.forEach(function(row) {
-    const rowNumber = Number(row._rowNumber);
-    if (!rowNumber || rowNumber < 2) {
-      throw new Error("更新対象の行番号が不正です。");
-    }
-
-    Object.keys(updateValues || {}).forEach(function(header) {
-      if (headerInfo.map[header] === undefined) return;
-      sheet.getRange(rowNumber, headerInfo.map[header] + 1).setValue(updateValues[header]);
-    });
-
-    if (headerInfo.map["確認日時"] !== undefined) {
-      sheet.getRange(rowNumber, headerInfo.map["確認日時"] + 1).setValue(now);
-    }
-  });
-
-  invalidateAttendances(ctx);
+  return daoAttendanceUpdateRows_(rows, updateValues, ctx);
 }
 
 // 互換用。既存名を使っている箇所のために残す。

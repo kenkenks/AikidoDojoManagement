@@ -3,6 +3,9 @@
   "runtime": "gas",
   "gas": {
     "scriptId": "1hS_FGt5O3bw_aGnA_lxT2KFnl5GcxcseTxQ4vIIuAlqq2r6p3kFiHIj_",
+    "projectId": "aikidodojomanagement-dev",
+    "apiDeploymentId": "AKfycbzl9vhga3wQZUY8uy5iIF5AsaN5t2mL7RXzJnGGZzjI9xuKlpxPtz05QUcpRpfS8fcRxQ",
+    "executionApiAccess": "MYSELF",
     "deploymentId": "AKfycbz_Movz5VBZkf8qHdMkR7kkQRkLkYJAbahN5OPStFT8YXnhCuIGJBCdqjy2PwgWaorUfA"
   },
   "sourceDir": "gas",

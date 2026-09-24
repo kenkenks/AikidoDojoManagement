@@ -465,12 +465,12 @@ function validateAttendanceScope_(locationId, billingBlockId, ctx) {
 
 function calculateAttendanceChargeCount(memberId, targetMonth, ctx) {
   ctx = ensureSheetContext(ctx);
-
+  const facts = daoAttendanceCollectChargeRows_(ctx);
   return attendanceCore_calculateChargeCountFromRows_(
     memberId,
     targetMonth,
-    getAttendances(ctx),
-    getBillingBlocks(ctx),
+    facts.attendances,
+    facts.billingBlocks,
     ctx
   );
 }

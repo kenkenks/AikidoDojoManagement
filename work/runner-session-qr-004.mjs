@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import vm from "node:vm";
+import { declaration } from "./source-extract.mjs";
 
 const story = "SESSION-QR-004";
 const task = "TASK-DEV-023";
@@ -45,10 +46,10 @@ function extractLoadCallbackBody(source) {
   throw new Error("paypay_code.html のload起動処理終端が見つかりません。");
 }
 
-function runStep(steps, phase, title, fn) {
+async function runStep(steps, phase, title, fn) {
   const startedAt = Date.now();
   try {
-    const result = fn() || {};
+    const result = await fn() || {};
     steps.push({
       ok: result.ok !== false,
       phase,
@@ -119,6 +120,7 @@ const sandbox = {
   Date,
   console,
   addLog(message) { logs.push(String(message)); },
+  waitForSystemContext: async () => ({ system_now: "2026-09-24T10:00:00+09:00" }),
   startPayPayCode() { startCallCount += 1; }
 };
 
@@ -126,10 +128,11 @@ vm.createContext(sandbox);
 vm.runInContext(sessionSource, sandbox);
 sandbox.DojoVirtualSession = sandbox.window.DojoVirtualSession;
 
-function runPayPayEntry(search) {
+async function runPayPayEntry(search) {
   sandbox.window.location.search = search;
   sandbox.location.search = search;
-  vm.runInContext(`(() => { ${loadCallbackBody} })();`, sandbox);
+  assert(loadCallbackBody.includes("initializePayPayPage()"), "load must initialize PayPay page");
+  await vm.runInContext(`(async () => { ${declaration(payPayHtml, "initializePayPayPage")} await initializePayPayPage(); })();`, sandbox);
   return {
     member_id: document.getElementById("memberId").value,
     plan_id: document.getElementById("planId").value,
@@ -143,7 +146,7 @@ const steps = [];
 const memberId = "M001";
 const planId = "P001";
 
-runStep(steps, "Prepare", "既存の仮想Sessionを初期化する", function() {
+await runStep(steps, "Prepare", "既存の仮想Sessionを初期化する", function() {
   sandbox.DojoVirtualSession.logout();
   return {
     ok: sandbox.DojoVirtualSession.get() === null,
@@ -158,8 +161,8 @@ runStep(steps, "Prepare", "既存の仮想Sessionを初期化する", function()
   };
 });
 
-runStep(steps, "Entry", "月謝袋QRと同じURLでPayPayコード画面を起動する", function() {
-  const result = runPayPayEntry(`?member_id=${memberId}&plan_id=${planId}`);
+await runStep(steps, "Entry", "月謝袋QRと同じURLでPayPayコード画面を起動する", async function() {
+  const result = await runPayPayEntry(`?member_id=${memberId}&plan_id=${planId}`);
   return {
     ok: true,
     route: `/paypay_code?member_id=${memberId}&plan_id=${planId}`,
@@ -168,7 +171,7 @@ runStep(steps, "Entry", "月謝袋QRと同じURLでPayPayコード画面を起�
   };
 });
 
-runStep(steps, "Verify", "会員Sessionと支払Contextが分離して保持されることを検証する", function() {
+await runStep(steps, "Verify", "会員Sessionと支払Contextが分離して保持されることを検証する", function() {
   const session = sandbox.DojoVirtualSession.get();
   const pageMemberId = document.getElementById("memberId").value;
   const pagePlanId = document.getElementById("planId").value;

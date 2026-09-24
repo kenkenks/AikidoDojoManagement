@@ -964,7 +964,11 @@ function runner_billing_story_003_teacherPartialCash() {
 // 5: 01/12(月) 10:30-12:30 PayPay
 // 6: 01/14(水) 19:30-21:30 追加決済なし（上限超過）
 // ========================================
-function runner_billing_story_004_perUseComplexMonth() {
+function runner_billing_story_004_perUseComplexMonth_preflight() {
+  return runner_billing_story_004_perUseComplexMonth({ read_only: true });
+}
+
+function runner_billing_story_004_perUseComplexMonth(options) {
   const ctx = createSheetContext();
   ctx.settings = {
     TIME_TRAVEL_ENABLED: "TRUE",
@@ -998,7 +1002,16 @@ function runner_billing_story_004_perUseComplexMonth() {
   const groupId = normalizeId_(member["請求グループID"]);
   const planId = normalizeId_(fee["plan_id"]);
   const unitPrice = Number(fee["回数単価"] || 0);
-  const cap = Number(fee["月額上限"] || fee["上限金額"] || 0) || unitPrice * 5;
+  const cap = Number(fee["上限金額"] || 0);
+  // このStoryは5回目で上限に達する料金を検証する。前提不一致では初期化しない。
+  if (!Number.isFinite(unitPrice) || cap !== unitPrice * 5) {
+    return {
+      ok: false, read_only: true,
+      runner: "BILLING-P002-COMPLEX-MONTH-001",
+      message: "このRunnerには上限金額が回数単価の5倍の料金が必要です。マスタは変更していません。",
+      plan_id: planId, unit_price: unitPrice, cap: cap
+    };
+  }
   const locationId = "HONBU";
 
   function findScope(weekday, startText, endText) {
@@ -1051,6 +1064,16 @@ function runner_billing_story_004_perUseComplexMonth() {
     };
     Logger.log(JSON.stringify(fail, null, 2));
     return fail;
+  }
+
+  if (options && options.read_only === true) {
+    return {
+      ok: true, read_only: true,
+      runner: "BILLING-P002-COMPLEX-MONTH-001",
+      target_month: targetMonth, member_id: memberId, billing_group_id: groupId,
+      plan_id: planId, unit_price: unitPrice, cap: cap, scopes: scopes,
+      message: "回数料金の複合月間Runnerを実行できます。"
+    };
   }
 
   // Runner専用未来月を初期化する。

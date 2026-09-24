@@ -32,40 +32,8 @@ function paymentEvidence_post(input, ctx) {
 
     const postContext = paymentEvidencePost_collect(input, ctx);
     const payment = paymentEvidencePost_make(postContext, ctx);
-    const registerResult = paymentEvidencePost_register(payment, ctx);
-
-    if (registerResult.ok && !registerResult.skipped) {
-      paymentEvidencePost_updatePosted({
-        evidence_id: postContext.evidence.evidence_id,
-        payment_log_id: payment.payment_id
-      }, ctx);
-    }
-
-    const invoice = postContext.invoice;
-    const statusUpdate = payment_updateInvoiceStatus(
-      invoice["target_month"],
-      invoice["billing_group_id"],
-      ctx
-    );
-
-    const viewUpdate = paymentStatusView_refresh(
-      postContext.evidence.member_id,
-      normalizeMonth(invoice["target_month"]),
-      ctx
-    );
-
-    // payment は Make 時点で受付Scopeを含めて確定済み。
-    // 06を後から再読込せず、その同じ事実を20 Read Modelへ投影する。
-    const viewPaymentProjection = paymentStatusView_projectPayment_(payment, ctx);
-
-    return {
-      ok: true,
-      payment,
-      registerResult,
-      statusUpdate,
-      viewUpdate,
-      viewPaymentProjection
-    };
+    const registerResult = paymentEvidencePost_record_(postContext, payment, ctx);
+    return paymentEvidencePost_post_(postContext, payment, registerResult, ctx);
 
   } finally {
     lock.releaseLock();
@@ -264,4 +232,48 @@ function paymentEvidence_toDisplayPaymentMethod_(value) {
   if (method === "CASH") return "現金";
   if (method === "PAYPAY") return "PayPay";
   return method;
+}
+
+// 保存順は入金登録→POSTED更新。重複時はPOSTED更新を省略する。
+function paymentEvidencePost_record_(postContext, payment, ctx) {
+    const registerResult = paymentEvidencePost_register(payment, ctx);
+
+    if (registerResult.ok && !registerResult.skipped) {
+      paymentEvidencePost_updatePosted({
+        evidence_id: postContext.evidence.evidence_id,
+        payment_log_id: payment.payment_id
+      }, ctx);
+    }
+
+  return registerResult;
+}
+
+// 従来どおり請求状態→View再構築→入金投影の順で実行する。
+function paymentEvidencePost_post_(postContext, payment, registerResult, ctx) {
+    const invoice = postContext.invoice;
+    const statusUpdate = payment_updateInvoiceStatus(
+      invoice["target_month"],
+      invoice["billing_group_id"],
+      ctx
+    );
+
+    const viewUpdate = paymentStatusView_refresh(
+      postContext.evidence.member_id,
+      normalizeMonth(invoice["target_month"]),
+      ctx
+    );
+
+    // payment は Make 時点で受付Scopeを含めて確定済み。
+    // 06を後から再読込せず、その同じ事実を20 Read Modelへ投影する。
+    const viewPaymentProjection = paymentStatusView_projectPayment_(payment, ctx);
+
+    return {
+      ok: true,
+      payment,
+      registerResult,
+      statusUpdate,
+      viewUpdate,
+      viewPaymentProjection
+    };
+
 }

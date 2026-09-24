@@ -1,5 +1,7 @@
 # ARCH-019 View Summary Contract / 高速参照View契約
 
+> 2026-09-24 方針更新: デモ動作を正とする。以下の「refresh一本化」は目標責務の記述であり、既存のprojectPayment_／projectAttendances_を削除する指示ではない。Businessのpostから確定事実を投影し、refreshによる正本からの再構築も維持する。欠落時lazy refreshも現行契約として保持する。将来の統合時は明細JSON・会員名・受付日・Scope・読込回数を回帰確認する。実装の統合はまだ未完了。
+
 STATUS: ACTIVE
 TYPE: ARCHITECTURE
 AREA: COMMON

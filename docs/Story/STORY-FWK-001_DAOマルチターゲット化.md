@@ -1,6 +1,6 @@
 # STORY-FWK-001 DAO Business / DAO Core マルチターゲット化
 
-STATUS: 作成予定
+STATUS: 進行中
 TYPE: STORY
 AREA: FRAMEWORK
 PRIORITY: HIGH
@@ -15,6 +15,10 @@ TAG: PORTABILITY
 ---
 
 ## 1. 目的
+
+2026-09-24 方針確定: デモで確認した動作を基準に資料を追従させ、Business全体をcollect → make → record → postへ移行する。DAO Business／DAO Coreへデータアクセスを集約し、保存先依存をCoreに閉じ込める。不要な旧ラッパーは利用元の移行後に削除する。
+
+第1段階は審査費請求の4工程化とBilling保存・共通Sheets操作のCore分離。全Business移行、TargetでのCore選択、Cloud実装は未完了。GASアップロードはユーザーへの事前確認まで行わない。
 
 DAOを Business Layer と Core に分離し、Application / Service / Workflowを実行基盤・永続化基盤から独立させる。
 

@@ -1,5 +1,5 @@
 // ==============================
-// DAO
+// DAO BUSINESS: 請求の論理データ契約。物理Sheet操作はDAO_Core_Sheetsへ委譲。
 // ==============================
 /**
  * ROLE
@@ -12,11 +12,9 @@
  * 将来的にはRepository候補。
  */
 function billing_appendMonthlySelection(selection, ctx) {
-  ctx = ensureSheetContext(ctx);
+  ctx = daoContext_(ctx);
 
-  const sheet = ctx.ss.getSheetByName("04_月次選択");
-
-  appendObjectsByHeader_(sheet, [{
+  daoCore_(ctx).append("monthlySelections", [{
     target_month: selection.target_month,
     member_id: selection.member_id,
     billing_group_id: selection.billing_group_id,
@@ -24,9 +22,7 @@ function billing_appendMonthlySelection(selection, ctx) {
     宣言日: selection.宣言日 || sup_now(ctx),
     状態: selection.状態 || "有効",
     備考: selection.備考 || ""
-  }]);
-
-  invalidateMonthlySelections(ctx);
+  }], ctx);
 }
 
 /**
@@ -40,11 +36,9 @@ function billing_appendMonthlySelection(selection, ctx) {
  * 将来的にはRepository候補。
  */
 function billingRecordAppendInvoice_(invoice, ctx) {
-  ctx = ensureSheetContext(ctx);
+  ctx = daoContext_(ctx);
 
-  const sheet = ctx.ss.getSheetByName("05_請求明細");
-
-  appendObjectsByHeader_(sheet, [{
+  daoCore_(ctx).append("invoices", [{
     invoice_id: invoice.invoice_id,
     target_month: invoice.target_month,
     billing_group_id: invoice.billing_group_id,
@@ -62,9 +56,7 @@ function billingRecordAppendInvoice_(invoice, ctx) {
     支払期限: invoice.支払期限,
     作成日: invoice.作成日,
     備考: invoice.備考
-  }]);
-
-  invalidateInvoices(ctx);
+  }], ctx);
 }
 
 /**
@@ -78,11 +70,9 @@ function billingRecordAppendInvoice_(invoice, ctx) {
  * 将来的にはRepository候補。
  */
 function billingRecordAppendMonthlySelection_(selection, ctx) {
-  ctx = ensureSheetContext(ctx);
+  ctx = daoContext_(ctx);
 
-  const sheet = ctx.ss.getSheetByName("04_月次選択");
-
-  appendObjectsByHeader_(sheet, [{
+  daoCore_(ctx).append("monthlySelections", [{
     target_month: selection.target_month,
     member_id: selection.member_id,
     billing_group_id: selection.billing_group_id,
@@ -90,9 +80,7 @@ function billingRecordAppendMonthlySelection_(selection, ctx) {
     宣言日: selection.宣言日 || sup_now(ctx),
     状態: selection.状態 || "有効",
     備考: selection.備考 || ""
-  }]);
-
-  invalidateMonthlySelections(ctx);
+  }], ctx);
 }
 
 /**
@@ -103,35 +91,7 @@ function billingRecordAppendMonthlySelection_(selection, ctx) {
  * 既存の回数料金請求を、出席実績から再計算した累積値へ同期する。
  */
 function billingRecordUpdateUsageInvoice_(invoiceId, values, ctx) {
-  ctx = ensureSheetContext(ctx);
-  const sheet = getRequiredSheet_("05_請求明細", ctx);
-  const header = getHeaderMap_(sheet);
-  const data = sheet.getDataRange().getValues();
-  const invoiceCol = header.map["invoice_id"];
-  if (invoiceCol === undefined) throw new Error("05_請求明細に invoice_id 列がありません。");
-
-  let rowNo = -1;
-  for (let i = 1; i < data.length; i++) {
-    if (normalizeId_(data[i][invoiceCol]) === normalizeId_(invoiceId)) {
-      rowNo = i + 1;
-      break;
-    }
-  }
-  if (rowNo < 0) throw new Error("更新対象の請求明細が見つかりません: " + invoiceId);
-
-  const writeKeys = Object.keys(values || {}).filter(function(key) {
-    return header.map[key] !== undefined;
-  });
-  const t0 = Date.now();
-  writeKeys.forEach(function(key) {
-    const col = header.map[key];
-    sheet.getRange(rowNo, col + 1).setValue(values[key]);
-  });
-  console.log(
-    "[PERF-WRITE] sheet=" + sheet.getName() +
-    " op=update row=" + rowNo +
-    " cells=" + writeKeys.length +
-    " ms=" + (Date.now() - t0)
-  );
-  invalidateInvoices(ctx);
+  const result = daoCore_(ctx).updateByKey('invoices', 'invoice_id', invoiceId, values, ctx);
+  if (!result.found) throw new Error('更新対象の請求明細が見つかりません: ' + invoiceId);
 }
+

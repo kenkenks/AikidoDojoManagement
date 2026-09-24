@@ -1,11 +1,20 @@
 import fs from "node:fs";
 import vm from "node:vm";
 
-const code = fs.readFileSync(new URL("../gas/03_BillingExtra.js", import.meta.url), "utf8");
+const code = ["DAO_Composition.js", "DAO_Business_Billing.js", "03_BillingExtra.js"]
+  .map(name => fs.readFileSync(new URL(`../gas/${name}`, import.meta.url), "utf8")).join("\n");
 let invoices = [];
 let refreshed = false;
 
-globalThis.ensureSheetContext = value => value || {};
+// DAO Core PortへFixtureを注入する。業務の期待値は変更しない。
+globalThis.ensureSheetContext = value => ({ ...(value || {}), daoCore: {
+  read(table) {
+    if (table === "members") return globalThis.getMembers();
+    if (table === "fees") return globalThis.getFees();
+    if (table === "invoices") return globalThis.getInvoices();
+    throw new Error(`unexpected table: ${table}`);
+  }
+} });
 globalThis.createSheetContext = () => ({});
 globalThis.normalizeId_ = value => String(value || "").trim();
 globalThis.normalizeMonth = value => String(value || "").trim();

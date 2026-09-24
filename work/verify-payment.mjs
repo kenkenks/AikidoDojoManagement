@@ -37,12 +37,19 @@ globalThis.getPaymentStatus = () => ({
 });
 
 const code = readProjectFile([
-  "../gas/Code.js",
+  "../gas/WebConnect.js",
   "../AikidoDojoManagement-review/AikidoDojoManagement-main/Code.js",
   "../clasp_道場サポ/Code.js"
 ]);
+globalThis.ensureSheetContext = value => value;
+globalThis.normalizeId_ = value => String(value || "").trim();
+globalThis.sup_logDebug = () => {};
+globalThis.getFees = () => [{plan_id:"P001", 会費タイプ:"月会費"}];
+globalThis.isActiveMasterRow_ = () => true;
+globalThis.billing_acceptMonthlySelection = () => ({ok:true});
+globalThis.Logger = {log() {}};
 vm.runInThisContext(code);
-const result = globalThis.getMemberPaymentInfo_("M001");
+const result = globalThis.getMemberPaymentInfo_("M001", "P001", {});
 
 if (
   result.success !== true ||

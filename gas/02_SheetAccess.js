@@ -11,59 +11,14 @@ function getRequiredSheet_(sheetName, ctx) {
   return sheet;
 }
 
-function getHeaderMap_(sheet) {
-  const lastColumn = sheet.getLastColumn();
-  if (lastColumn === 0) {
-    throw new Error("ヘッダーがありません: " + sheet.getName());
-  }
 
-  const headers = sheet.getRange(1, 1, 1, lastColumn).getValues()[0];
-  const map = {};
-  headers.forEach((header, index) => {
-    const key = String(header).trim();
-    if (key) map[key] = index;
-  });
-  return { headers, map };
-}
 
-function assertHeaders_(sheet, requiredHeaders) {
-  const headerInfo = getHeaderMap_(sheet);
-  const missing = requiredHeaders.filter(header => headerInfo.map[header] === undefined);
-  if (missing.length > 0) {
-    throw new Error(sheet.getName() + " に必要な列がありません: " + missing.join(", "));
-  }
-  return headerInfo;
-}
 
-function appendObjectsByHeader_(sheet, objects) {
-  if (!objects || objects.length === 0) return;
 
-  const headers = getHeaderMap_(sheet).headers;
-  const rows = objects.map(object => headers.map(header => {
-    return Object.prototype.hasOwnProperty.call(object, header) ? object[header] : "";
-  }));
 
-  const t0 = Date.now();
-  sheet.getRange(sheet.getLastRow() + 1, 1, rows.length, headers.length).setValues(rows);
-  console.log(
-    "[PERF-WRITE] sheet=" + sheet.getName() +
-    " op=append rows=" + rows.length +
-    " cols=" + headers.length +
-    " ms=" + (Date.now() - t0)
-  );
-}
 
 function appendAttendanceRows(attendanceRows, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const sheet = getRequiredSheet_("07_出席ログ", ctx);
-  assertHeaders_(sheet, [
-    "attendance_id", "稽古日", "登録日時", "member_id", "target_month",
-    "location_id", "slot_id", "billing_block_id", "teacher_id",
-    "attendance_session_id", "稽古時間分", "状態", "source"
-  ]);
-  appendObjectsByHeader_(sheet, attendanceRows);
-  invalidateAttendances(ctx);
+  return daoAttendanceAppend_(attendanceRows, ctx);
 }
 
 function getActiveAttendanceKeySet(attendanceDate, ctx) {
@@ -107,30 +62,5 @@ function getActiveAttendanceRowsForScope(attendanceDate, memberId, locationId, b
 }
 
 function cancelAttendanceRows(attendanceRows, teacherId, reason, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  if (!attendanceRows || attendanceRows.length === 0) return;
-
-  const sheet = getRequiredSheet_("07_出席ログ", ctx);
-  const headerInfo = assertHeaders_(sheet, [
-    "状態", "取消日時", "取消者teacher_id", "取消理由"
-  ]);
-  const cancelledAt = sup_now(ctx);
-
-  attendanceRows.forEach(row => {
-    const rowNumber = Number(row._rowNumber);
-    if (!rowNumber || rowNumber < 2) throw new Error("取消対象の行番号が不正です。");
-    const t0 = Date.now();
-    sheet.getRange(rowNumber, headerInfo.map["状態"] + 1).setValue("取消");
-    sheet.getRange(rowNumber, headerInfo.map["取消日時"] + 1).setValue(cancelledAt);
-    sheet.getRange(rowNumber, headerInfo.map["取消者teacher_id"] + 1).setValue(teacherId);
-    sheet.getRange(rowNumber, headerInfo.map["取消理由"] + 1).setValue(reason || "画面同期による選択解除");
-    console.log(
-      "[PERF-WRITE] sheet=" + sheet.getName() +
-      " op=cancel row=" + rowNumber +
-      " cells=4 ms=" + (Date.now() - t0)
-    );
-  });
-
-  invalidateAttendances(ctx);
+  return daoAttendanceCancel_(attendanceRows, teacherId, reason, ctx);
 }

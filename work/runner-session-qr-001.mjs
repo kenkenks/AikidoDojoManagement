@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import vm from "node:vm";
+import { declaration } from "./source-extract.mjs";
 
 const story = "SESSION-QR-001";
 const task = "TASK-DEV-023";
@@ -109,6 +110,8 @@ function runAttendanceEntry(search) {
   sandbox.location.search = search;
   vm.runInContext(`
     (() => {
+      ${declaration(attendanceHtml, "SESSION_PRIMARY_ROLE")}
+      let entryMemberId = "";
       let currentLocationId = "";
       let currentTeacherId = "";
       let currentBillingBlockId = "";

@@ -1,55 +1,34 @@
-ARCH-009
-データアクセスアーキテクチャ
+# ARCH-009 データアクセスアーキテクチャ
 
-STATUS
-検討中
+STATUS: ACTIVE
+TYPE: ARCHITECTURE
+AREA: COMMON
+PRIORITY: HIGH
 
-目的
+## 目標
 
-業務ロジックをデータ保存方式から分離し、
-保守性・移植性・テスト容易性を向上させる。
-
-基本構成
-
-Service
+Business (collect → make → record → post)
 ↓
-
-Repository
-
+DAO Business
 ↓
-
-DAO
-
+DAO Core Port
 ↓
+Sheets DAO Core / Cloud DAO Core
 
-Storage
+DAO Businessは業務語彙の検索・保存と論理キー・DTOを扱う。DAO Coreは物理スキーマ、保存API、行位置、列対応、シリアライズ、保存先ごとのキャッシュを扱う。料金計算や状態遷移判断はBusinessに置く。
 
-Storage例
+Target/Compositionで実装を選ぶ。BusinessにSheets/Cloud分岐を置かない。同期/非同期、排他、単行更新、複数テーブルtransactionは個別の能力契約として定義する。SheetsのsetValuesをDB transactionと同一視しない。
 
-・Spreadsheet
-・Firebase
-・RDB
-・Mock
+## 第1段階の実装
 
-設計原則
+- DAO_Core_Sheets.js: 共通readSheet/readSheetData、ヘッダ処理、追記を集約。請求保存用に論理名monthlySelections/invoicesを扱うappendとキー更新を追加。
+- 03_BillingRecord.js: Billing DAO Businessとして、物理Sheet名/Rangeを持たずCoreへ保存依頼する。
+- DAO_Composition.js: ctx.daoCoreの注入を受け、既存呼出元にはSheetsを既定で提供する。
 
-・ServiceはSpreadsheetAppを直接使用しない。
-・Repositoryは業務モデルを提供する。
-・DAOは保存媒体固有の処理を担当する。
-・Storageの変更はDAO層以下で吸収する。
-・RunnerはRepositoryを利用して検証する。
+Coreの正式Target設定、共通読込ラッパーの全移行、他業務の直接Sheet操作集約は未完了。sheetContextは現行Contextとの橋渡しとして残る。旧共通関数名は呼出が残る正式な物理APIとしてCoreへ移設し、同名ラッパーは追加しない。
 
-期待効果
+## 保存契約
 
-・保存先変更の容易化
-・テスト容易性向上
-・Mock実装の容易化
-・AIによるコード生成の一貫性向上
+既存のヘッダ順・空欄・数値0・先頭一致検索・未知更新列の無視・書込後キャッシュ無効化・エラー文言を初期移行では維持する。旧データ補正や状態変更は構造整理と別差分にする。
 
-備考
-
-会費回収フロー完成後に段階的に適用する。
-
------------------------------------------------------------------
-雑談
-
+ラッパーは利用元を正式入口へ移した後、不要なら削除する。外部画面・トリガー・Runner・配備構成での利用を確認する前に削除しない。

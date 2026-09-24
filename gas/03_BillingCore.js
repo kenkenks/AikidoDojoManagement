@@ -82,15 +82,7 @@ function billingCoreMakeInvoice_(billingContext, ctx) {
  * BillingMonthly / BillingUsage などから共通利用する。
  */
 function billingCoreGetMonthlySelection_(billingGroupId, targetMonth, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const monthlySelections = getMonthlySelections(ctx);
-  const normalizedTargetMonth = normalizeMonth(targetMonth);
-  const normalizedBillingGroupId = String(billingGroupId).trim();
-
-  return monthlySelections.find(row =>
-    normalizeMonth(row["target_month"]) === normalizedTargetMonth &&
-    String(row["billing_group_id"]).trim() === normalizedBillingGroupId
-  ) || null;
+  // 呼出元との互換入口。照会条件はDAO Business、保存先はDAO Coreが担う。
+  ctx = daoContext_(ctx);
+  return daoBillingFindMonthlySelection_(billingGroupId, targetMonth, ctx);
 }
-

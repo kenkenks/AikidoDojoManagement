@@ -410,28 +410,7 @@ function validatePaymentScope_(ctx, locationId, billingBlockId) {
 // DAO
 // ==============================
 function payment_append(ctx, payment) {
-  ctx = ensureSheetContext(ctx);
-
-  const sheet = ctx.ss.getSheetByName("06_入金ログ");
-
-  appendObjectsByHeader_(sheet, [{
-    payment_id: payment.payment_id,
-    日時: payment.日時,
-    target_month: payment.target_month,
-    billing_group_id: payment.billing_group_id,
-    invoice_id: payment.invoice_id,
-    member_id: payment.member_id,
-    支払方法: payment.支払方法,
-    入金額: payment.入金額,
-    決済ID: payment.決済ID,
-    location_id: payment.location_id || "",
-    billing_block_id: payment.billing_block_id || "",
-    teacher_id: payment.teacher_id || "",
-    reception_session_id: payment.reception_session_id || "",
-    備考: payment.備考
-  }]);
-
-  invalidatePayments(ctx);
+  return daoPaymentAppend_(ctx, payment);
 }
 
 // ==============================

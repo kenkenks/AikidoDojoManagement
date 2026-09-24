@@ -33,23 +33,7 @@ function paymentEvidenceQuery_list(data, ctx) {
  * 同一画面で複数 status を生成する場合は、この結果を共有する。
  */
 function paymentEvidenceQuery_loadReadModel_(ctx) {
-  ctx = ensureSheetContext(ctx || createSheetContext());
-
-  const invoicesById = {};
-  getInvoices(ctx).forEach(function(invoice) {
-    invoicesById[normalizeId_(invoice["invoice_id"])] = invoice;
-  });
-
-  const memberNames = {};
-  getMembers(ctx).forEach(function(member) {
-    memberNames[normalizeId_(member["member_id"])] = String(member["氏名"] || "");
-  });
-
-  return {
-    invoicesById: invoicesById,
-    memberNames: memberNames,
-    evidences: getPaymentEvidences(ctx)
-  };
+  return daoPaymentLoadEvidenceReadModel_(ctx);
 }
 
 /**

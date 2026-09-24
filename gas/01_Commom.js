@@ -27,33 +27,6 @@ function filterBySheet(memberId, rows, boolCol, boolValue) {
   );
 }
 
-function readSheet(sheet) {
-  return readSheetData_(sheet).rows;
-}
 
-function readSheetData_(sheet) {
-  const t0 = Date.now();
 
-  const values = sheet.getDataRange().getValues();
-  const headers = (values.shift() || []).map(header => String(header).trim());
 
-  perfLog(
-    `readSheet ${sheet.getName()}`,
-    t0
-  );
-
-  const rows = values
-    .filter(row => row.some(cell => cell !== ""))
-    .map(row => {
-      const obj = {};
-      headers.forEach((header, i) => {
-        obj[header] = row[i];
-      });
-      return obj;
-    });
-
-  return {
-    headers: headers,
-    rows: rows
-  };
-}

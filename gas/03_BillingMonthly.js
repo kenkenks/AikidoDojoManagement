@@ -8,6 +8,8 @@
  * FLOW
  * Collect
  *   ↓
+ * Make Monthly Selection
+ *   ↓
  * Record Monthly Selection
  *   ↓
  * Make Invoice
@@ -20,84 +22,45 @@
  * billing_acceptMonthlySelection() は旧互換入口として残す。
  */
 function billingMonthlyAccept(memberId, plan_id, ctx, options) {
-  ctx = ensureSheetContext(ctx || createSheetContext());
+  ctx = daoContext_(ctx || createSheetContext());
   options = options || {};
   const deferViewRefresh = options.deferViewRefresh === true;
-
-  let billingContext;
-  let invoice;
-  let viewUpdate;
-
   try {
-    // Collect
-    billingContext =
-    billingMonthlyCollect(memberId, plan_id, ctx);
-
-    // 同じ月・同じ請求グループ・同じplan_idの再要求は冪等成功とする。
-    // PayPay画面の再表示や既存REQUESTED再利用時に、同じ宣言を
-    // 「登録済みエラー」として止めない。
-    if (billingContext.alreadySelected === true) {
-      viewUpdate = deferViewRefresh
-        ? {
-            ok: true,
-            deferred: true,
-            row_updated: false,
-            reason: "DEFERRED_BY_CALLER"
-          }
-        : paymentStatusView_refresh(
-            billingContext.memberId,
-            billingContext.targetMonth,
-            ctx
-          );
-
-      return {
-        ok: true,
-        skipped: true,
-        idempotent: true,
-        message: `${billingContext.targetMonth} の会費タイプ「${plan_id}」は登録済みです。`,
-        invoice: null,
-        viewUpdate
-      };
+    const facts = billingMonthlyCollect(memberId, plan_id, ctx);
+    let invoice = null;
+    if (facts.alreadySelected !== true) {
+      // 保存順・時刻取得順・途中失敗時の保存済みデータを維持する。
+      const selection = billingMonthlyMakeSelection_(facts, ctx);
+      billingMonthlyRecordSelection_(selection, ctx);
+      invoice = billingCoreMakeInvoice_(facts, ctx);
+      billingMonthlyRecordInvoice_(invoice, ctx);
     }
-
-    // Record Monthly Selection
-    billingMonthlyRegisterSelection_(billingContext, ctx);
-
-    // Make Invoice
-    invoice =
-      billingCoreMakeInvoice_(billingContext, ctx);
-
-    // Record Invoice
-    billingRecordAppendInvoice_(invoice, ctx);
-
-    // Refresh View.
-    // attendance_batch など、後段で確定状態を必ずrefreshする呼出元だけ遅延を許可する。
-    // DTO互換のため viewUpdate 自体は常に返し、遅延時も ok/deferred を明示する。
-    viewUpdate = deferViewRefresh
-      ? {
-          ok: true,
-          deferred: true,
-          row_updated: false,
-          reason: "DEFERRED_BY_CALLER"
-        }
-      : paymentStatusView_refresh(
-          billingContext.memberId,
-          billingContext.targetMonth,
-          ctx
-        );
-
+    const viewUpdate = billingMonthlyPost_(facts, deferViewRefresh, ctx);
+    const skipped = facts.alreadySelected === true;
+    return {
+      ok: true, skipped: skipped, idempotent: skipped,
+      message: skipped
+        ? facts.targetMonth + ' の会費タイプ「' + plan_id + '」は登録済みです。'
+        : facts.targetMonth + ' の会費タイプを「' + plan_id + '」で登録しました。',
+      invoice: invoice, viewUpdate: viewUpdate
+    };
   } catch (e) {
     return { ok: false, message: e.message };
   }
+}
 
-  return {
-    ok: true,
-    skipped: false,
-    idempotent: false,
-    message: `${billingContext.targetMonth} の会費タイプを「${plan_id}」で登録しました。`,
-    invoice,
-    viewUpdate
-  };
+function billingMonthlyPost_(facts, deferViewRefresh, ctx) {
+  return deferViewRefresh
+    ? { ok: true, deferred: true, row_updated: false, reason: "DEFERRED_BY_CALLER" }
+    : paymentStatusView_refresh(facts.memberId, facts.targetMonth, ctx);
+}
+
+function billingMonthlyRecordSelection_(selection, ctx) {
+  return billingRecordAppendMonthlySelection_(selection, ctx);
+}
+
+function billingMonthlyRecordInvoice_(invoice, ctx) {
+  return billingRecordAppendInvoice_(invoice, ctx);
 }
 
 /**
@@ -111,7 +74,7 @@ function billingMonthlyAccept(memberId, plan_id, ctx, options) {
  * BillingContext
  */
 function billingMonthlyCollect(memberId, planId, ctx) {
-  ctx = ensureSheetContext(ctx);
+  ctx = daoContext_(ctx);
 
   if (!memberId) {
     throw new Error("memberId がありません。");
@@ -121,10 +84,7 @@ function billingMonthlyCollect(memberId, planId, ctx) {
     throw new Error("plan_id がありません。");
   }
 
-  const members = getMembers(ctx);
-  const member = members.find(m =>
-    String(m["member_id"]).trim() === String(memberId).trim()
-  );
+  const member = daoBillingFindMonthlyMember_(memberId, ctx);
 
   if (!member) {
     throw new Error("会員が見つかりません。");
@@ -137,7 +97,7 @@ function billingMonthlyCollect(memberId, planId, ctx) {
 
   const targetMonth = sup_targetMonth(ctx);
 
-  const existing = billingCoreGetMonthlySelection_(billingGroupId, targetMonth, ctx);
+  const existing = daoBillingFindMonthlySelection_(billingGroupId, targetMonth, ctx);
   const requestedPlanId = String(planId).trim();
   if (existing) {
     const existingPlanId = String(existing["plan_id"] || "").trim();
@@ -161,10 +121,7 @@ function billingMonthlyCollect(memberId, planId, ctx) {
     );
   }
 
-  const fees = getFees(ctx);
-  const fee = fees.find(f =>
-    String(f["plan_id"]).trim() === String(planId).trim()
-  );
+  const fee = daoBillingFindMonthlyFee_(planId, ctx);
 
   if (!fee) {
     throw new Error("料金プランが見つかりません。");
@@ -194,7 +151,11 @@ function billingMonthlyCollect(memberId, planId, ctx) {
  * 月額請求受付に固有の処理。
  */
 function billingMonthlyRegisterSelection_(billingContext, ctx) {
-  return billingRecordAppendMonthlySelection_({
+  return billingMonthlyRecordSelection_(billingMonthlyMakeSelection_(billingContext, ctx), ctx);
+}
+
+function billingMonthlyMakeSelection_(billingContext, ctx) {
+  return {
     target_month: billingContext.targetMonth,
     member_id: billingContext.memberId,
     billing_group_id: billingContext.billingGroupId,
@@ -202,7 +163,7 @@ function billingMonthlyRegisterSelection_(billingContext, ctx) {
     宣言日: sup_now(ctx),
     状態: "有効",
     備考: ""
-  }, ctx);
+  };
 }
 /**
  * ROLE

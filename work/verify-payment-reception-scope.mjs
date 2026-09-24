@@ -10,15 +10,21 @@ const context = {
   paymentEvidence_toDisplayPaymentMethod_: value => value === "CASH" ? "現金" : "PayPay",
   appendObjectsByHeader_: (sheet, rows) => captured.push(...rows),
   invalidatePayments: () => {},
+  invalidateSheetRows: () => {},
   ensureSheetContext: value => value,
   Utilities: { getUuid: () => "12345678-0000" }
 };
 vm.createContext(context);
 [
+  "gas/DAO_Core_Sheets.js",
+  "gas/DAO_Composition.js",
+  "gas/DAO_Business_Payment.js",
+  "gas/09_PaymentEvidenceCore.js",
   "gas/09_PaymentEvidenceRequest.js",
   "gas/09_PaymentEvidencePost.js",
   "gas/05_Payment.js"
 ].forEach(file => vm.runInContext(fs.readFileSync(file, "utf8"), context));
+context.appendObjectsByHeader_ = (sheet, rows) => captured.push(...rows);
 
 const request = context.paymentEvidenceRequest_make({
   invoice_id: "INV-1",

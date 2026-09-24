@@ -308,10 +308,18 @@ function monthlyIntegration902_payMember_(member, method, config, sessionId, ctx
   const results = [];
   const intermediateChecks = [];
   invoices.forEach(function(invoice, index) {
+    // Requestのamountは今回受領額。別請求の入金を含めず残額を渡す。
+    const paid = getPayments(ctx).filter(function(payment) {
+      return normalizeId_(payment["invoice_id"]) === normalizeId_(invoice["invoice_id"]);
+    }).reduce(function(sum, payment) {
+      return sum + Number(payment["入金額"] || 0);
+    }, 0);
+    const amount = Math.max(Number(invoice["請求予定額"] || invoice["金額"] || 0) - paid, 0);
     const request = paymentEvidence_request({
       invoice_id: invoice["invoice_id"],
       member_id: invoice["member_id"] || member.member_id,
       payment_method: method,
+      amount: amount,
       location_id: config.location_id,
       billing_block_id: config.billing_block_id,
       teacher_id: config.teacher_id,
