@@ -7,20 +7,7 @@ const PAYMENT_RECEPTION_SCOPE_HEADERS = [
 
 function paymentReception_ensureSchema(ctx) {
   ctx = ensureSheetContext(ctx || createSheetContext());
-  const results = {};
-  ["09_決済エビデンス", "06_入金ログ"].forEach(function(sheetName) {
-    const sheet = getRequiredSheet_(sheetName, ctx);
-    const before = getHeaderMap_(sheet).headers.length;
-    const missing = PAYMENT_RECEPTION_SCOPE_HEADERS.filter(function(header) {
-      return getHeaderMap_(sheet).map[header] === undefined;
-    });
-    if (missing.length > 0) {
-      sheet.getRange(1, before + 1, 1, missing.length).setValues([missing]);
-      invalidateSheetRows(ctx, sheetName);
-    }
-    results[sheetName] = { added_headers: missing };
-  });
-  return { ok: true, sheets: results };
+  return daoPaymentEnsureReceptionSchema_(PAYMENT_RECEPTION_SCOPE_HEADERS, ctx);
 }
 
 function setupPaymentReceptionSchema() {

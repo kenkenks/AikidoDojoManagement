@@ -545,8 +545,7 @@ function paymentStatusView_projectAttendances_(attendanceRows, cancelledRows, ct
 }
 
 function paymentStatusView_readDetailItems_(memberId, targetMonth, columnName, ctx) {
-  const sheet = getRequiredSheet_("20_会費状態View", ctx);
-  const values = sheet.getDataRange().getValues();
+  const values = daoViewReadPaymentStatusValues_(ctx);
   if (values.length < 2) return [];
   const headers = values[0].map(function(header) { return String(header).trim(); });
   const memberCol = headers.indexOf("member_id");
@@ -583,14 +582,13 @@ function paymentStatusView_update(memberId, targetMonth, updateValues, ctx) {
   paymentStatusView_ensureViewHeaders_(updateValues, ctx);
 
   const t0 = Date.now();
-  upsertViewRow(
-    "20_会費状態View",
-    ["target_month", "member_id"],
+  daoViewUpsertPaymentStatusRow_(
     {
       target_month: normalizeMonth(targetMonth),
       member_id: memberId
     },
-    updateValues
+    updateValues,
+    ctx
   );
   console.log(
     "[PERF-WRITE] sheet=20_会費状態View" +
@@ -603,40 +601,7 @@ function paymentStatusView_update(memberId, targetMonth, updateValues, ctx) {
 }
 
 function paymentStatusView_ensureViewHeaders_(updateValues, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const sheet = ctx.ss.getSheetByName("20_会費状態View");
-  if (!sheet) {
-    throw new Error("シートが見つかりません: 20_会費状態View");
-  }
-
-  const lastColumn = sheet.getLastColumn();
-  const headers = lastColumn > 0
-    ? sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(function(header) {
-        return String(header).trim();
-      })
-    : [];
-
-  const existing = {};
-  headers.forEach(function(header) {
-    if (header) existing[header] = true;
-  });
-
-  const missing = Object.keys(updateValues || {}).filter(function(header) {
-    return !existing[header];
-  });
-
-  if (missing.length === 0) return;
-
-  const t0 = Date.now();
-  sheet
-    .getRange(1, headers.length + 1, 1, missing.length)
-    .setValues([missing]);
-  console.log(
-    "[PERF-WRITE] sheet=20_会費状態View" +
-    " op=append_headers rows=1 cols=" + missing.length +
-    " ms=" + (Date.now() - t0)
-  );
+  return daoViewEnsurePaymentStatusHeaders_(updateValues, ctx);
 }
 
 // ==============================

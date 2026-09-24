@@ -211,20 +211,7 @@ function paymentEvidenceRecord_update(record, ctx) {
  */
 function paymentEvidence_updateColumnsAtomic_(rowNumber, valuesByHeader, ctx) {
   ctx = ensureSheetContext(ctx);
-
-  const sheet = getRequiredSheet_("09_決済エビデンス", ctx);
-  const headerInfo = assertHeaders_(sheet, paymentEvidence_requiredHeaders_());
-  const width = headerInfo.headers.length;
-  const rowValues = sheet.getRange(rowNumber, 1, 1, width).getValues()[0];
-
-  Object.keys(valuesByHeader).forEach(function(header) {
-    if (headerInfo.map[header] === undefined) {
-      throw new Error("09_決済エビデンス に列がありません: " + header);
-    }
-    rowValues[headerInfo.map[header]] = valuesByHeader[header];
-  });
-
-  sheet.getRange(rowNumber, 1, 1, width).setValues([rowValues]);
+  daoPaymentUpdateEvidenceRowAtomic_(rowNumber, valuesByHeader, paymentEvidence_requiredHeaders_(), ctx);
   paymentEvidence_invalidate(ctx);
 }
 

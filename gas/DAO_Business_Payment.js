@@ -141,3 +141,13 @@ function daoPaymentFindEvidence_(evidenceId, ctx) {
     return normalizeId_(evidence['evidence_id']) === id;
   }) || null;
 }
+
+// 行全体を1回で保存する既存の更新契約をCoreへ委譲する。
+function daoPaymentUpdateEvidenceRowAtomic_(rowNumber, valuesByHeader, requiredHeaders, ctx) {
+  return daoCore_(ctx).updateEvidenceRowAtomic(rowNumber, valuesByHeader, requiredHeaders, ctx);
+}
+
+// 受付拡張列の順序は呼出元の定義をそのまま渡す。
+function daoPaymentEnsureReceptionSchema_(headers, ctx) {
+  return daoCore_(ctx).ensurePaymentReceptionSchema(headers, ctx);
+}

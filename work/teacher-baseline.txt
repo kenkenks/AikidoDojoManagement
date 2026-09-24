@@ -21,9 +21,26 @@ function setupTeacherAttendance() {
 
 function teacherAttendance_ensureSchema(ctx) {
   ctx = ensureSheetContext(ctx || createSheetContext());
-  return daoTeacherAttendanceEnsureSchema_(TEACHER_ATTENDANCE_HEADERS, TEACHER_ROLE_LINK_HEADERS, ctx);
+  let sheet = ctx.ss.getSheetByName(TEACHER_ATTENDANCE_SHEET);
+  if (!sheet) {
+    sheet = ctx.ss.insertSheet(TEACHER_ATTENDANCE_SHEET);
+    sheet.getRange(1, 1, 1, TEACHER_ATTENDANCE_HEADERS.length).setValues([TEACHER_ATTENDANCE_HEADERS]);
+  } else {
+    teacherAttendance_addMissingHeaders_(sheet, TEACHER_ATTENDANCE_HEADERS);
+  }
+  const teacherSheet = getRequiredSheet_("11_先生マスタ", ctx);
+  const addedTeacherHeaders = teacherAttendance_addMissingHeaders_(teacherSheet, TEACHER_ROLE_LINK_HEADERS);
+  invalidateSheetRows(ctx, "11_先生マスタ");
+  invalidateTeacherAttendances(ctx);
+  return { ok:true, sheet_name:TEACHER_ATTENDANCE_SHEET, added_teacher_headers:addedTeacherHeaders };
 }
 
+function teacherAttendance_addMissingHeaders_(sheet, required) {
+  const info = getHeaderMap_(sheet);
+  const missing = required.filter(function(header) { return info.map[header] === undefined; });
+  if (missing.length) sheet.getRange(1, info.headers.length + 1, 1, missing.length).setValues([missing]);
+  return missing;
+}
 
 function teacherAttendance_getState(data, ctx) {
   ctx = ensureSheetContext(ctx || createSheetContext());
@@ -140,7 +157,8 @@ function teacherAttendance_sync(data, ctx) {
       };
     });
     if (append.length) {
-      daoTeacherAttendanceAppend_(append, ctx);
+      appendObjectsByHeader_(getRequiredSheet_(TEACHER_ATTENDANCE_SHEET, ctx), append);
+      invalidateTeacherAttendances(ctx);
     }
     return { ok:true, teacher_id:teacherId, role:role, registered_slot_ids:registered, retained_slot_ids:retained, cancelled_slot_ids:cancelled, message:"先生出席を登録しました。" };
   } finally {
@@ -182,7 +200,18 @@ function teacherAttendance_activeRows_(date, teacherId, locationId, blockId, ctx
 }
 
 function teacherAttendance_cancelRow_(row, ctx) {
-  return daoTeacherAttendanceCancelRow_(row, ctx);
+  const sheet = getRequiredSheet_(TEACHER_ATTENDANCE_SHEET, ctx);
+  const info = assertHeaders_(sheet, ["teacher_attendance_id", "状態", "取消日時", "取消理由"]);
+  const id = normalizeId_(row["teacher_attendance_id"]);
+  const values = sheet.getDataRange().getValues();
+  for (let index = 1; index < values.length; index++) {
+    if (normalizeId_(values[index][info.map["teacher_attendance_id"]]) !== id) continue;
+    sheet.getRange(index + 1, info.map["状態"] + 1).setValue("取消");
+    sheet.getRange(index + 1, info.map["取消日時"] + 1).setValue(sup_now(ctx));
+    sheet.getRange(index + 1, info.map["取消理由"] + 1).setValue("先生出席画面の選択解除・担当変更");
+    break;
+  }
+  invalidateTeacherAttendances(ctx);
 }
 
 function teacherAttendance_findTeacher_(teacherId, date, ctx) {

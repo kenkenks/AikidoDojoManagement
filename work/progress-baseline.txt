@@ -122,7 +122,45 @@ function attendanceProgress_updateSelfDeclaredRanks(items, ctx) {
 
   if (declarations.length === 0) return { updated_count: 0, member_ids: [] };
 
-  return daoAttendanceProgressUpdateRanks_(declarations, ATTENDANCE_PROGRESS_MEMBER_HEADERS, ctx);
+  const sheet = getRequiredSheet_("01_会員マスタ", ctx);
+  const headerInfo = attendanceProgress_ensureMemberHeaders_(sheet);
+  const values = sheet.getDataRange().getValues();
+  const memberIdColumn = headerInfo.map["member_id"];
+  const rankColumn = headerInfo.map["現在級段位"];
+  const sourceColumn = headerInfo.map["級段位登録元"];
+  const updatedAtColumn = headerInfo.map["級段位更新日時"];
+  const declarationMap = {};
+  declarations.forEach(function(item) { declarationMap[item.member_id] = item.current_rank; });
+
+  const updatedMemberIds = [];
+  for (let rowIndex = 1; rowIndex < values.length; rowIndex++) {
+    const memberId = normalizeId_(values[rowIndex][memberIdColumn]);
+    const declaredRank = declarationMap[memberId];
+    if (!declaredRank) continue;
+
+    const currentRank = String(values[rowIndex][rankColumn] || "").trim();
+    if (currentRank === declaredRank) continue;
+
+    sheet.getRange(rowIndex + 1, rankColumn + 1).setValue(declaredRank);
+    sheet.getRange(rowIndex + 1, sourceColumn + 1).setValue("本人申告");
+    sheet.getRange(rowIndex + 1, updatedAtColumn + 1).setValue(sup_now(ctx));
+    updatedMemberIds.push(memberId);
+  }
+
+  if (updatedMemberIds.length > 0) invalidateSheetRows(ctx, "01_会員マスタ");
+  return { updated_count: updatedMemberIds.length, member_ids: updatedMemberIds };
+}
+
+function attendanceProgress_ensureMemberHeaders_(sheet) {
+  const headerInfo = getHeaderMap_(sheet);
+  const missing = ATTENDANCE_PROGRESS_MEMBER_HEADERS.filter(function(header) {
+    return headerInfo.map[header] === undefined;
+  });
+
+  if (missing.length > 0) {
+    sheet.getRange(1, headerInfo.headers.length + 1, 1, missing.length).setValues([missing]);
+  }
+  return getHeaderMap_(sheet);
 }
 
 function attendanceProgress_normalizeOptionalDate_(value, ctx) {
@@ -142,6 +180,8 @@ function attendanceProgress_toNonNegativeNumber_(value) {
 // 初回導入時に管理者が一度実行する。既存列は変更せず、不足列だけを末尾へ追加する。
 function setupAttendanceProgressSchema() {
   const ctx = createSheetContext();
-  const added = daoAttendanceProgressEnsureSchema_(ATTENDANCE_PROGRESS_MEMBER_HEADERS, ctx);
-  Browser.msgBox("級段位・審査進捗列を確認しました。追加列数: " + added);
+  const sheet = getRequiredSheet_("01_会員マスタ", ctx);
+  const before = getHeaderMap_(sheet).headers.length;
+  const headerInfo = attendanceProgress_ensureMemberHeaders_(sheet);
+  Browser.msgBox("級段位・審査進捗列を確認しました。追加列数: " + (headerInfo.headers.length - before));
 }

@@ -153,5 +153,20 @@ function setupExaminationStandardMaster() {
 }
 
 function examinationStandard_ensureSheet_(ctx, sheetName, headers, initialRows) {
-  return daoExaminationEnsureMaster_(ctx, sheetName, headers, initialRows);
+  let sheet = ctx.ss.getSheetByName(sheetName);
+  let created = false;
+  if (!sheet) {
+    sheet = ctx.ss.insertSheet(sheetName);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    created = true;
+  }
+  assertHeaders_(sheet, headers);
+  let seeded = false;
+  if (sheet.getLastRow() === 1) {
+    sheet.getRange(2, 1, initialRows.length, headers.length).setValues(initialRows);
+    seeded = true;
+  }
+  sheet.setFrozenRows(1);
+  sheet.autoResizeColumns(1, headers.length);
+  return "作成=" + created + " / 初期行追加=" + seeded;
 }
