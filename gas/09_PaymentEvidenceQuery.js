@@ -162,9 +162,7 @@ function paymentEvidence_postSelectedBatch(data, ctx) {
       }
 
       try {
-        const evidence = getPaymentEvidences(ctx).find(function(row) {
-          return normalizeId_(row["evidence_id"]) === evidenceId;
-        });
+        const evidence = daoPaymentFindEvidence_(evidenceId, ctx);
         if (!evidence) {
           throw new Error("決済エビデンスが見つかりません: " + evidenceId);
         }

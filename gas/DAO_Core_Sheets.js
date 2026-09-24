@@ -86,6 +86,47 @@ function daoCoreSheets_read(table, ctx) {
   return getSheetRows(ctx, daoCoreSheets_tableName_(table));
 }
 
+// 行単位更新が必要な移行途中の業務向け。物理行番号はDAO Businessより外へ広げない。
+function daoCoreSheets_readWithRowNumbers(table, ctx, requiredHeaders) {
+  ctx = ensureSheetContext(ctx);
+  const sheetName = daoCoreSheets_tableName_(table);
+  const sheet = getRequiredSheet_(sheetName, ctx);
+  if (requiredHeaders && requiredHeaders.length) assertHeaders_(sheet, requiredHeaders);
+  const values = sheet.getDataRange().getValues();
+  const headers = (values[0] || []).map(function(header) { return String(header).trim(); });
+  const rows = [];
+  for (let index = 1; index < values.length; index++) {
+    const source = values[index];
+    if (!source.some(function(cell) { return cell !== ''; })) continue;
+    const row = {};
+    headers.forEach(function(header, column) { row[header] = source[column]; });
+    row._rowNumber = index + 1;
+    rows.push(row);
+  }
+  return rows;
+}
+
+function daoCoreSheets_updateCellsByRowNumber(table, updates, ctx, requiredHeaders) {
+  ctx = ensureSheetContext(ctx);
+  if (!updates || updates.length === 0) return;
+
+  const sheetName = daoCoreSheets_tableName_(table);
+  const sheet = getRequiredSheet_(sheetName, ctx);
+  if (requiredHeaders && requiredHeaders.length) assertHeaders_(sheet, requiredHeaders);
+  const header = getHeaderMap_(sheet);
+
+  updates.forEach(function(update) {
+    const rowNumber = Number(update.rowNumber);
+    if (!rowNumber || rowNumber < 2) throw new Error(sheetName + ' の更新行番号が不正です。');
+    Object.keys(update.values || {}).forEach(function(key) {
+      if (header.map[key] === undefined) throw new Error(sheetName + 'に ' + key + ' 列がありません。');
+      sheet.getRange(rowNumber, header.map[key] + 1).setValue(update.values[key]);
+    });
+  });
+
+  invalidateSheetRows(ctx, sheetName);
+}
+
 function daoCoreSheets_normalizeKey_(value) {
   return String(value == null ? '' : value).trim();
 }
@@ -94,6 +135,15 @@ function daoCoreSheets_append(table, objects, ctx) {
   ctx = ensureSheetContext(ctx);
   const sheetName = daoCoreSheets_tableName_(table);
   const sheet = ctx.ss.getSheetByName(sheetName);
+  appendObjectsByHeader_(sheet, objects);
+  invalidateSheetRows(ctx, sheetName);
+}
+
+function daoCoreSheets_appendValidated(table, objects, requiredHeaders, ctx) {
+  ctx = ensureSheetContext(ctx);
+  const sheetName = daoCoreSheets_tableName_(table);
+  const sheet = getRequiredSheet_(sheetName, ctx);
+  assertHeaders_(sheet, requiredHeaders || []);
   appendObjectsByHeader_(sheet, objects);
   invalidateSheetRows(ctx, sheetName);
 }

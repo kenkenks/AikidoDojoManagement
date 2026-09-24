@@ -9,7 +9,10 @@ function daoContext_(ctx) {
 function daoCore_(ctx) {
   return ctx && ctx.daoCore ? ctx.daoCore : {
     read: daoCoreSheets_read,
+    readWithRowNumbers: daoCoreSheets_readWithRowNumbers,
+    updateCellsByRowNumber: daoCoreSheets_updateCellsByRowNumber,
     append: daoCoreSheets_append,
+    appendValidated: daoCoreSheets_appendValidated,
     updateByKey: daoCoreSheets_updateByKey,
     appendAttendanceRows: daoCoreSheets_appendAttendanceRows,
     cancelAttendanceRows: daoCoreSheets_cancelAttendanceRows,

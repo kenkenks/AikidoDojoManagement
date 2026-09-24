@@ -162,10 +162,7 @@ function payment_register(payment, ctx) {
     };
   }
 
-  const payments = getPayments(ctx);
-  const duplicated = payments.some(p =>
-    String(p["決済ID"] || "").trim() === String(payment.決済ID).trim()
-  );
+  const duplicated = daoPaymentExistsByDecisionId_(payment.決済ID, ctx);
 
   if (duplicated) {
     return {
@@ -193,20 +190,15 @@ function payment_updateInvoiceStatus(targetMonth, billingGroupId, ctx) {
   ctx = ensureSheetContext(ctx);
 
   const payments = getPayments(ctx);
-  const invoiceSheet = ctx.ss.getSheetByName("05_請求明細");
+  const invoiceRows = daoPaymentLoadInvoiceStatusRows_(ctx);
 
-  const values = invoiceSheet.getDataRange().getValues();
-  if (values.length <= 1) {
+  if (invoiceRows.length === 0) {
     return {
       ok: true,
       message: "請求明細がありません。",
       updated: 0
     };
   }
-
-  const headers = values[0];
-  const col = {};
-  headers.forEach((h, i) => col[h] = i);
 
   const normalizedTargetMonth = normalizeMonth(targetMonth);
   const normalizedBillingGroupId = String(billingGroupId).trim();
@@ -217,21 +209,17 @@ function payment_updateInvoiceStatus(targetMonth, billingGroupId, ctx) {
     normalizedBillingGroupId
   );
 
-  const targetInvoices = [];
-  for (let r = 1; r < values.length; r++) {
-    const row = values[r];
-    if (
-      normalizeMonth(row[col["target_month"]]) === normalizedTargetMonth &&
-      String(row[col["billing_group_id"]]).trim() === normalizedBillingGroupId
-    ) {
-      targetInvoices.push({
-        rowNumber: r + 1,
-        invoice_id: row[col["invoice_id"]],
-        amount: Number(row[col["請求予定額"]] || row[col["金額"]] || 0),
-        current_status: String(row[col["支払状態"]] || "")
-      });
-    }
-  }
+  const targetInvoices = invoiceRows.filter(function(row) {
+    return normalizeMonth(row.target_month) === normalizedTargetMonth &&
+      String(row.billing_group_id).trim() === normalizedBillingGroupId;
+  }).map(function(row) {
+    return {
+      rowNumber: row.rowNumber,
+      invoice_id: row.invoice_id,
+      amount: row.amount,
+      current_status: row.current_status
+    };
+  });
 
   const allocations = payment_calculateInvoiceStatuses_(
     targetInvoices,
@@ -241,15 +229,8 @@ function payment_updateInvoiceStatus(targetMonth, billingGroupId, ctx) {
     })
   );
 
-  let updated = 0;
-  allocations.forEach(function(allocation) {
-    invoiceSheet
-      .getRange(allocation.rowNumber, col["支払状態"] + 1)
-      .setValue(allocation.status);
-    updated++;
-  });
-
-  invalidateInvoices(ctx);
+  daoPaymentUpdateInvoiceStatuses_(allocations, ctx);
+  const updated = allocations.length;
 
   return {
     ok: true,

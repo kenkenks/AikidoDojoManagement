@@ -263,13 +263,7 @@ function paymentEvidenceRequest_register(request, ctx) {
 // DAO / 共通
 // ==============================
 function paymentEvidence_append(evidence, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const sheet = getRequiredSheet_("09_決済エビデンス", ctx);
-  assertHeaders_(sheet, paymentEvidence_requiredHeaders_());
-
-  appendObjectsByHeader_(sheet, [evidence]);
-  paymentEvidence_invalidate(ctx);
+  daoPaymentAppendEvidence_(evidence, ctx);
 }
 
 function paymentEvidence_getRows(ctx) {

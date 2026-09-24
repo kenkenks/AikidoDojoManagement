@@ -48,11 +48,7 @@ function paymentEvidence_postBatch(ctx) {
   try {
     ctx = ensureSheetContext(ctx || createSheetContext());
 
-    const evidences = getPaymentEvidences(ctx);
-
-    const confirmed = evidences.filter(function(evidence) {
-      return evidence.status === "CONFIRMED";
-    });
+    const confirmed = daoPaymentFindConfirmedEvidences_(ctx);
 
     if (confirmed.length === 0) {
       return {
