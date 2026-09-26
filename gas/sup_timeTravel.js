@@ -122,16 +122,22 @@ function sup_formatTargetMonth_(date) {
 }
 
 function sup_timeTravel_getSystemContext(ctx) {
-  ctx=ensureSheetContext(ctx||createSheetContext());
-  return DojoTimeTravel.fromContext(ctx,Session.getScriptTimeZone(),(date,zone,pattern)=>Utilities.formatDate(date,zone,pattern));
+  ctx = ensureSheetContext(ctx || createSheetContext());
+  return {
+    ok: true,
+    time_travel_enabled: sup_getTimeTravelSetting_(ctx).enabled,
+    system_now: Utilities.formatDate(sup_now(ctx), Session.getScriptTimeZone(), "yyyy-MM-dd HH:mm:ss"),
+    target_month: sup_targetMonth(ctx),
+    timezone: Session.getScriptTimeZone()
+  };
 }
 
-function sup_timeTravel_getAdminSetting() {
-  return dojoTimeTravelApplication_().getTimeTravel();
+function sup_timeTravel_getAdminSetting(spreadsheet) {
+  return dojoTimeTravelStep2Application_(spreadsheet).getTimeTravel();
 }
 
-function sup_timeTravel_saveAdminSetting(input) {
-  return dojoTimeTravelApplication_().saveTimeTravel(input);
+function sup_timeTravel_saveAdminSetting(input, spreadsheet) {
+  return dojoTimeTravelStep2Application_(spreadsheet).saveTimeTravel(input);
 }
 
 function sup_timeTravel_writeSettings_(updates, ctx) {
