@@ -11,15 +11,35 @@ function createCore(config, dependencies = {}) {
     return {sheet,values,row};
   }
   return {
-    readById(source,id) { const {values,row}=locate(source,id,true); return row ? {key:id,value:values[row-1][source.valueColumn-1] ?? ''} : null; },
+    readById(source,id) {
+      const {values,row}=locate(source,id,true);
+      if(!row) return null;
+      const headers=(values[0]||[]).map(value=>String(value).trim());
+      const stored={};
+      for(const field of Object.values(source.fields||{})) {
+        const column=headers.indexOf(field);
+        if(column>=0) stored[field]=values[row-1][column];
+      }
+      return stored;
+    },
     updateByKey(source,id,values) {
       const {sheet,values:rows,row}=locate(source,id);
       if(!row) return {found:false};
       const headers=(rows[0]||[]).map(value=>String(value).trim());
+      const nextRow=rows[row-1].slice();
       for(const [field,value] of Object.entries(values)) {
         if(field===source.keyField) continue;
         const column=headers.indexOf(field);
         if(column<0) throw new Error(source.sheet+' に列がありません: '+field);
+        nextRow[column]=value;
+      }
+      // One row write preserves the existing CONFIRMED transition atomicity on real Sheets.
+      // Legacy Node Sheet mocks expose only single-cell setValue; keep that test seam compatible.
+      const rowRange=sheet.getRange(row,1,1,nextRow.length);
+      if(rowRange && typeof rowRange.setValues==='function') rowRange.setValues([nextRow]);
+      else for(const [field,value] of Object.entries(values)) {
+        if(field===source.keyField) continue;
+        const column=headers.indexOf(field);
         sheet.getRange(row,column+1).setValue(value);
       }
       return {found:true};

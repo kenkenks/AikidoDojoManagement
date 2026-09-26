@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {buildPortableDaoStep1} from './portable-dao-step1.mjs';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const output=buildPortableDaoStep1('gas');
+const source=path.join(output,'DojoPortableDao.js');
+const target=path.join(root,'gas','DojoPortableDaoPayment.js');
+let text=fs.readFileSync(source,'utf8');
+text=text.replace('globalThis.DojoPortableDao=api','globalThis.DojoPortableDaoPayment=api');
+fs.writeFileSync(target,text);
+console.log('Generated gas\\DojoPortableDaoPayment.js');

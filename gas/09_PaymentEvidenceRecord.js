@@ -182,21 +182,23 @@ function paymentEvidenceRecord_make(context, ctx) {
 function paymentEvidenceRecord_update(record, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const target = paymentEvidence_findRowById_(record.evidence_id, ctx);
+  const target = daoPortablePaymentEvidence_findById_(record.evidence_id, ctx);
   if (!target) {
     throw new Error("record: 決済エビデンスが見つかりません: " + record.evidence_id);
   }
 
-  // CONFIRMED遷移に必要な列は1回のsetValuesで更新する。
-  // statusだけ先に書けて evidence_code / confirmed_at が未更新になる
-  // 中間状態を作らないため。
-  paymentEvidence_updateColumnsAtomic_(target.rowNumber, {
+  // Portable DAO updateByKey: GAS adapter writes the whole physical row once,
+  // preserving the existing CONFIRMED transition atomicity.
+  const updated = daoPortablePaymentEvidence_updateById_(record.evidence_id, {
     status: record.status,
     evidence_code: record.evidence_code,
     confirmed_at: record.confirmed_at,
     confirmed_by: record.confirmed_by,
-    remarks: record.remarks || target.row["remarks"] || ""
+    remarks: record.remarks || target["remarks"] || ""
   }, ctx);
+  if (!updated || !updated.found) {
+    throw new Error("record: 決済エビデンス更新対象が見つかりません: " + record.evidence_id);
+  }
 
   return {
     ok: true,
