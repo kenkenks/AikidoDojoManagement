@@ -24,7 +24,34 @@ function createDao(core, backend, registry = definitions) {
     if (method === 'append' || method === 'upsertByKey') fields[source.keyField] = id;
     return core[method](source,id,fields);
   }
+
+  function mapWriteFields(definition, source, values) {
+    if (!values || typeof values !== 'object' || Array.isArray(values)) throw new Error('INVALID_WRITE_VALUES');
+    return Object.fromEntries(Object.entries(values).map(([key,value]) => {
+      if (!definition.writable?.includes(key) || !Object.hasOwn(source.fields,key)) throw new Error('FIELD_NOT_WRITABLE');
+      return [source.fields[key],value];
+    }));
+  }
+  function appendRecord(name, values) {
+    if (!Object.hasOwn(registry, name)) throw new Error('UNKNOWN_DAO_NAME');
+    const definition=registry[name];
+    if (!Object.hasOwn(definition.sources, backend)) throw new Error('UNKNOWN_DAO_SOURCE');
+    const source=definition.sources[backend];
+    return core.appendRecord(source,mapWriteFields(definition,source,values));
+  }
+  function readAll(name) {
+    if (!Object.hasOwn(registry, name)) throw new Error('UNKNOWN_DAO_NAME');
+    const definition=registry[name];
+    if (!Object.hasOwn(definition.sources, backend)) throw new Error('UNKNOWN_DAO_SOURCE');
+    const source=definition.sources[backend];
+    return runSteps((function* () {
+      const rows=yield core.readAll(source);
+      return rows.map(row=>Object.fromEntries(Object.entries(source.fields).map(([field,storedField])=>[field,row[storedField]])));
+    })());
+  }
   return {
+    appendRecord,
+    readAll,
     append: (name,id,values) => write('append',name,id,values),
     updateByKey: (name,id,values) => write('updateByKey',name,id,values),
     upsertByKey: (name,id,values) => write('upsertByKey',name,id,values),

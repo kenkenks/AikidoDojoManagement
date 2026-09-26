@@ -34,7 +34,7 @@ function daoBillingFindOpenExtraInvoice_(memberId, planId, targetMonth, ctx) {
 }
 
 function daoBillingFindMonthlySelection_(billingGroupId, targetMonth, ctx) {
-  const rows = daoCore_(ctx).read('monthlySelections', ctx);
+  const rows = daoPortableMonthlySelection_readAll_(ctx);
   const normalizedTargetMonth = normalizeMonth(targetMonth);
   const normalizedBillingGroupId = String(billingGroupId).trim();
   return rows.find(function(row) {

@@ -11,6 +11,35 @@ function createCore(config, dependencies = {}) {
     return {sheet,values,row};
   }
   return {
+    readAll(source) {
+      const sheet=ss.getSheetByName(source.sheet);
+      if(!sheet) throw new Error(source.sheet+'シートがありません。');
+      const values=sheet.getDataRange().getValues();
+      if(values.length===0) return [];
+      const headers=(values[0]||[]).map(value=>String(value).trim());
+      return values.slice(1).filter(row=>row.some(cell=>cell!==''))
+        .map(row=>Object.fromEntries(headers.map((header,index)=>[header,row[index]])));
+    },
+    appendRecord(source,values) {
+      const sheet=ss.getSheetByName(source.sheet);
+      if(!sheet) throw new Error(source.sheet+'シートがありません。');
+      const lastColumn=sheet.getLastColumn();
+      if(!lastColumn) throw new Error(source.sheet+' にヘッダーがありません。');
+      const headers=sheet.getRange(1,1,1,lastColumn).getValues()[0].map(value=>String(value).trim());
+      for(const field of Object.keys(values)) if(!headers.includes(field)) throw new Error(source.sheet+' に列がありません: '+field);
+      const row=headers.map(header=>Object.hasOwn(values,header)?values[header]:'');
+      const newRow=sheet.getLastRow()+1;
+      // Google Sheets can auto-coerce string identifiers such as "2099-07" or
+      // "2099-07-01" into Date values. Portable DAO must preserve the caller's
+      // value type, so mark only supplied string cells as plain text before writing.
+      // Numeric/boolean cells keep their native Sheets types.
+      for(let column=0;column<headers.length;column++) {
+        if(Object.hasOwn(values,headers[column]) && typeof row[column]==='string')
+          sheet.getRange(newRow,column+1).setNumberFormat('@');
+      }
+      sheet.getRange(newRow,1,1,headers.length).setValues([row]);
+      return {appended:true};
+    },
     readById(source,id) {
       const {values,row}=locate(source,id,true);
       if(!row) return null;

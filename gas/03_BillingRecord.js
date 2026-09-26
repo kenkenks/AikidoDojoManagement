@@ -72,7 +72,7 @@ function billingRecordAppendInvoice_(invoice, ctx) {
 function billingRecordAppendMonthlySelection_(selection, ctx) {
   ctx = daoContext_(ctx);
 
-  daoCore_(ctx).append("monthlySelections", [{
+  return daoPortableMonthlySelection_append_( {
     target_month: selection.target_month,
     member_id: selection.member_id,
     billing_group_id: selection.billing_group_id,
@@ -80,7 +80,7 @@ function billingRecordAppendMonthlySelection_(selection, ctx) {
     宣言日: selection.宣言日 || sup_now(ctx),
     状態: selection.状態 || "有効",
     備考: selection.備考 || ""
-  }], ctx);
+  }, ctx);
 }
 
 /**
