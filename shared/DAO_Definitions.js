@@ -9,4 +9,12 @@ const definitions = {
     }
   }
 };
-module.exports = { definitions };
+const tableDefinitions = {
+  members: { sheet: '01_会員マスタ', collection: 'members' },
+  locations: { sheet: '10_道場マスタ', collection: 'locations' },
+  teachers: { sheet: '11_先生マスタ', collection: 'teachers' },
+  trainingSlots: { sheet: '12_稽古枠マスタ', collection: 'trainingSlots' },
+  billingBlocks: { sheet: '13_課金枠マスタ', collection: 'billingBlocks' },
+  attendances: { sheet: '07_出席ログ', collection: 'attendances' }
+};
+module.exports = { definitions, tableDefinitions };

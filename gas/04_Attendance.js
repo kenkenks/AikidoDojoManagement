@@ -362,7 +362,9 @@ function registerAttendanceBatchLocked_(data, ctx) {
     });
   }
 
-  const result = attendanceCore_registerBatch_({
+  // Step 3-C: keep the existing reception/billing flow, but route only the
+  // Attendance Core write/read portion through the Portable DAO.
+  const result = dojoAttendanceStep3RegisterCore({
     teacher_id: teacherId,
     location_id: locationId,
     billing_block_id: billingBlockId,
