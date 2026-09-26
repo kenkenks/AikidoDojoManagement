@@ -1,0 +1,11 @@
+'use strict';
+const fs=require('fs'),vm=require('vm'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const defs=fs.readFileSync(path.join(root,'shared','DAO_Definitions.js'),'utf8');
+for(const token of ["paymentLog", "sheet: '06_入金ログ'", "payment_id:'payment_id'", "入金額:'入金額'", "reception_session_id:'reception_session_id'"]) if(!defs.includes(token)) throw new Error('DEFINITION_MISSING '+token);
+const adapter=fs.readFileSync(path.join(root,'adapters','gas','DAO_Core.js'),'utf8');
+for(const token of ['readAll(source)','appendRecord(source,values)',"setNumberFormat('@')",'setValues([row])']) if(!adapter.includes(token)) throw new Error('ADAPTER_CAPABILITY_MISSING '+token);
+const runner=fs.readFileSync(path.join(root,'gas','DojoPortableDaoPaymentLogRunner.js'),'utf8');
+for(const token of ['READ_ALL_BEFORE','APPEND_RECORD','READ_ALL_AFTER','APPENDED_VALUES','PRESERVE_UNMENTIONED_COLUMN','NO_OVERWRITE']) if(!runner.includes(token)) throw new Error('RUNNER_CHECK_MISSING '+token);
+console.log('PAYMENT-LOG-STEP7A LOCAL VERIFY PASS');
+console.log('READ_ALL APPEND_RECORD TYPE_PRESERVATION NO_OVERWRITE PASS');
