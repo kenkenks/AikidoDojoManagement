@@ -29,10 +29,10 @@ function daoPaymentAppend_(ctx, payment) {
     spreadsheet: ctx.ss
   });
 
-  // 06_入金ログの既存物理スキーマだけを永続化する。
-  // member_id / reception_date / location_id / billing_block_id /
-  // teacher_id / reception_session_id は Payment の業務オブジェクトには存在するが、
-  // 06 の物理列ではないためここでは書き込まない。
+  // 06_入金ログは base 9列に加え、paymentReception_ensureSchema() が
+  // 受付Scope 5列を正式に拡張する（reception_date / location_id /
+  // billing_block_id / teacher_id / reception_session_id）。
+  // member_id は06の物理列ではないため保存しない。
   const result = portableDao.appendRecord("paymentLog", {
     payment_id: payment.payment_id,
     日時: payment.日時,
@@ -42,7 +42,12 @@ function daoPaymentAppend_(ctx, payment) {
     支払方法: payment.支払方法,
     入金額: payment.入金額,
     決済ID: payment.決済ID,
-    備考: payment.備考
+    備考: payment.備考,
+    reception_date: payment.reception_date,
+    location_id: payment.location_id,
+    billing_block_id: payment.billing_block_id,
+    teacher_id: payment.teacher_id,
+    reception_session_id: payment.reception_session_id
   });
 
   // 直後の payment_updateInvoiceStatus() は getPayments(ctx) を読む。
@@ -53,29 +58,14 @@ function daoPaymentAppend_(ctx, payment) {
 
 
 
-// 支払状態更新用。現行の請求順・行番号契約を維持したまま物理Sheet読取をCoreへ閉じ込める。
+// STEP8-B: 05_請求明細の支払状態 read/update persistence boundaryをPortable DAOへ切替。
+// 配賦計算は payment_calculateInvoiceStatuses_ に残し、ここでは永続化だけを扱う。
 function daoPaymentLoadInvoiceStatusRows_(ctx) {
-  ctx = daoContext_(ctx);
-  return daoCore_(ctx).readWithRowNumbers('invoices', ctx).map(function(row) {
-    return {
-      rowNumber: row._rowNumber,
-      target_month: row['target_month'],
-      billing_group_id: row['billing_group_id'],
-      invoice_id: row['invoice_id'],
-      amount: Number(row['請求予定額'] || row['金額'] || 0),
-      current_status: String(row['支払状態'] || '')
-    };
-  });
+  return daoPortableInvoice_readStatusRows_(ctx);
 }
 
 function daoPaymentUpdateInvoiceStatuses_(allocations, ctx) {
-  ctx = daoContext_(ctx);
-  daoCore_(ctx).updateCellsByRowNumber('invoices', (allocations || []).map(function(allocation) {
-    return {
-      rowNumber: allocation.rowNumber,
-      values: { '支払状態': allocation.status }
-    };
-  }), ctx);
+  return daoPortableInvoice_updateStatuses_(allocations, ctx);
 }
 
 

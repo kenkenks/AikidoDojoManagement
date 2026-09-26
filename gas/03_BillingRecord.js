@@ -36,27 +36,7 @@ function billing_appendMonthlySelection(selection, ctx) {
  * 将来的にはRepository候補。
  */
 function billingRecordAppendInvoice_(invoice, ctx) {
-  ctx = daoContext_(ctx);
-
-  daoCore_(ctx).append("invoices", [{
-    invoice_id: invoice.invoice_id,
-    target_month: invoice.target_month,
-    billing_group_id: invoice.billing_group_id,
-    member_id: invoice.member_id,
-    plan_id: invoice.plan_id,
-    請求種別: invoice.請求種別,
-    表示名: invoice.表示名,
-    数量: invoice.数量,
-    単価: invoice.単価,
-    上限金額: invoice.上限金額,
-    計算額: invoice.計算額,
-    請求予定額: invoice.請求予定額,
-    金額: invoice.金額,
-    支払状態: invoice.支払状態,
-    支払期限: invoice.支払期限,
-    作成日: invoice.作成日,
-    備考: invoice.備考
-  }], ctx);
+  return daoPortableInvoice_append_(invoice, ctx);
 }
 
 /**

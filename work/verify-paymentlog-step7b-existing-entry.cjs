@@ -5,7 +5,7 @@ const path=require('path');
 
 const source=fs.readFileSync(path.join(__dirname,'..','gas','DAO_Business_Payment.js'),'utf8');
 const start=source.indexOf('function daoPaymentAppend_');
-const end=source.indexOf('\n\n\n// 支払状態更新用',start);
+const end=source.indexOf('function daoPaymentLoadInvoiceStatusRows_',start);
 if(start<0||end<0) throw new Error('daoPaymentAppend_ not found');
 const fnSource=source.slice(start,end);
 
@@ -47,6 +47,7 @@ const payment={
   billing_block_id:'B_KYO_MON_1030_1230',
   teacher_id:'T001',
   reception_session_id:'RUN-STEP7B',
+  reception_date:'2099-07-09',
   備考:'STEP7B'
 };
 const result=sandbox.daoPaymentAppend_(ctx,payment);
@@ -54,8 +55,10 @@ if(!result||result.appended!==true) throw new Error('RESULT_CONTRACT_FAILED');
 if(createCalls!==1||appendCalls!==1) throw new Error('PORTABLE_ROUTE_FAILED');
 if(invalidates!==1) throw new Error('CACHE_INVALIDATION_FAILED');
 for(const [key,value] of Object.entries(payment)) {
+  if(key==='member_id') continue;
   if(received[key]!==value) throw new Error('FIELD_MAPPING_FAILED '+key);
 }
+if(Object.prototype.hasOwnProperty.call(received,'member_id')) throw new Error('MEMBER_ID_MUST_NOT_BE_PERSISTED');
 if(fnSource.includes('daoCore_(ctx).append("payments"')) throw new Error('LEGACY_APPEND_STILL_PRESENT');
 
 console.log('PAYMENT-LOG-STEP7B EXISTING ENTRY VERIFY PASS');

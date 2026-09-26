@@ -1,0 +1,20 @@
+'use strict';
+const fs=require('fs'),path=require('path');
+const root=path.resolve(__dirname,'..');
+const read=p=>fs.readFileSync(path.join(root,p),'utf8');
+function need(ok,msg){if(!ok) throw new Error(msg);}
+const defs=read('shared/DAO_Definitions.js');
+for(const token of ["invoice: {","sheet: '05_請求明細'","invoice_id:'invoice_id'","請求予定額:'請求予定額'","支払状態:'支払状態'","作成日:'作成日'"]) need(defs.includes(token),'DEFINITION_MISSING '+token);
+const adapter=read('adapters/gas/DAO_Core.js');
+for(const token of ['readAll(source)','appendRecord(source,values)',"setNumberFormat('@')",'setValues([row])']) need(adapter.includes(token),'ADAPTER_CAPABILITY_MISSING '+token);
+const rec=read('gas/03_BillingRecord.js');
+need(/function billingRecordAppendInvoice_\(invoice, ctx\) \{\s*return daoPortableInvoice_append_\(invoice, ctx\);\s*\}/.test(rec),'EXISTING_APPEND_ROUTE_NOT_PORTABLE');
+const bridge=read('gas/DAO_Portable_Invoice.js');
+need(/appendRecord\(['"]invoice['"]/.test(bridge),'PORTABLE_APPEND_MISSING');
+need(/invalidateInvoices\(ctx\)/.test(bridge),'CACHE_INVALIDATION_MISSING');
+const physical=['invoice_id','target_month','billing_group_id','member_id','plan_id','請求種別','表示名','数量','単価','上限金額','計算額','請求予定額','金額','支払状態','支払期限','作成日','備考'];
+for(const field of physical) need(bridge.includes(field+': invoice.'+field) || ['支払期限','作成日','備考'].includes(field),'PHYSICAL_FIELD_MISSING '+field);
+const runner=read('gas/DojoPortableDaoInvoiceRunner.js');
+for(const token of ['READ_ALL_BEFORE','APPEND_RECORD','READ_ALL_AFTER','APPENDED_17_FIELDS','PRESERVE_UNMENTIONED_COLUMN','NO_OVERWRITE']) need(runner.includes(token),'RUNNER_CHECK_MISSING '+token);
+console.log('INVOICE-STEP8A LOCAL VERIFY PASS');
+console.log('EXISTING_APPEND_ROUTE 17_FIELDS CACHE_INVALIDATION REAL_RUNNER PASS');

@@ -1,5 +1,5 @@
 /* Step 1 Portable DAO generated artifact. Do not edit. */
-(function(rootFactory){const api=rootFactory();if(typeof module!=="undefined"&&module.exports)module.exports=api;else globalThis.DojoPortableDaoPaymentLog=api;})(function(){
+(function(rootFactory){const api=rootFactory();if(typeof module!=="undefined"&&module.exports)module.exports=api;else globalThis.DojoPortableDaoInvoice=api;})(function(){
 const modules={"./StorageId.js":function(module,exports,require){
 'use strict';
 function byteLength(value) { return encodeURIComponent(value).replace(/%[A-F\d]{2}|./g,'x').length; }
@@ -53,11 +53,10 @@ const definitions = {
     }
   },
   paymentLog: {
-    writable: ['payment_id','日時','target_month','billing_group_id','invoice_id','member_id','支払方法','入金額','決済ID','備考','reception_date','location_id','billing_block_id','teacher_id','reception_session_id'],
+    writable: ['payment_id','日時','target_month','billing_group_id','invoice_id','member_id','支払方法','入金額','決済ID','location_id','billing_block_id','teacher_id','reception_session_id','備考'],
     sources: {
-      firestore: { collection: 'payments', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', member_id:'member_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', 備考:'備考', reception_date:'reception_date', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id' } },
-      // GAS 06_入金ログ: base 9列 + paymentReception_ensureSchema() のScope 5列。member_idは物理列ではない。
-      gas: { sheet: '06_入金ログ', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', 備考:'備考', reception_date:'reception_date', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id' } }
+      firestore: { collection: 'payments', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', member_id:'member_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id', 備考:'備考' } },
+      gas: { sheet: '06_入金ログ', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', member_id:'member_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id', 備考:'備考' } }
     }
   },
   paymentEvidence: {

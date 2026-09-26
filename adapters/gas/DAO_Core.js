@@ -6,8 +6,15 @@ function createCore(config, dependencies = {}) {
     const sheet=ss.getSheetByName(source.sheet);
     if(!sheet) {if(reading)return {values:[],row:0};throw new Error(source.sheet+'シートがありません。');}
     const values=sheet.getDataRange().getValues();
+    const headers=(values[0]||[]).map(value=>String(value).trim());
+    // Legacy definitions may provide keyColumn, while newer Portable tables use keyField.
+    // Resolve the physical key column from the header when keyColumn is absent.
+    let keyIndex=-1;
+    if(Number.isInteger(source.keyColumn) && source.keyColumn>0) keyIndex=source.keyColumn-1;
+    else if(source.keyField) keyIndex=headers.indexOf(String(source.keyField).trim());
+    if(keyIndex<0) throw new Error(source.sheet+' にキー列がありません: '+String(source.keyField||source.keyColumn||''));
     let row=0;
-    for(let i=1;i<values.length;i++) if(String(values[i][source.keyColumn-1]||'').trim()===id) row=i+1;
+    for(let i=1;i<values.length;i++) if(String(values[i][keyIndex]||'').trim()===String(id).trim()) row=i+1;
     return {sheet,values,row};
   }
   return {

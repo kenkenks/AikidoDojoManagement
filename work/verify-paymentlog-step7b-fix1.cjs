@@ -2,7 +2,7 @@
 const fs=require('fs'),vm=require('vm'),path=require('path');
 const source=fs.readFileSync(path.join(__dirname,'..','gas','DAO_Business_Payment.js'),'utf8');
 const start=source.indexOf('function daoPaymentAppend_');
-const end=source.indexOf('\n\n\n// 支払状態更新用',start);
+const end=source.indexOf('function daoPaymentLoadInvoiceStatusRows_',start);
 if(start<0||end<0) throw new Error('daoPaymentAppend_ not found');
 const fnSource=source.slice(start,end);
 let received=null, invalidates=0;
@@ -23,10 +23,10 @@ const payment={
  reception_date:'2099-07-09',備考:'FIX1'
 };
 sandbox.daoPaymentAppend_(ctx,payment);
-const persisted=['payment_id','日時','target_month','billing_group_id','invoice_id','支払方法','入金額','決済ID','備考'];
-const businessOnly=['member_id','reception_date','location_id','billing_block_id','teacher_id','reception_session_id'];
+const persisted=['payment_id','日時','target_month','billing_group_id','invoice_id','支払方法','入金額','決済ID','備考','reception_date','location_id','billing_block_id','teacher_id','reception_session_id'];
+const businessOnly=['member_id'];
 for(const k of persisted) if(received[k]!==payment[k]) throw new Error('MISSING_PERSISTED '+k);
 for(const k of businessOnly) if(Object.prototype.hasOwnProperty.call(received,k)) throw new Error('BUSINESS_ONLY_LEAK '+k);
 if(invalidates!==1) throw new Error('CACHE_INVALIDATION');
-console.log('PAYMENT-LOG-STEP7B FIX1 VERIFY PASS');
-console.log('PHYSICAL_SCHEMA_9_FIELDS BUSINESS_OBJECT_FIELDS_EXCLUDED CACHE_INVALIDATION PASS');
+console.log('PAYMENT-LOG-STEP7B FIX2 VERIFY PASS');
+console.log('PHYSICAL_SCHEMA_BASE9_PLUS_SCOPE5 MEMBER_ID_EXCLUDED CACHE_INVALIDATION PASS');
