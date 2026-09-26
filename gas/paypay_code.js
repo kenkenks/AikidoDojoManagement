@@ -268,14 +268,14 @@ function paypayCode_record(data, ctx) {
       continue;
     }
 
-    const target = paymentEvidence_findRowById_(evidenceId, ctx);
+    const target = daoPortablePaymentEvidence_findForPayPay_(evidenceId, ctx);
     if (!target) {
       skipped.push({ ok: false, index: i, evidence_id: evidenceId, message: '決済エビデンスが見つかりません。' });
       continue;
     }
 
-    const status = normalizeId_(target.row.status || target.row['status']);
-    const currentEvidenceCode = normalizeId_(target.row.evidence_code || target.row['evidence_code']);
+    const status = normalizeId_(target.status || target['status']);
+    const currentEvidenceCode = normalizeId_(target.evidence_code || target['evidence_code']);
 
     if (status === 'REQUESTED') {
       recordTargets.push({
@@ -293,14 +293,17 @@ function paypayCode_record(data, ctx) {
         const updates = {
           evidence_code: evidenceCode
         };
-        if (!target.row.confirmed_at && !target.row['confirmed_at']) {
+        if (!target.confirmed_at && !target['confirmed_at']) {
           updates.confirmed_at = sup_now(ctx);
         }
-        if (!normalizeId_(target.row.confirmed_by || target.row['confirmed_by'])) {
+        if (!normalizeId_(target.confirmed_by || target['confirmed_by'])) {
           updates.confirmed_by = memberId;
         }
 
-        paymentEvidence_updateColumnsAtomic_(target.rowNumber, updates, ctx);
+        const updated = daoPortablePaymentEvidence_updateForPayPay_(evidenceId, updates, ctx);
+        if (!updated || !updated.found) {
+          throw new Error('PayPay Evidence更新対象が見つかりません: ' + evidenceId);
+        }
         repairResults.push({
           ok: true,
           repaired: true,
@@ -405,13 +408,14 @@ function paypayCode_repairReusableEvidenceScope_(row, scope, ctx) {
     return row;
   }
 
-  const target = paymentEvidence_findRowById_(evidenceId, ctx);
+  const target = daoPortablePaymentEvidence_findForPayPay_(evidenceId, ctx);
   if (!target) return row;
 
-  paymentEvidence_updateColumns_(target.rowNumber, updates, ctx);
+  const updated = daoPortablePaymentEvidence_updateForPayPay_(evidenceId, updates, ctx);
+  if (!updated || !updated.found) return row;
 
-  const refreshed = paymentEvidence_findRowById_(evidenceId, ctx);
-  return refreshed ? refreshed.row : row;
+  const refreshed = daoPortablePaymentEvidence_findForPayPay_(evidenceId, ctx);
+  return refreshed || row;
 }
 
 function paypayCode_findActiveEvidenceByInvoice_(invoiceId, ctx) {

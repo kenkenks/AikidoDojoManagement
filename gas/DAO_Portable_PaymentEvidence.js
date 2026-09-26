@@ -13,3 +13,14 @@ function daoPortablePaymentEvidence_updateById_(evidenceId, values, ctx) {
   if (result && result.found) paymentEvidence_invalidate(ctx);
   return result;
 }
+
+
+// Step9-A: PayPay member route key-based Evidence accessors.
+// PayPay must not depend on Sheet rowNumber for 09 persistence.
+function daoPortablePaymentEvidence_findForPayPay_(evidenceId, ctx) {
+  return daoPortablePaymentEvidence_findById_(evidenceId, ctx);
+}
+
+function daoPortablePaymentEvidence_updateForPayPay_(evidenceId, values, ctx) {
+  return daoPortablePaymentEvidence_updateById_(evidenceId, values, ctx);
+}
