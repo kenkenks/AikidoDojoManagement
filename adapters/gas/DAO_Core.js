@@ -12,7 +12,19 @@ function createCore(config, dependencies = {}) {
   }
   return {
     readById(source,id) { const {values,row}=locate(source,id,true); return row ? {key:id,value:values[row-1][source.valueColumn-1] ?? ''} : null; },
-    updateByKey(source,id,values) { const {sheet,row}=locate(source,id); if(!row) return {found:false}; sheet.getRange(row,source.valueColumn).setNumberFormat('@').setValue(values.value); return {found:true}; },
+    updateByKey(source,id,values) {
+      const {sheet,values:rows,row}=locate(source,id);
+      if(!row) return {found:false};
+      const headers=(rows[0]||[]).map(value=>String(value).trim());
+      for(const [field,value] of Object.entries(values)) {
+        if(field===source.keyField) continue;
+        const column=headers.indexOf(field);
+        if(column<0) throw new Error(source.sheet+' に列がありません: '+field);
+        sheet.getRange(row,column+1).setValue(value);
+      }
+      return {found:true};
+    },
+    upsertByKey(source,id,values) { const {sheet,row}=locate(source,id); if(row) { sheet.getRange(row,source.valueColumn).setNumberFormat('@').setValue(values.value); return {created:false,updated:true}; } const newRow=sheet.getLastRow()+1; sheet.getRange(newRow,source.keyColumn).setValue(id); sheet.getRange(newRow,source.valueColumn).setNumberFormat('@').setValue(values.value); return {created:true,updated:false}; },
     append(source,id,values) { const {sheet}=locate(source,id); const row=sheet.getLastRow()+1; sheet.getRange(row,source.keyColumn).setValue(id); sheet.getRange(row,source.valueColumn).setNumberFormat('@').setValue(values.value); },
     withAttendance(work) {
       // STEP3-D temporary route proof: emitted only when the Portable GAS DAO attendance path is entered.

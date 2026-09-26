@@ -18,7 +18,7 @@ function loadArtifact(target) {
   return require(file);
 }
 function makeGasSpreadsheet() {
-  const rows = [['key','value']];
+  const rows = [['key','value','guard'],['STEP4B_UPDATE','before','KEEP']];
   const sheet = {
     getDataRange(){ return {getValues(){ return rows.map(r=>r.slice()); }}; },
     getLastRow(){ return rows.length; },
@@ -43,9 +43,10 @@ function makeFirestore() {
       return jsonResponse(200,{name:`projects/demo-portable-dao/databases/(default)/documents/${key}`,fields:docs.get(key)});
     }
     if(options.method === 'PATCH') {
-      const exists = u.searchParams.get('currentDocument.exists') === 'true';
-      if(exists && !docs.has(key)) return jsonResponse(404,{error:{status:'NOT_FOUND'}});
-      if(!exists && docs.has(key)) return jsonResponse(409,{error:{status:'ALREADY_EXISTS'}});
+      const existsParam = u.searchParams.get('currentDocument.exists');
+      const exists = existsParam === null ? null : existsParam === 'true';
+      if(exists === true && !docs.has(key)) return jsonResponse(404,{error:{status:'NOT_FOUND'}});
+      if(exists === false && docs.has(key)) return jsonResponse(409,{error:{status:'ALREADY_EXISTS'}});
       const body=JSON.parse(options.body); const previous=docs.get(key)||{};
       docs.set(key,{...previous,...body.fields});
       return jsonResponse(200,{name:`projects/demo-portable-dao/databases/(default)/documents/${key}`,fields:docs.get(key)});
@@ -60,9 +61,15 @@ async function verifyGas() {
   assert.equal(artifact.backend,'gas');
   const mock=makeGasSpreadsheet();
   const dao=artifact.create({}, {spreadsheet:mock.spreadsheet});
-  dao.append('setting','STEP1_VERIFY',{key:'STEP1_VERIFY',value:'created'});
+  assert.deepEqual(dao.updateByKey('setting','STEP4B_UPDATE',{value:'after'}),{found:true});
+  assert.equal(mock.rows[1][1],'after');
+  assert.equal(mock.rows[1][2],'KEEP');
+  const beforeMissing=mock.rows.length;
+  assert.deepEqual(dao.updateByKey('setting','STEP4B_MISSING',{value:'must-not-append'}),{found:false});
+  assert.equal(mock.rows.length,beforeMissing);
+  assert.deepEqual(dao.upsertByKey('setting','STEP1_VERIFY',{value:'created'}),{created:true,updated:false});
   assert.deepEqual(dao.readById('setting','STEP1_VERIFY'),{key:'STEP1_VERIFY',value:'created'});
-  assert.deepEqual(dao.updateByKey('setting','STEP1_VERIFY',{value:'updated'}),{found:true});
+  assert.deepEqual(dao.upsertByKey('setting','STEP1_VERIFY',{value:'updated'}),{created:false,updated:true});
   assert.deepEqual(dao.readById('setting','STEP1_VERIFY'),{key:'STEP1_VERIFY',value:'updated'});
   mock.rows.splice(1); // mock cleanup only; Step 1 DAO has no delete contract.
 }
@@ -72,9 +79,16 @@ async function verifyFirestore() {
   assert.equal(artifact.backend,'firestore');
   const mock=makeFirestore();
   const dao=artifact.create({mode:'emulator',projectId:'demo-portable-dao',host:'127.0.0.1:8080'},{fetchImpl:mock.fetchImpl});
-  await dao.append('setting','STEP1_VERIFY',{key:'STEP1_VERIFY',value:'created'});
+  mock.docs.set('settings/STEP4B_UPDATE',{key:{stringValue:'STEP4B_UPDATE'},value:{stringValue:'before'},guard:{stringValue:'KEEP'}});
+  assert.deepEqual(await dao.updateByKey('setting','STEP4B_UPDATE',{value:'after'}),{found:true});
+  assert.equal(mock.docs.get('settings/STEP4B_UPDATE').value.stringValue,'after');
+  assert.equal(mock.docs.get('settings/STEP4B_UPDATE').guard.stringValue,'KEEP');
+  const beforeMissing=mock.docs.size;
+  assert.deepEqual(await dao.updateByKey('setting','STEP4B_MISSING',{value:'must-not-append'}),{found:false});
+  assert.equal(mock.docs.size,beforeMissing);
+  assert.deepEqual(await dao.upsertByKey('setting','STEP1_VERIFY',{value:'created'}),{upserted:true});
   assert.deepEqual(await dao.readById('setting','STEP1_VERIFY'),{key:'STEP1_VERIFY',value:'created'});
-  assert.deepEqual(await dao.updateByKey('setting','STEP1_VERIFY',{value:'updated'}),{found:true});
+  assert.deepEqual(await dao.upsertByKey('setting','STEP1_VERIFY',{value:'updated'}),{upserted:true});
   assert.deepEqual(await dao.readById('setting','STEP1_VERIFY'),{key:'STEP1_VERIFY',value:'updated'});
   mock.docs.clear(); // mock cleanup only; Step 1 DAO has no delete contract.
 }
@@ -82,6 +96,6 @@ async function verifyFirestore() {
   await verifyGas();
   await verifyFirestore();
   console.log('PORTABLE-DAO-STEP1 VERIFY PASS');
-  console.log('GAS: CONNECT CREATE READ UPDATE READ_AGAIN CLEANUP(mock) PASS');
-  console.log('FIRESTORE: CONNECT CREATE READ UPDATE READ_AGAIN CLEANUP(mock) PASS');
+  console.log('GAS: UPDATE_PARTIAL PRESERVE MISSING_FALSE UPSERT_CREATE READ UPSERT_UPDATE READ_AGAIN CLEANUP(mock) PASS');
+  console.log('FIRESTORE: UPDATE_PARTIAL PRESERVE MISSING_FALSE UPSERT_CREATE READ UPSERT_UPDATE READ_AGAIN CLEANUP(mock) PASS');
 })().catch(error=>{console.error(error);process.exitCode=1;});

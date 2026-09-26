@@ -28,7 +28,7 @@ function runner_timeTravelStep2_existingEntry_realSheets() {
       throw new Error('ENTRY_READ_FAILED');
     }
 
-    // 2. CREATE: 既存公開入口から設定を作成する。
+    // 2. UPSERT_CREATE: 既存公開入口から設定を作成する。
     var created = sup_timeTravel_saveAdminSetting({
       enabled: true,
       now: '2099-07-09T10:00:00+09:00',
@@ -41,7 +41,7 @@ function runner_timeTravelStep2_existingEntry_realSheets() {
       throw new Error('ENTRY_CREATE_FAILED');
     }
 
-    // 3. UPDATE: 同じ入口から既存行を更新する。
+    // 3. UPSERT_UPDATE: 同じ入口から既存行を更新する。
     var updated = sup_timeTravel_saveAdminSetting({
       enabled: true,
       now: '2099-07-10T10:00:00+09:00',
@@ -59,12 +59,12 @@ function runner_timeTravelStep2_existingEntry_realSheets() {
       throw new Error('ENTRY_UPDATE_APPENDED_DUPLICATE');
     }
 
-  
     // 4. READ AGAIN: 既存公開入口で再読込。
     var reread = sup_timeTravel_getAdminSetting(testSpreadsheet);
     if (!reread || !reread.enabled ||
+        !reread.effective ||
         reread.effective.system_now !== '2099-07-10 10:00:00' ||
-        reread.target_month !== '2099-08') {
+        reread.effective.target_month !== '2099-08') {
       throw new Error('ENTRY_READ_AGAIN_FAILED');
     }
 
@@ -93,7 +93,7 @@ function runner_timeTravelStep2_existingEntry_realSheets() {
       message: 'TIME-TRAVEL-STEP2 EXISTING ENTRY REAL SHEETS PASS',
       success: 5,
       sheet: name,
-      checks: ['READ', 'CREATE', 'UPDATE', 'READ_AGAIN', 'DISABLE']
+      checks: ['READ', 'UPSERT_CREATE', 'UPSERT_UPDATE', 'READ_AGAIN', 'DISABLE']
     };
 
     console.log(JSON.stringify(result));

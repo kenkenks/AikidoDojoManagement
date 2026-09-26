@@ -21,12 +21,13 @@ function createDao(core, backend, registry = definitions) {
       if (source.fields[key] === source.keyField && value !== id) throw new Error('KEY_MISMATCH');
       return [source.fields[key],value];
     }));
-    if (method === 'append') fields[source.keyField] = id;
+    if (method === 'append' || method === 'upsertByKey') fields[source.keyField] = id;
     return core[method](source,id,fields);
   }
   return {
     append: (name,id,values) => write('append',name,id,values),
     updateByKey: (name,id,values) => write('updateByKey',name,id,values),
+    upsertByKey: (name,id,values) => write('upsertByKey',name,id,values),
     readById(name, recordId) { return runSteps((function* () {
     const {definition, source, id} = resolve(name, recordId);
     const row = yield core.readById(source, id);

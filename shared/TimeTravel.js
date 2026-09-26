@@ -30,8 +30,7 @@ function saveAdminSetting(ctx,input={}) { return runSteps((function* () {
   if (enabled && !/^\d{4}-\d{2}$/.test(month)) return {ok:false,message:'有効にする場合は対象月を指定してください。'};
   const updates={TIME_TRAVEL_ENABLED:enabled?'TRUE':'FALSE',DEBUG_DATE:debugDate,DEBUG_TARGET_MONTH:month};
   for (const [key,value] of Object.entries(updates)) {
-    const result=yield ctx.dao.updateByKey('setting',key,{value});
-    if (!result.found) yield ctx.dao.append('setting',key,{value});
+    yield ctx.dao.upsertByKey('setting',key,{value});
   }
   yield reloadSettings(ctx);
   return {ok:true,message:enabled?'テスト時刻を有効にしました。':'実時刻へ戻しました。',effective:getSystemContext(ctx)};

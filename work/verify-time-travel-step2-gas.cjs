@@ -38,4 +38,4 @@ assert.equal(disabled.ok,true);
 assert.equal(disabled.effective.time_travel_enabled,false);
 assert.equal(settings.rows.find(r=>r[0]==='DEBUG')[1],'TRUE');
 console.log('TIME-TRAVEL-STEP2 GAS VERIFY PASS');
-console.log('READ CREATE UPDATE READ_AGAIN DISABLE PASS');
+console.log('READ UPSERT_CREATE UPSERT_UPDATE READ_AGAIN DISABLE PASS');

@@ -25,7 +25,8 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     if (!Object.keys(fields).length) throw new Error('EMPTY_WRITE');
     const token = config.mode === 'emulator' ? 'owner' : await getAccessToken?.();
     if (typeof token !== 'string' || !token.trim()) throw new Error('ACCESS_TOKEN_REQUIRED');
-    const query = new URLSearchParams({'currentDocument.exists':String(exists)});
+    const query = new URLSearchParams();
+    if (exists !== null) query.set('currentDocument.exists',String(exists));
     for (const key of Object.keys(fields)) query.append('updateMask.fieldPaths',key);
     const response = await fetchImpl(`${base}/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?${query}`, {
       method:'PATCH', headers:{Authorization:'Bearer '+token.trim(),'Content-Type':'application/json'},
@@ -33,14 +34,17 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     });
     if (!response.ok) {
       const error = await response.json();
-      if (exists && response.status === 404 && error?.error?.status === 'NOT_FOUND') return {found:false};
+      if (exists === true && response.status === 404 && error?.error?.status === 'NOT_FOUND') return {found:false};
       throw new Error('FIRESTORE_HTTP_'+response.status);
     }
-    return exists ? {found:true} : undefined;
+    if (exists === true) return {found:true};
+    if (exists === null) return {upserted:true};
+    return undefined;
   }
   return {
     append: (source,id,values) => write(source,id,values,false),
     updateByKey: (source,id,values) => write(source,id,values,true),
+    upsertByKey: (source,id,values) => write(source,id,values,null),
     async readById(source, documentId) {
     const id = normalizeStorageId(documentId);
     const collection = normalizeStorageId(source.collection);

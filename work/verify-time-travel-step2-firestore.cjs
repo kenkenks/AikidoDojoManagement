@@ -14,9 +14,10 @@ async function fetchImpl(url,options={}){
     return response(200,{name:`projects/demo-dojo/databases/(default)/documents/${key}`,fields:encodeFields(docs.get(key))});
   }
   if(method==='PATCH'){
-    const exists=u.searchParams.get('currentDocument.exists')==='true';
-    if(exists&&!docs.has(key)) return response(404,{error:{status:'NOT_FOUND'}});
-    if(!exists&&docs.has(key)) return response(409,{error:{status:'ALREADY_EXISTS'}});
+    const existsParam=u.searchParams.get('currentDocument.exists');
+    const exists=existsParam===null?null:existsParam==='true';
+    if(exists===true&&!docs.has(key)) return response(404,{error:{status:'NOT_FOUND'}});
+    if(exists===false&&docs.has(key)) return response(409,{error:{status:'ALREADY_EXISTS'}});
     const body=JSON.parse(options.body), next={...(docs.get(key)||{})};
     for(const [field,value] of Object.entries(body.fields||{})) next[field]=value.stringValue;
     docs.set(key,next);
@@ -42,5 +43,5 @@ async function fetchImpl(url,options={}){
   assert.equal(disabled.ok,true); assert.equal(disabled.effective.time_travel_enabled,false);
   assert.equal(docs.get('settings/DEBUG').value,'TRUE');
   console.log('TIME-TRAVEL-STEP2 FIRESTORE VERIFY PASS');
-  console.log('READ CREATE UPDATE READ_AGAIN DISABLE PASS');
+  console.log('READ UPSERT_CREATE UPSERT_UPDATE READ_AGAIN DISABLE PASS');
 })().catch(e=>{console.error(e);process.exitCode=1;});
