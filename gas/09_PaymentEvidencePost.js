@@ -23,21 +23,50 @@
 // ==============================
 // 決済エビデンス反映（単体メイン）
 // ==============================
-function paymentEvidence_post(input, ctx) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-
-  try {
-    ctx = ensureSheetContext(ctx || createSheetContext());
-
-    const postContext = paymentEvidencePost_collect(input, ctx);
-    const payment = paymentEvidencePost_make(postContext, ctx);
-    const registerResult = paymentEvidencePost_record_(postContext, payment, ctx);
-    return paymentEvidencePost_post_(postContext, payment, registerResult, ctx);
-
-  } finally {
-    lock.releaseLock();
+class PaymentEvidencePostJob {
+  constructor(ctx) {
+    this.ctx = ensureSheetContext(ctx || createSheetContext());
   }
+
+  execute(input) {
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+
+    try {
+      const postContext = this.collect(input);
+      const payment = this.make(postContext);
+      const registerResult = this.record(postContext, payment);
+
+      return this.post(postContext, payment, registerResult);
+    } finally {
+      lock.releaseLock();
+    }
+  }
+
+  collect(input) {
+    return paymentEvidencePost_collect(input, this.ctx);
+  }
+
+  make(postContext) {
+    return paymentEvidencePost_make(postContext, this.ctx);
+  }
+
+  record(postContext, payment) {
+    return paymentEvidencePost_record_(postContext, payment, this.ctx);
+  }
+
+  post(postContext, payment, registerResult) {
+    return paymentEvidencePost_post_(
+      postContext,
+      payment,
+      registerResult,
+      this.ctx
+    );
+  }
+}
+
+function paymentEvidence_post(input, ctx) {
+  return new PaymentEvidencePostJob(ctx).execute(input);
 }
 
 // CONFIRMED をまとめて06へ反映する。
