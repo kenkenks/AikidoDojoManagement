@@ -105,59 +105,71 @@ function attendanceTeacherGetTodayOverview(params, ctx) {
   };
 }
 
-function attendanceTeacherConfirm(params, ctx) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
+/**
+ * AttendanceTeacherConfirmJob
+ *
+ * 先生が確認待ちの出席を確認済みにする Job。
+ * 既存の attendanceTeacherConfirm() は公開 Facade として維持する。
+ */
+class AttendanceTeacherConfirmJob extends Job {
+  execute(params, ctx) {
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
 
-  try {
-    ctx = ensureSheetContext(ctx || createSheetContext());
+    try {
+      ctx = ensureSheetContext(ctx || createSheetContext());
 
-    const teacherId = normalizeId_(params.teacher_id);
-    const locationId = normalizeId_(params.location_id);
-    const billingBlockId = normalizeId_(params.billing_block_id);
-    const memberIds = Array.isArray(params.member_ids)
-      ? params.member_ids.map(normalizeId_).filter(Boolean)
-      : [];
-    const attendanceDate = parseAttendanceDate_(params.attendance_date, ctx);
+      const teacherId = normalizeId_(params.teacher_id);
+      const locationId = normalizeId_(params.location_id);
+      const billingBlockId = normalizeId_(params.billing_block_id);
+      const memberIds = Array.isArray(params.member_ids)
+        ? params.member_ids.map(normalizeId_).filter(Boolean)
+        : [];
+      const attendanceDate = parseAttendanceDate_(params.attendance_date, ctx);
 
-    if (!teacherId || !locationId || !billingBlockId) {
-      return { ok: false, message: "先生・道場・課金枠を指定してください。" };
-    }
+      if (!teacherId || !locationId || !billingBlockId) {
+        return { ok: false, message: "先生・道場・課金枠を指定してください。" };
+      }
 
-    validateAttendanceMasterData_(teacherId, locationId, billingBlockId, ctx);
+      validateAttendanceMasterData_(teacherId, locationId, billingBlockId, ctx);
 
-    const targets = attendanceCore_findRowsForScope_({
-      attendance_date: attendanceDate,
-      location_id: locationId,
-      billing_block_id: billingBlockId,
-      status: "確認待ち"
-    }, ctx).filter(function(row) {
-      if (memberIds.length === 0) return true;
-      return memberIds.indexOf(normalizeId_(row["member_id"])) >= 0;
-    });
+      const targets = attendanceCore_findRowsForScope_({
+        attendance_date: attendanceDate,
+        location_id: locationId,
+        billing_block_id: billingBlockId,
+        status: "確認待ち"
+      }, ctx).filter(function(row) {
+        if (memberIds.length === 0) return true;
+        return memberIds.indexOf(normalizeId_(row["member_id"])) >= 0;
+      });
 
-    if (targets.length === 0) {
+      if (targets.length === 0) {
+        return {
+          ok: true,
+          confirmed_count: 0,
+          message: "確認待ちの出席はありません。"
+        };
+      }
+
+      attendanceCore_updateRows_(targets, {
+        teacher_id: teacherId,
+        "状態": "確認済",
+        "備考": "先生確認済"
+      }, ctx);
+
       return {
         ok: true,
-        confirmed_count: 0,
-        message: "確認待ちの出席はありません。"
+        confirmed_count: targets.length,
+        teacher_id: teacherId,
+        message: "出席を確認済みにしました。"
       };
+
+    } finally {
+      lock.releaseLock();
     }
-
-    attendanceCore_updateRows_(targets, {
-      teacher_id: teacherId,
-      "状態": "確認済",
-      "備考": "先生確認済"
-    }, ctx);
-
-    return {
-      ok: true,
-      confirmed_count: targets.length,
-      teacher_id: teacherId,
-      message: "出席を確認済みにしました。"
-    };
-
-  } finally {
-    lock.releaseLock();
   }
+}
+
+function attendanceTeacherConfirm(params, ctx) {
+  return new AttendanceTeacherConfirmJob().execute(params, ctx);
 }
