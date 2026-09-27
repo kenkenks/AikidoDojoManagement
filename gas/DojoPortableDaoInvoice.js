@@ -53,10 +53,53 @@ const definitions = {
     }
   },
   paymentLog: {
-    writable: ['payment_id','日時','target_month','billing_group_id','invoice_id','member_id','支払方法','入金額','決済ID','location_id','billing_block_id','teacher_id','reception_session_id','備考'],
+    writable: ['payment_id','日時','target_month','billing_group_id','invoice_id','member_id','支払方法','入金額','決済ID','備考','reception_date','location_id','billing_block_id','teacher_id','reception_session_id'],
     sources: {
-      firestore: { collection: 'payments', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', member_id:'member_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id', 備考:'備考' } },
-      gas: { sheet: '06_入金ログ', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', member_id:'member_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id', 備考:'備考' } }
+      firestore: { collection: 'payments', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', member_id:'member_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', 備考:'備考', reception_date:'reception_date', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id' } },
+      // GAS 06_入金ログ: base 9列 + paymentReception_ensureSchema() のScope 5列。member_idは物理列ではない。
+      gas: { sheet: '06_入金ログ', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', 備考:'備考', reception_date:'reception_date', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id' } }
+    }
+  },
+  members: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'members', fields: { member_id:'member_id', 状態:'状態' } },
+      gas: { sheet: '01_会員マスタ', fields: { member_id:'member_id', 状態:'状態' } }
+    }
+  },
+  teachers: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'teachers', fields: { teacher_id:'teacher_id', 状態:'状態', 出席受付可:'出席受付可' } },
+      gas: { sheet: '11_先生マスタ', fields: { teacher_id:'teacher_id', 状態:'状態', 出席受付可:'出席受付可' } }
+    }
+  },
+  locations: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'locations', fields: { location_id:'location_id', 状態:'状態' } },
+      gas: { sheet: '10_道場マスタ', fields: { location_id:'location_id', 状態:'状態' } }
+    }
+  },
+  billingBlocks: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'billingBlocks', fields: { billing_block_id:'billing_block_id', location_id:'location_id', 状態:'状態' } },
+      gas: { sheet: '13_課金枠マスタ', fields: { billing_block_id:'billing_block_id', location_id:'location_id', 状態:'状態' } }
+    }
+  },
+  trainingSlots: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'trainingSlots', fields: { slot_id:'slot_id', location_id:'location_id', billing_block_id:'billing_block_id', 稽古時間分:'稽古時間分', 状態:'状態' } },
+      gas: { sheet: '12_稽古枠マスタ', fields: { slot_id:'slot_id', location_id:'location_id', billing_block_id:'billing_block_id', 稽古時間分:'稽古時間分', 状態:'状態' } }
+    }
+  },
+  attendance: {
+    writable: ['attendance_id','稽古日','登録日時','member_id','target_month','location_id','slot_id','billing_block_id','teacher_id','attendance_session_id','稽古時間分','状態','source','取消日時','取消者teacher_id','取消理由','備考'],
+    sources: {
+      firestore: { collection: 'attendances', keyField: 'attendance_id', fields: { attendance_id:'attendance_id', 稽古日:'稽古日', 登録日時:'登録日時', member_id:'member_id', target_month:'target_month', location_id:'location_id', slot_id:'slot_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', attendance_session_id:'attendance_session_id', 稽古時間分:'稽古時間分', 状態:'状態', source:'source', 取消日時:'取消日時', 取消者teacher_id:'取消者teacher_id', 取消理由:'取消理由', 備考:'備考' } },
+      gas: { sheet: '07_出席ログ', keyField: 'attendance_id', fields: { attendance_id:'attendance_id', 稽古日:'稽古日', 登録日時:'登録日時', member_id:'member_id', target_month:'target_month', location_id:'location_id', slot_id:'slot_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', attendance_session_id:'attendance_session_id', 稽古時間分:'稽古時間分', 状態:'状態', source:'source', 取消日時:'取消日時', 取消者teacher_id:'取消者teacher_id', 取消理由:'取消理由', 備考:'備考' } }
     }
   },
   paymentEvidence: {
@@ -239,41 +282,7 @@ function createCore(config, dependencies = {}) {
     },
     upsertByKey(source,id,values) { const {sheet,row}=locate(source,id); if(row) { sheet.getRange(row,source.valueColumn).setNumberFormat('@').setValue(values.value); return {created:false,updated:true}; } const newRow=sheet.getLastRow()+1; sheet.getRange(newRow,source.keyColumn).setValue(id); sheet.getRange(newRow,source.valueColumn).setNumberFormat('@').setValue(values.value); return {created:true,updated:false}; },
     append(source,id,values) { const {sheet}=locate(source,id); const row=sheet.getLastRow()+1; sheet.getRange(row,source.keyColumn).setValue(id); sheet.getRange(row,source.valueColumn).setNumberFormat('@').setValue(values.value); },
-    withAttendance(work) {
-      // STEP3-D temporary route proof: emitted only when the Portable GAS DAO attendance path is entered.
-      if(typeof console!=='undefined' && console.log) console.log('[PORTABLE-DAO] backend=gas scope=attendance event=ENTER');
-      if(typeof dependencies.projectAttendances!=='function') throw new Error('ATTENDANCE_PROJECTION_REQUIRED');
-      const lock=dependencies.lock || LockService.getScriptLock();
-      lock.waitLock(30000);
-      try {
-        const tables={};
-        let attendanceSheet,headers;
-        for(const [name,definition] of Object.entries(tableDefinitions)) {
-          const sheet=ss.getSheetByName(definition.sheet);
-          if(!sheet) throw new Error(definition.sheet+'シートがありません。');
-          const [columns,...rows]=sheet.getDataRange().getValues();
-          tables[name]=rows.map((row,index)=>({...Object.fromEntries(columns.map((key,column)=>[key,row[column]])),_rowNumber:index+2}));
-          if(name==='attendances') {attendanceSheet=sheet;headers=columns;}
-        }
-        const plan=work(tables);
-        if(typeof console!=='undefined' && console.log) {
-          const counts=(plan.writes||[]).reduce((acc,write)=>{acc[write.kind]=(acc[write.kind]||0)+1;return acc;},{});
-          console.log('[PORTABLE-DAO] backend=gas scope=attendance event=PLAN writes='+JSON.stringify(counts));
-        }
-        if(!plan.result.ok) return plan.result;
-        for(const write of plan.writes) {
-          if(write.kind==='update') for(const key of Object.keys(write.values)) if(!headers.includes(key)) throw new Error('出席ログに列がありません: '+key);
-          if(write.kind==='append') for(const key of ['attendance_id','稽古日','登録日時','member_id','target_month','location_id','slot_id','billing_block_id','teacher_id','attendance_session_id','稽古時間分','状態','source']) if(!headers.includes(key)) throw new Error('出席ログに列がありません: '+key);
-        }
-        for(const write of plan.writes) {
-          if(write.kind==='update') for(const [key,value] of Object.entries(write.values)) attendanceSheet.getRange(write.row._rowNumber,headers.indexOf(key)+1).setValue(value);
-          if(write.kind==='append') attendanceSheet.getRange(attendanceSheet.getLastRow()+1,1,1,headers.length).setValues([headers.map(key=>write.row[key]??'')]);
-          if(write.kind==='projection') dependencies.projectAttendances(write);
-        }
-        if(typeof console!=='undefined' && console.log) console.log('[PORTABLE-DAO] backend=gas scope=attendance event=COMMIT ok=true');
-        return plan.result;
-      } finally {lock.releaseLock();}
-    }
+    
   };
 }
 module.exports={createCore,backend:'gas'};
