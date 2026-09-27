@@ -23,22 +23,44 @@
 // ==============================
 // 決済エビデンス要求（メイン）
 // ==============================
-function paymentEvidence_request(input, ctx) {
-  ctx = ensureSheetContext(ctx || createSheetContext());
-  paymentReception_ensureSchema(ctx);
-
-  try {
-    const requestContext = paymentEvidenceRequest_collect(input, ctx);
-    const request = paymentEvidenceRequest_make(requestContext, ctx);
-    const result = paymentEvidenceRequest_register(request, ctx);
-
-    if (result && result.ok) {
-      result.viewUpdate = paymentStatusView_refreshByEvidenceId_(request.evidence_id, ctx);
-    }
-    return result;
-  } catch (e) {
-    throw new Error("request: 決済エビデンス要求の収集に失敗しました: " + e.message);
+class PaymentEvidenceRequestJob {
+  constructor(ctx) {
+    this.ctx = ensureSheetContext(ctx || createSheetContext());
   }
+
+  execute(input) {
+    paymentReception_ensureSchema(this.ctx);
+
+    try {
+      const requestContext = this.collect(input);
+      const request = this.make(requestContext);
+      const result = this.register(request);
+
+      if (result && result.ok) {
+        result.viewUpdate = paymentStatusView_refreshByEvidenceId_(request.evidence_id, this.ctx);
+      }
+      return result;
+    } catch (e) {
+      throw new Error("request: 決済エビデンス要求の収集に失敗しました: " + e.message);
+    }
+  }
+
+  collect(input) {
+    return paymentEvidenceRequest_collect_(input, this.ctx);
+  }
+
+  make(context) {
+    return paymentEvidenceRequest_make_(context, this.ctx);
+  }
+
+  register(request) {
+    return paymentEvidenceRequest_register_(request, this.ctx);
+  }
+}
+
+// 既存の公開入口はFacadeとして維持する。
+function paymentEvidence_request(input, ctx) {
+  return new PaymentEvidenceRequestJob(ctx).execute(input);
 }
 
 // payment.html の payment_batch から09要求を一括作成する。
@@ -123,7 +145,7 @@ function paymentEvidence_requestBatch(data, ctx) {
  * RESPONSIBILITY
  * REQUESTED作成に必要な情報を収集する。
  */
-function paymentEvidenceRequest_collect(input, ctx) {
+function paymentEvidenceRequest_collect_(input, ctx) {
   ctx = ensureSheetContext(ctx);
 
   // input
@@ -193,7 +215,7 @@ function paymentEvidenceRequest_collect(input, ctx) {
  * RESPONSIBILITY
  * REQUESTEDレコードを生成する。
  */
-function paymentEvidenceRequest_make(context, ctx) {
+function paymentEvidenceRequest_make_(context, ctx) {
   return {
     evidence_id: paymentEvidence_createEvidenceId_(context.payment_method),
     invoice_id: context.invoice_id,
@@ -224,7 +246,7 @@ function paymentEvidenceRequest_make(context, ctx) {
  * RESPONSIBILITY
  * 09_決済エビデンスへ登録する。
  */
-function paymentEvidenceRequest_register(request, ctx) {
+function paymentEvidenceRequest_register_(request, ctx) {
   ctx = ensureSheetContext(ctx);
 
   const existing = paymentEvidence_getRows(ctx);
@@ -257,6 +279,19 @@ function paymentEvidenceRequest_register(request, ctx) {
     message: "request: 決済エビデンス要求を作成しました。",
     request
   };
+}
+
+// 既存Runner・呼出元との互換入口。Job移行中は維持する。
+function paymentEvidenceRequest_collect(input, ctx) {
+  return paymentEvidenceRequest_collect_(input, ensureSheetContext(ctx));
+}
+
+function paymentEvidenceRequest_make(context, ctx) {
+  return paymentEvidenceRequest_make_(context, ensureSheetContext(ctx));
+}
+
+function paymentEvidenceRequest_register(request, ctx) {
+  return paymentEvidenceRequest_register_(request, ensureSheetContext(ctx));
 }
 
 // ==============================
