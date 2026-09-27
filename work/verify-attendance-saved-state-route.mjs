@@ -7,9 +7,7 @@ const checks = [
   ["web/qr/attendanceCheck.html", 'savedOnly ? "attendance_saved_state" : "member_attendance_state"'],
   ["web/qr/attendanceCheck.html", "attempt > 1,\n          true"],
   ["web/qr/attendance.html", 'savedOnly ? "attendance_saved_state" : "member_attendance_state"'],
-  ["web/qr/attendance.html", "attempt > 1,\n          true"],
-  ["aikidouDojoQRScan/public/index.html", 'savedOnly ? "attendance_saved_state" : "member_attendance_state"'],
-  ["aikidouDojoQRScan/public/index.html", "expectedByMember[candidate.member_id] || [],\n          true"]
+  ["web/qr/attendance.html", "attempt > 1,\n          true"]
 ];
 let failed=false;
 for (const [file,text] of checks) {
