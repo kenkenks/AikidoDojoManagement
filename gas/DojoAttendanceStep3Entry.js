@@ -43,6 +43,24 @@ function dojoAttendanceStep3Application_(ctxOrSpreadsheet) {
   });
 }
 
+/**
+ * AttendanceRegisterJob
+ *
+ * Portable Attendance Core を使って出席事実を登録・同期する Job。
+ * 受付全体（月次選択・都度請求・級段位更新・PostEvent）はここへ含めない。
+ */
+class AttendanceRegisterJob extends Job {
+  constructor(ctx) {
+    super();
+    this.ctx = ctx;
+  }
+
+  execute(options) {
+    return dojoAttendanceStep3Application_(this.ctx).registerAttendanceCore(options);
+  }
+}
+
+// 既存の Portable Attendance 入口は Facade として維持する。
 function dojoAttendanceStep3RegisterCore(options, ctx) {
-  return dojoAttendanceStep3Application_(ctx).registerAttendanceCore(options);
+  return new AttendanceRegisterJob(ctx).execute(options);
 }
