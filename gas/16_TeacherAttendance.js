@@ -92,7 +92,14 @@ function teacherAttendance_resolveIdentity(data, ctx) {
   };
 }
 
-function teacherAttendance_sync(data, ctx) {
+/**
+ * TeacherAttendanceSyncJob
+ *
+ * 先生本人の出席を登録・同期する Job。
+ * 既存の teacherAttendance_sync() は公開 Facade として維持する。
+ */
+class TeacherAttendanceSyncJob extends Job {
+  execute(data, ctx) {
   const lock = LockService.getScriptLock();
   lock.waitLock(30000);
   try {
@@ -146,6 +153,12 @@ function teacherAttendance_sync(data, ctx) {
   } finally {
     lock.releaseLock();
   }
+
+  }
+}
+
+function teacherAttendance_sync(data, ctx) {
+  return new TeacherAttendanceSyncJob().execute(data, ctx);
 }
 
 function teacherAttendance_getMonthlySummary(data, ctx) {
