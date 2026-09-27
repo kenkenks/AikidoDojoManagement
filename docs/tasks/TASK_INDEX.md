@@ -14,3 +14,4 @@ TYPE: INDEX
 |TASK-FEE-020|実装済・実環境確認待ち|集金照合・審査費|
 |TASK-VIEW-020|実装済|20_View内部DTO取得元番号整理|
 |TASK-FWK-020|保留|私書箱方式イベント連動（出席PostEvent入口のみ設置）|
+|TASK-ARC-001|未着手|Repository構造整理・Job/Job Groupクラス化・DAO切り替え基盤|
