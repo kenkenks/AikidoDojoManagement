@@ -6,7 +6,7 @@ const invoices=[{invoice_id:'I1',member_id:'M1',billing_group_id:'G1',target_mon
 const b={normalizeId_:x=>String(x??'').trim(),normalizeMonth:x=>String(x),ensureSheetContext:x=>x,getInvoices:()=>invoices,getPayments:()=>[{invoice_id:'I1',入金額:1000},{invoice_id:'OTHER',入金額:99999}],getInvoice:id=>invoices.find(x=>x.invoice_id===id),existsActivePaymentEvidence:()=>false,sup_today:()=> '2099-07-09',paymentEvidence_normalizeReceptionDate_:x=>x,paymentEvidence_record:()=>({ok:true}),paymentEvidence_post:()=>({ok:true})};
 vm.createContext(b);
 b.getSheetRows = () => [];
-for(const f of ['09_PaymentEvidenceRequest.js','13_MonthlyIntegrationRunner.js'])vm.runInContext(fs.readFileSync(new URL('../gas/'+f,import.meta.url),'utf8'),b);
+for(const f of ['00_Job.js','09_PaymentEvidenceRequest.js','13_MonthlyIntegrationRunner.js'])vm.runInContext(fs.readFileSync(new URL('../gas/'+f,import.meta.url),'utf8'),b);
 // 実Collectで入力契約を検証し、実シートへ保存する部分のみ代役にする。
 b.paymentEvidence_request=(input,ctx)=>{const collected=b.paymentEvidenceRequest_collect(input,ctx);requests.push(collected);return {ok:true,evidence_id:'E'+requests.length};};
 for(const method of ['CASH','PAYPAY']){

@@ -16,6 +16,7 @@ const context = {
 };
 vm.createContext(context);
 [
+  "gas/00_Job.js",
   "gas/DAO_Core_Sheets.js",
   "gas/DAO_Composition.js",
   "gas/DAO_Business_Payment.js",

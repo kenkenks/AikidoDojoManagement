@@ -1,6 +1,6 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 const root=path.resolve(process.argv[2]||'gas');
-const files=['DAO_Core_Sheets.js','DAO_Composition.js','DAO_Business_Payment.js','09_PaymentEvidenceRecord.js'];
+const files=['00_Job.js','DAO_Core_Sheets.js','DAO_Composition.js','DAO_Business_Payment.js','09_PaymentEvidenceRecord.js'];
 for(const f of files)if(!fs.existsSync(path.join(root,f)))throw Error('Required file missing: '+path.join(root,f));
 const baseline=fs.readFileSync(path.join(__dirname,'atomic-baseline.txt'),'utf8');
 function run(modified,headers,updates,missingSheet=false){

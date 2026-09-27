@@ -22,8 +22,9 @@
 // ==============================
 // 決済エビデンス記録（メイン）
 // ==============================
-class PaymentEvidenceRecordJob {
+class PaymentEvidenceRecordJob extends Job {
   constructor(ctx) {
+    super();
     this.ctx = ensureSheetContext(ctx || createSheetContext());
   }
 
