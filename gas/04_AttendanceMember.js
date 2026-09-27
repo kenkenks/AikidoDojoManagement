@@ -10,31 +10,49 @@
 // TAG: STORY-001
 //
 
-function attendanceMemberRegisterBatch(data, ctx) {
-  const lock = LockService.getScriptLock();
-  lock.waitLock(30000);
-
-  try {
-    ctx = ensureSheetContext(ctx || createSheetContext());
-
-    return attendanceCore_registerBatch_({
-      location_id: data.location_id,
-      billing_block_id: data.billing_block_id,
-      attendance_session_id: data.attendance_session_id,
-      attendance_items: data.attendance_items,
-      source: data.source || "member_attendance",
-      require_teacher: false,
-      teacher_id: "",
-      initial_status: "確認待ち",
-      sync_unselected: false,
-      allow_duplicate_members: false,
-      remarks: "会員セルフ出席登録",
-      message: "セルフ出席登録を受け付けました。先生確認待ちです。"
-    }, ctx);
-
-  } finally {
-    lock.releaseLock();
+/**
+ * AttendanceMemberRegisterJob
+ *
+ * 会員自身によるセルフ出席登録を受け付ける Job。
+ * 先生確認は別の仕事としてここへ含めない。
+ */
+class AttendanceMemberRegisterJob extends Job {
+  constructor(ctx) {
+    super();
+    this.ctx = ctx;
   }
+
+  execute(data) {
+    const lock = LockService.getScriptLock();
+    lock.waitLock(30000);
+
+    try {
+      this.ctx = ensureSheetContext(this.ctx || createSheetContext());
+
+      return attendanceCore_registerBatch_({
+        location_id: data.location_id,
+        billing_block_id: data.billing_block_id,
+        attendance_session_id: data.attendance_session_id,
+        attendance_items: data.attendance_items,
+        source: data.source || "member_attendance",
+        require_teacher: false,
+        teacher_id: "",
+        initial_status: "確認待ち",
+        sync_unselected: false,
+        allow_duplicate_members: false,
+        remarks: "会員セルフ出席登録",
+        message: "セルフ出席登録を受け付けました。先生確認待ちです。"
+      }, this.ctx);
+
+    } finally {
+      lock.releaseLock();
+    }
+  }
+}
+
+// 既存の公開入口は Facade として維持する。
+function attendanceMemberRegisterBatch(data, ctx) {
+  return new AttendanceMemberRegisterJob(ctx).execute(data);
 }
 
 function attendanceMemberGetRegistrationState(params, ctx) {
