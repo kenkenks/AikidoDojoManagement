@@ -45,3 +45,7 @@ TAG: 未整備
 - STORY-901 通常一日運営
 - STORY-902 一か月試験運用
 - STORY-999 年間シミュレーション
+
+## Framework
+
+- STORY-FWK-001 DAO Business / DAO Core マルチターゲット化
