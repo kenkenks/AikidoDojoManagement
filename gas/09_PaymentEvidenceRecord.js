@@ -22,20 +22,45 @@
 // ==============================
 // 決済エビデンス記録（メイン）
 // ==============================
-function paymentEvidence_record(input, ctx) {
-  ctx = ensureSheetContext(ctx || createSheetContext());
-  
-  sup_logDebug("paymentEvidence_record", {
-    input: JSON.stringify(input, null, 2)
-  }, ctx);
-  const recordContext = paymentEvidenceRecord_collect(input, ctx);
-  const record = paymentEvidenceRecord_make(recordContext, ctx);
-  const result = paymentEvidenceRecord_update(record, ctx);
-
-  if (result && result.ok) {
-    result.viewUpdate = paymentStatusView_refreshByEvidenceId_(record.evidence_id, ctx);
+class PaymentEvidenceRecordJob {
+  constructor(ctx) {
+    this.ctx = ensureSheetContext(ctx || createSheetContext());
   }
-  return result;
+
+  execute(input) {
+    sup_logDebug("paymentEvidence_record", {
+      input: JSON.stringify(input, null, 2)
+    }, this.ctx);
+
+    const recordContext = this.collect(input);
+    const record = this.make(recordContext);
+    const result = this.update(record);
+
+    if (result && result.ok) {
+      result.viewUpdate = paymentStatusView_refreshByEvidenceId_(
+        record.evidence_id,
+        this.ctx
+      );
+    }
+
+    return result;
+  }
+
+  collect(input) {
+    return paymentEvidenceRecord_collect(input, this.ctx);
+  }
+
+  make(recordContext) {
+    return paymentEvidenceRecord_make(recordContext, this.ctx);
+  }
+
+  update(record) {
+    return paymentEvidenceRecord_update(record, this.ctx);
+  }
+}
+
+function paymentEvidence_record(input, ctx) {
+  return new PaymentEvidenceRecordJob(ctx).execute(input);
 }
 
 // バッチ処理
