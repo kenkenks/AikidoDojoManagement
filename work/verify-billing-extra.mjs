@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import vm from "node:vm";
 
-const code = ["DAO_Composition.js", "DAO_Business_Billing.js", "03_BillingExtra.js"]
+const code = ["00_Job.js", "DAO_Composition.js", "DAO_Business_Billing.js", "03_BillingExtra.js"]
   .map(name => fs.readFileSync(new URL(`../gas/${name}`, import.meta.url), "utf8")).join("\n");
 let invoices = [];
 let refreshed = false;

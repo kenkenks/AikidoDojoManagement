@@ -1,10 +1,36 @@
 // 審査費追加請求: collect → make → record → post。
+class BillingExtraJob extends Job {
+  constructor(ctx) {
+    super();
+    this.ctx = daoContext_(ctx || createSheetContext());
+  }
+
+  execute(memberId, planId) {
+    const collected = this.collect(memberId, planId);
+    const prepared = this.make(collected);
+    const recorded = this.record(prepared);
+    return this.post(recorded);
+  }
+
+  collect(memberId, planId) {
+    return billingExtraCollect_(memberId, planId, this.ctx);
+  }
+
+  make(collected) {
+    return billingExtraMake_(collected, this.ctx);
+  }
+
+  record(prepared) {
+    return billingExtraRecord_(prepared, this.ctx);
+  }
+
+  post(recorded) {
+    return billingExtraPost_(recorded, this.ctx);
+  }
+}
+
 function billingExtraEnsureInvoice(memberId, planId, ctx) {
-  ctx = daoContext_(ctx || createSheetContext());
-  const collected = billingExtraCollect_(memberId, planId, ctx);
-  const prepared = billingExtraMake_(collected, ctx);
-  const recorded = billingExtraRecord_(prepared, ctx);
-  return billingExtraPost_(recorded, ctx);
+  return new BillingExtraJob(ctx).execute(memberId, planId);
 }
 
 function billingExtraCollect_(memberId, planId, ctx) {
