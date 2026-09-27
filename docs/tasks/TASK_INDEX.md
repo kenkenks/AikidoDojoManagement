@@ -16,3 +16,4 @@ TYPE: INDEX
 |TASK-FWK-020|保留|私書箱方式イベント連動（出席PostEvent入口のみ設置）|
 |TASK-DEMO-001|保留|2026-09-23 デモ・運用テスト課題|
 |TASK-FWK-023|実装済・確認待ち|Target ProfileによるGAS Build / Deploy切替|
+|TASK-DEV-024|保留|Attendance受付のJob接続責務整理|

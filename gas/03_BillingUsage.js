@@ -10,14 +10,41 @@
  * - 「現在額 + 1回分」ではなく出席事実から再計算するため、再送しても増殖しない。
  * - 月額上限を billingCoreMakeInvoiceObject_ と同じ規則で適用する。
  * - collect → make → record → post。出席集計とView内部のDAO移行は後続。
- * - Monthly側に同名の旧定義が残るため、配備前に読み込み順を確認する。
+ * - BillingUsageJob は既存の collect / make / record / post をそのまま束ねる。
  */
+class BillingUsageJob extends Job {
+  constructor(ctx) {
+    super();
+    this.ctx = daoContext_(ctx);
+  }
+
+  execute(memberId, targetMonth) {
+    const facts = this.collect(memberId, targetMonth);
+    const prepared = this.make(facts);
+    this.record(prepared);
+    return this.post(prepared);
+  }
+
+  collect(memberId, targetMonth) {
+    return billingUsageCollect_(memberId, targetMonth, this.ctx);
+  }
+
+  make(facts) {
+    return billingUsageMake_(facts);
+  }
+
+  record(prepared) {
+    return billingUsageRecord_(prepared, this.ctx);
+  }
+
+  post(prepared) {
+    return billingUsagePost_(prepared, this.ctx);
+  }
+}
+
+// 既存の公開入口はFacadeとして維持する。
 function billingUsageSyncFromAttendance_(memberId, targetMonth, ctx) {
-  ctx = daoContext_(ctx);
-  const facts = billingUsageCollect_(memberId, targetMonth, ctx);
-  const prepared = billingUsageMake_(facts);
-  billingUsageRecord_(prepared, ctx);
-  return billingUsagePost_(prepared, ctx);
+  return new BillingUsageJob(ctx).execute(memberId, targetMonth);
 }
 
 // 照会は従来の順番で行う。対象外なら後続の照会を省略する。
