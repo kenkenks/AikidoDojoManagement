@@ -21,32 +21,66 @@
  * NOTE
  * billing_acceptMonthlySelection() は旧互換入口として残す。
  */
-function billingMonthlyAccept(memberId, plan_id, ctx, options) {
-  ctx = daoContext_(ctx || createSheetContext());
-  options = options || {};
-  const deferViewRefresh = options.deferViewRefresh === true;
-  try {
-    const facts = billingMonthlyCollect(memberId, plan_id, ctx);
-    let invoice = null;
-    if (facts.alreadySelected !== true) {
-      // 保存順・時刻取得順・途中失敗時の保存済みデータを維持する。
-      const selection = billingMonthlyMakeSelection_(facts, ctx);
-      billingMonthlyRecordSelection_(selection, ctx);
-      invoice = billingCoreMakeInvoice_(facts, ctx);
-      billingMonthlyRecordInvoice_(invoice, ctx);
-    }
-    const viewUpdate = billingMonthlyPost_(facts, deferViewRefresh, ctx);
-    const skipped = facts.alreadySelected === true;
-    return {
-      ok: true, skipped: skipped, idempotent: skipped,
-      message: skipped
-        ? facts.targetMonth + ' の会費タイプ「' + plan_id + '」は登録済みです。'
-        : facts.targetMonth + ' の会費タイプを「' + plan_id + '」で登録しました。',
-      invoice: invoice, viewUpdate: viewUpdate
-    };
-  } catch (e) {
-    return { ok: false, message: e.message };
+class BillingMonthlyJob extends Job {
+  constructor(ctx, options) {
+    super();
+    this.ctx = daoContext_(ctx || createSheetContext());
+    this.options = options || {};
   }
+
+  execute(memberId, planId) {
+    const deferViewRefresh = this.options.deferViewRefresh === true;
+    try {
+      const facts = this.collect(memberId, planId);
+      let invoice = null;
+      if (facts.alreadySelected !== true) {
+        // 保存順・時刻取得順・途中失敗時の保存済みデータを維持する。
+        const selection = this.makeSelection(facts);
+        this.recordSelection(selection);
+        invoice = this.makeInvoice(facts);
+        this.recordInvoice(invoice);
+      }
+      const viewUpdate = this.post(facts, deferViewRefresh);
+      const skipped = facts.alreadySelected === true;
+      return {
+        ok: true, skipped: skipped, idempotent: skipped,
+        message: skipped
+          ? facts.targetMonth + ' の会費タイプ「' + planId + '」は登録済みです。'
+          : facts.targetMonth + ' の会費タイプを「' + planId + '」で登録しました。',
+        invoice: invoice, viewUpdate: viewUpdate
+      };
+    } catch (e) {
+      return { ok: false, message: e.message };
+    }
+  }
+
+  collect(memberId, planId) {
+    return billingMonthlyCollect(memberId, planId, this.ctx);
+  }
+
+  makeSelection(facts) {
+    return billingMonthlyMakeSelection_(facts, this.ctx);
+  }
+
+  recordSelection(selection) {
+    return billingMonthlyRecordSelection_(selection, this.ctx);
+  }
+
+  makeInvoice(facts) {
+    return billingCoreMakeInvoice_(facts, this.ctx);
+  }
+
+  recordInvoice(invoice) {
+    return billingMonthlyRecordInvoice_(invoice, this.ctx);
+  }
+
+  post(facts, deferViewRefresh) {
+    return billingMonthlyPost_(facts, deferViewRefresh, this.ctx);
+  }
+}
+
+function billingMonthlyAccept(memberId, plan_id, ctx, options) {
+  return new BillingMonthlyJob(ctx, options).execute(memberId, plan_id);
 }
 
 function billingMonthlyPost_(facts, deferViewRefresh, ctx) {
