@@ -128,4 +128,57 @@ function makeAttendancePlan(options = {}, facts = {}, dependencies = {}) {
   };
 }
 
-module.exports={makeAttendancePlan};
+// Native Attendance collect phase. All persistence reads go through the
+// Portable DAO contract; the returned facts are storage-neutral inputs for make.
+function collectAttendanceFacts(dao) {
+  if(!dao || typeof dao.readAll !== 'function') throw new Error('ATTENDANCE_DAO_REQUIRED');
+  return {
+    members: dao.readAll('members'),
+    teachers: dao.readAll('teachers'),
+    locations: dao.readAll('locations'),
+    billingBlocks: dao.readAll('billingBlocks'),
+    trainingSlots: dao.readAll('trainingSlots'),
+    attendances: dao.readAll('attendance')
+  };
+}
+
+// Native Attendance record phase. This function does not know Sheets or Firestore;
+// it only applies a completed AttendancePlan through the Portable DAO contract.
+function recordAttendancePlan(plan = {}, options = {}, dao, dependencies = {}) {
+  if(!dao || typeof dao.appendRecord !== 'function' || typeof dao.updateByKey !== 'function')
+    throw new Error('ATTENDANCE_DAO_REQUIRED');
+  if(!plan.result || plan.result.ok !== true) return plan.result;
+
+  const now = dependencies.now;
+  if(typeof now !== 'function') throw new Error('NOW_PROVIDER_REQUIRED');
+  const teacherId = String(options.teacher_id == null ? '' : options.teacher_id).trim();
+  const cancelReason = String(options.cancel_reason || '出席枠再選択');
+  const cancelledAt = now();
+
+  for(const row of plan.rowsToCancel || []) {
+    const attendanceId = String((row || {}).attendance_id == null ? '' : row.attendance_id).trim();
+    if(!attendanceId) throw new Error('ATTENDANCE_ID_REQUIRED');
+    const updated = dao.updateByKey('attendance', attendanceId, {
+      '状態':'取消', '取消日時':cancelledAt, '取消者teacher_id':teacherId, '取消理由':cancelReason
+    });
+    if(updated && updated.found === false) throw new Error('ATTENDANCE_NOT_FOUND: ' + attendanceId);
+  }
+  for(const row of plan.rowsToAppend || []) dao.appendRecord('attendance', row);
+  return plan.result;
+}
+
+// Native Attendance post phase. Projection is an external reflection of an
+// already-decided/recorded attendance change, so the domain logic only depends
+// on a projection contract and does not know PaymentStatusView or GAS.
+function postAttendancePlan(plan = {}, dependencies = {}) {
+  if(!plan.result || plan.result.ok !== true) return plan.result;
+  const projectAttendances = dependencies.projectAttendances;
+  if(typeof projectAttendances !== 'function') throw new Error('ATTENDANCE_PROJECTION_REQUIRED');
+  projectAttendances({
+    appended: plan.rowsToAppend || [],
+    cancelled: plan.rowsToCancel || []
+  });
+  return plan.result;
+}
+
+module.exports={collectAttendanceFacts,makeAttendancePlan,recordAttendancePlan,postAttendancePlan};

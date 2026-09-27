@@ -1,8 +1,7 @@
-// Step 3-C Portable Attendance entry.
+// Native Portable Attendance entry.
 // Existing registerAttendanceBatch can pass its current SheetContext so that
-// the old billing/payment flow and the new Portable Attendance core share the
-// same spreadsheet and cache invalidation boundary.
-function dojoAttendanceStep3Application_(ctxOrSpreadsheet) {
+// the surrounding billing flow shares the same spreadsheet/cache boundary.
+function dojoAttendanceNativeApplication_(ctxOrSpreadsheet) {
   var suppliedCtx = null;
   var spreadsheet = null;
 
@@ -15,24 +14,17 @@ function dojoAttendanceStep3Application_(ctxOrSpreadsheet) {
 
   var projectionCtx = suppliedCtx || ensureSheetContext(createSheetContext());
 
-  return DojoAttendanceStep3.createApplication({}, {
+  return DojoAttendanceNative.createApplication({}, {
     spreadsheet: spreadsheet,
-    timezone: Session.getScriptTimeZone(),
-    formatDate: function(date, zone, pattern) {
-      return Utilities.formatDate(date, zone, pattern);
+    uuid: function() { return Utilities.getUuid(); },
+    now: function() { return sup_now(projectionCtx); },
+    dateKey: function(value) {
+      if (value instanceof Date) {
+        return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
+      }
+      return String(value == null ? "" : value).trim().slice(0, 10);
     },
-    uuid: function() {
-      return Utilities.getUuid();
-    },
-    // registerAttendanceBatch already owns the script lock. Avoid taking the
-    // same lock a second time when Portable Attendance is called from it.
-    lock: suppliedCtx ? {
-      waitLock: function() {},
-      releaseLock: function() {}
-    } : undefined,
     projectAttendances: function(change) {
-      // Old billing logic immediately following Attendance Core reads 07 again.
-      // Invalidate the existing SheetContext before projecting / continuing.
       invalidateAttendances(projectionCtx);
       return paymentStatusView_projectAttendances_(
         change.appended,
@@ -46,7 +38,8 @@ function dojoAttendanceStep3Application_(ctxOrSpreadsheet) {
 /**
  * AttendanceRegisterJob
  *
- * Portable Attendance Core を使って出席事実を登録・同期する Job。
+ * Native Portable Attendance の collect -> make -> record -> post で
+ * 出席事実を登録・同期する Job。
  * 受付全体（月次選択・都度請求・級段位更新・PostEvent）はここへ含めない。
  */
 class AttendanceRegisterJob extends Job {
@@ -56,11 +49,15 @@ class AttendanceRegisterJob extends Job {
   }
 
   execute(options) {
-    return dojoAttendanceStep3Application_(this.ctx).registerAttendanceCore(options);
+    var ctx = ensureSheetContext(this.ctx || createSheetContext());
+    var nativeOptions = Object.assign({}, options || {});
+    nativeOptions.attendance_date = nativeOptions.attendance_date || sup_today(ctx);
+    nativeOptions.target_month = nativeOptions.target_month || sup_targetMonth(ctx);
+    return dojoAttendanceNativeApplication_(ctx).registerAttendanceCore(nativeOptions);
   }
 }
 
-// 既存の Portable Attendance 入口は Facade として維持する。
+// Public facade name is preserved while the implementation is now Native.
 function dojoAttendanceStep3RegisterCore(options, ctx) {
   return new AttendanceRegisterJob(ctx).execute(options);
 }

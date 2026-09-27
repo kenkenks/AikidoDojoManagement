@@ -30,6 +30,48 @@ const definitions = {
       gas: { sheet: '06_入金ログ', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', 備考:'備考', reception_date:'reception_date', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id' } }
     }
   },
+  members: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'members', fields: { member_id:'member_id', 状態:'状態' } },
+      gas: { sheet: '01_会員マスタ', fields: { member_id:'member_id', 状態:'状態' } }
+    }
+  },
+  teachers: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'teachers', fields: { teacher_id:'teacher_id', 状態:'状態', 出席受付可:'出席受付可' } },
+      gas: { sheet: '11_先生マスタ', fields: { teacher_id:'teacher_id', 状態:'状態', 出席受付可:'出席受付可' } }
+    }
+  },
+  locations: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'locations', fields: { location_id:'location_id', 状態:'状態' } },
+      gas: { sheet: '10_道場マスタ', fields: { location_id:'location_id', 状態:'状態' } }
+    }
+  },
+  billingBlocks: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'billingBlocks', fields: { billing_block_id:'billing_block_id', location_id:'location_id', 状態:'状態' } },
+      gas: { sheet: '13_課金枠マスタ', fields: { billing_block_id:'billing_block_id', location_id:'location_id', 状態:'状態' } }
+    }
+  },
+  trainingSlots: {
+    writable: [],
+    sources: {
+      firestore: { collection: 'trainingSlots', fields: { slot_id:'slot_id', location_id:'location_id', billing_block_id:'billing_block_id', 稽古時間分:'稽古時間分', 状態:'状態' } },
+      gas: { sheet: '12_稽古枠マスタ', fields: { slot_id:'slot_id', location_id:'location_id', billing_block_id:'billing_block_id', 稽古時間分:'稽古時間分', 状態:'状態' } }
+    }
+  },
+  attendance: {
+    writable: ['attendance_id','稽古日','登録日時','member_id','target_month','location_id','slot_id','billing_block_id','teacher_id','attendance_session_id','稽古時間分','状態','source','取消日時','取消者teacher_id','取消理由','備考'],
+    sources: {
+      firestore: { collection: 'attendances', keyField: 'attendance_id', fields: { attendance_id:'attendance_id', 稽古日:'稽古日', 登録日時:'登録日時', member_id:'member_id', target_month:'target_month', location_id:'location_id', slot_id:'slot_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', attendance_session_id:'attendance_session_id', 稽古時間分:'稽古時間分', 状態:'状態', source:'source', 取消日時:'取消日時', 取消者teacher_id:'取消者teacher_id', 取消理由:'取消理由', 備考:'備考' } },
+      gas: { sheet: '07_出席ログ', keyField: 'attendance_id', fields: { attendance_id:'attendance_id', 稽古日:'稽古日', 登録日時:'登録日時', member_id:'member_id', target_month:'target_month', location_id:'location_id', slot_id:'slot_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', attendance_session_id:'attendance_session_id', 稽古時間分:'稽古時間分', 状態:'状態', source:'source', 取消日時:'取消日時', 取消者teacher_id:'取消者teacher_id', 取消理由:'取消理由', 備考:'備考' } }
+    }
+  },
   paymentEvidence: {
     writable: ['evidence_id','invoice_id','member_id','payment_method','amount','reception_date','status','evidence_code','requested_at','confirmed_at','confirmed_by','posted_at','payment_log_id','remarks'],
     sources: {
