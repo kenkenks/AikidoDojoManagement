@@ -1,30 +1,3 @@
-// ==============================
-// DAO BUSINESS: 請求の論理データ契約。物理Sheet操作はDAO_Core_Sheetsへ委譲。
-// ==============================
-/**
- * ROLE
- * BillingRecord
- *
- * RESPONSIBILITY
- * 04_月次選択へ行追加する。
- *
- * NOTE
- * 将来的にはRepository候補。
- */
-function billing_appendMonthlySelection(selection, ctx) {
-  ctx = daoContext_(ctx);
-
-  daoCore_(ctx).append("monthlySelections", [{
-    target_month: selection.target_month,
-    member_id: selection.member_id,
-    billing_group_id: selection.billing_group_id,
-    plan_id: selection.plan_id,
-    宣言日: selection.宣言日 || sup_now(ctx),
-    状態: selection.状態 || "有効",
-    備考: selection.備考 || ""
-  }], ctx);
-}
-
 /**
  * ROLE
  * BillingRecord
