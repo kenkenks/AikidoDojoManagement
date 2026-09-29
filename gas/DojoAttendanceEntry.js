@@ -58,6 +58,6 @@ class AttendanceRegisterJob extends Job {
 }
 
 // Public facade name is preserved while the implementation is now Native.
-function dojoAttendanceStep3RegisterCore(options, ctx) {
+function dojoAttendanceRegisterCore(options, ctx) {
   return new AttendanceRegisterJob(ctx).execute(options);
 }
