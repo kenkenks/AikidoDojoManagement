@@ -5,57 +5,80 @@
 //
 
 // 会員カード生成
-function generateMemberCards() {
+class MemberCardGenerateJob extends Job {
+  execute() {
+    const headers = [
+      "member_id",
+      "氏名",
+      "URL",
+      "QR"
+    ];
 
-  const headers = [
-    "member_id",
-    "氏名",
-    "URL",
-    "QR"
-  ];
+    const collected = this.collect(headers);
+    const rows = this.make(collected);
 
-  const access = daoMemberCardBegin_(headers);
-  const members = access.readMembers();
-
-  const webAppUrl = ScriptApp.getService().getUrl();
-
-  const rows = [];
-
-  members.forEach(member => {
-
-    if (member["状態"] === "退会") return;
-
-    const memberId = member["member_id"];
-
-    const url =
-      webAppUrl +
-      "?member_id=" +
-      encodeURIComponent(memberId);
-
-    const qrFormula =
-      `=IMAGE("https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" & ENCODEURL(C${rows.length + 2}))`;
-
-    rows.push([
-      memberId,
-      member["氏名"],
-      url,
-      qrFormula
-    ]);
-  });
-
-  if (rows.length > 0) {
-    access.writeRows(rows);
+    this.record(collected.access, rows);
+    this.post(rows);
   }
 
-  Browser.msgBox(`${rows.length}件の会員カードを作成しました。`);
-} 
+  collect(headers) {
+    const access = daoMemberCardBegin_(headers);
+
+    return {
+      access: access,
+      members: access.readMembers(),
+      webAppUrl: ScriptApp.getService().getUrl()
+    };
+  }
+
+  make(collected) {
+    const rows = [];
+
+    collected.members.forEach(member => {
+      if (member["状態"] === "退会") return;
+
+      const memberId = member["member_id"];
+
+      const url =
+        collected.webAppUrl +
+        "?member_id=" +
+        encodeURIComponent(memberId);
+
+      const qrFormula =
+        `=IMAGE("https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" & ENCODEURL(C${rows.length + 2}))`;
+
+      rows.push([
+        memberId,
+        member["氏名"],
+        url,
+        qrFormula
+      ]);
+    });
+
+    return rows;
+  }
+
+  record(access, rows) {
+    if (rows.length > 0) {
+      access.writeRows(rows);
+    }
+  }
+
+  post(rows) {
+    Browser.msgBox(`${rows.length}件の会員カードを作成しました。`);
+  }
+}
+
+// 会員カード生成
+function generateMemberCards() {
+  return new MemberCardGenerateJob().execute();
+}
 
 // 会員カードテンプレート
 function createMemberCardTemplate() {
   daoMemberCardCreateTemplate_();
   Browser.msgBox("会員カードテンプレートを作成しました。B1に会員IDを入力するとカードが切り替わります。");
 }
-
 
 // 会員会費情報取得
 function getMemberInfoForPayment(memberId) {

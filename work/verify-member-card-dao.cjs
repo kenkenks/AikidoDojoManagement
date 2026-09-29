@@ -1,6 +1,6 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 if(process.argv.length>3)throw Error('引数は適用後のgasフォルダー1つだけです');
-const root=path.resolve(process.argv[2]||'gas'),files=['DAO_Core_Sheets.js','DAO_Composition.js','DAO_Business_MemberCard.js','08_MemberCard.js'];
+const root=path.resolve(process.argv[2]||'gas'),files=['00_Job.js','DAO_Core_Sheets.js','DAO_Composition.js','DAO_Business_MemberCard.js','08_MemberCard.js'];
 for(const f of files)if(!fs.existsSync(path.join(root,f)))throw Error('必要ファイルなし: '+path.join(root,f));
 const baseline=fs.readFileSync(path.join(__dirname,'card-baseline.txt'),'utf8');
 function run(modified,o={}){
