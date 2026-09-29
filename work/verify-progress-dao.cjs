@@ -1,7 +1,7 @@
 const fs=require('fs'),path=require('path'),vm=require('vm'),assert=require('assert/strict');
 if(process.argv.length>3)throw Error('引数は適用後のgasフォルダー1つだけです');
 const root=path.resolve(process.argv[2]||'gas');
-const files=['DAO_Core_Sheets.js','DAO_Composition.js','DAO_Business_AttendanceProgress.js','04_AttendanceProgress.js'];
+const files=['00_Job.js','DAO_Core_Sheets.js','DAO_Composition.js','DAO_Business_AttendanceProgress.js','04_AttendanceProgress.js'];
 for(const f of files)if(!fs.existsSync(path.join(root,f)))throw Error('必要ファイルなし: '+path.join(root,f));
 const baseline=fs.readFileSync(path.join(__dirname,'progress-baseline.txt'),'utf8');
 const headers=['member_id','現在級段位','級段位登録元','級段位更新日時','級段位起算日','繰越稽古数','審査可能稽古数'];

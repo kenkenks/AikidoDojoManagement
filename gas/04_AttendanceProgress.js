@@ -108,21 +108,41 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
   return summaries;
 }
 
+class MemberSelfDeclaredRankUpdateJob extends Job {
+  execute(items, ctx) {
+    ctx = ensureSheetContext(ctx);
+
+    const declarations = this.make(items);
+
+    if (declarations.length === 0) {
+      return { updated_count: 0, member_ids: [] };
+    }
+
+    return this.record(declarations, ctx);
+  }
+
+  make(items) {
+    return (Array.isArray(items) ? items : []).map(function(item) {
+      return {
+        member_id: normalizeId_(item.member_id),
+        current_rank: String(item.current_rank || "").trim()
+      };
+    }).filter(function(item) {
+      return !!item.member_id && !!item.current_rank;
+    });
+  }
+
+  record(declarations, ctx) {
+    return daoAttendanceProgressUpdateRanks_(
+      declarations,
+      ATTENDANCE_PROGRESS_MEMBER_HEADERS,
+      ctx
+    );
+  }
+}
+
 function attendanceProgress_updateSelfDeclaredRanks(items, ctx) {
-  ctx = ensureSheetContext(ctx);
-
-  const declarations = (Array.isArray(items) ? items : []).map(function(item) {
-    return {
-      member_id: normalizeId_(item.member_id),
-      current_rank: String(item.current_rank || "").trim()
-    };
-  }).filter(function(item) {
-    return !!item.member_id && !!item.current_rank;
-  });
-
-  if (declarations.length === 0) return { updated_count: 0, member_ids: [] };
-
-  return daoAttendanceProgressUpdateRanks_(declarations, ATTENDANCE_PROGRESS_MEMBER_HEADERS, ctx);
+  return new MemberSelfDeclaredRankUpdateJob().execute(items, ctx);
 }
 
 function attendanceProgress_normalizeOptionalDate_(value, ctx) {
