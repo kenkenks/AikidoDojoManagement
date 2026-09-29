@@ -1146,3 +1146,172 @@ function runner_webInterface_paymentSummaryMemberNameRegression_TEST() {
     payment: payment || null
   });
 }
+
+// --------------------------------------------------
+// Member Info WEB Entry Runner
+// --------------------------------------------------
+function runner_webInterface_memberInfo(input) {
+  input = input || {};
+
+  const memberId = String(input.member_id || "").trim();
+  const checks = [];
+
+  const response = runner_webInterface_get_({
+    action: "getMemberInfo",
+    member_id: memberId
+  });
+
+  runner_webInterface_assert_(checks,
+    !!response,
+    "getMemberInfo WEB入口",
+    !!response,
+    true);
+
+  runner_webInterface_assert_(checks,
+    response && response.ok === true,
+    "getMemberInfo ok",
+    response && response.ok,
+    true);
+
+  return runner_webInterface_finish_("WEB-MEMBER-INFO-001", checks, {
+    member_id: memberId,
+    response: response
+  });
+}
+
+function runner_webInterface_memberInfo_TEST() {
+  const result = runner_webInterface_memberInfo({
+    member_id: "M001"
+  });
+
+  if (!result || result.ok !== true) {
+    throw new Error("[WEB Interface FAIL] member info: " + JSON.stringify(result));
+  }
+
+  Logger.log("[WEB Interface PASS] member info");
+  return result;
+}
+
+
+// --------------------------------------------------
+// Member Attendance State WEB Entry Runner
+// --------------------------------------------------
+function runner_webInterface_memberAttendanceState(input) {
+  input = input || {};
+
+  const memberId = String(input.member_id || "").trim();
+  const locationId = String(input.location_id || "").trim();
+  const billingBlockId = String(input.billing_block_id || "").trim();
+  const checks = [];
+
+  const response = runner_webInterface_get_({
+    action: "member_attendance_state",
+    member_id: memberId,
+    location_id: locationId,
+    billing_block_id: billingBlockId
+  });
+
+  runner_webInterface_assert_(checks,
+    !!response,
+    "member_attendance_state WEB入口",
+    !!response,
+    true);
+
+  runner_webInterface_assert_(checks,
+    response && response.ok === true,
+    "member_attendance_state ok",
+    response && response.ok,
+    true);
+
+  return runner_webInterface_finish_("WEB-MEMBER-ATTENDANCE-STATE-001", checks, {
+    member_id: memberId,
+    location_id: locationId,
+    billing_block_id: billingBlockId,
+    response: response
+  });
+}
+
+function runner_webInterface_memberAttendanceState_TEST() {
+  const result = runner_webInterface_memberAttendanceState({
+    member_id: "M001",
+    location_id: "HONBU",
+    billing_block_id: "B_KYO_MON_1030_1230"
+  });
+
+  if (!result || result.ok !== true) {
+    throw new Error("[WEB Interface FAIL] member attendance state: " + JSON.stringify(result));
+  }
+
+  Logger.log("[WEB Interface PASS] member attendance state");
+  return result;
+}
+
+// --------------------------------------------------
+// Attendance Batch WEB Entry Runner
+// WebConnect.doPost(mode=attendance_batch) の配線を確認する。
+// Attendance業務全体の詳細検証は Attendance Story Runner が担当する。
+// --------------------------------------------------
+function runner_webInterface_attendanceBatch(input) {
+  input = input || {};
+
+  const memberId = String(input.member_id || "").trim();
+  const planId = String(input.plan_id || "").trim();
+  const teacherId = String(input.teacher_id || "").trim();
+  const locationId = String(input.location_id || "").trim();
+  const billingBlockId = String(input.billing_block_id || "").trim();
+  const slotId = String(input.slot_id || "").trim();
+  const checks = [];
+
+  const response = runner_webInterface_post_({
+    mode: "attendance_batch",
+    teacher_id: teacherId,
+    location_id: locationId,
+    billing_block_id: billingBlockId,
+    attendance_items: [{
+      member_id: memberId,
+      plan_id: planId,
+      slot_ids: [slotId]
+    }],
+    source: "runner_webInterface_attendanceBatch"
+  });
+
+  runner_webInterface_assert_(checks,
+    !!response,
+    "attendance_batch WEB入口",
+    !!response,
+    true);
+
+  runner_webInterface_assert_(checks,
+    response && response.ok === true,
+    "attendance_batch ok",
+    response && response.ok,
+    true);
+
+  return runner_webInterface_finish_("WEB-ATTENDANCE-BATCH-001", checks, {
+    member_id: memberId,
+    plan_id: planId,
+    teacher_id: teacherId,
+    location_id: locationId,
+    billing_block_id: billingBlockId,
+    slot_id: slotId,
+    response: response
+  });
+}
+
+function runner_webInterface_attendanceBatch_TEST() {
+  const result = runner_webInterface_attendanceBatch({
+    member_id: "M001",
+    plan_id: "P002",
+    teacher_id: "T001",
+    location_id: "HONBU",
+    billing_block_id: "B_KYO_MON_1030_1230",
+    slot_id: "KYO_MON_1030"
+  });
+
+  if (!result || result.ok !== true) {
+    throw new Error("[WEB Interface FAIL] attendance batch: " + JSON.stringify(result));
+  }
+
+  Logger.log("[WEB Interface PASS] attendance batch");
+  return result;
+}
