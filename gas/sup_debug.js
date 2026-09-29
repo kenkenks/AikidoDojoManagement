@@ -78,24 +78,6 @@ function debug_paymentStatusTeacher_get() {
 // 支払い系
 // ================================
 //
-function debug_payment_accept() {
-  memberId = "M002"
-  paymentMethod = "現金"
-  paymentEvidenceId = "XXXXXX-2026-05"  
-  targetMonth = "2026-05";
-
-  const ctx = createSheetContext();
-
-  result =  payment_accept(memberId, paymentMethod, paymentEvidenceId, ctx);
- 
-  functionName = "debug_payment_accept";
-  sup_logDebug(functionName, { 
-    memberId: memberId,  
-    result: JSON.stringify(result, null, 2)
-  }, ctx);
-  
-  return { ok: true, message: "処理終了" };
-}
 
 // 支払い情報取得
 function debug_getPaymentStatus() {
