@@ -1,0 +1,17 @@
+entity: setting
+version: "0.1"
+
+fields:
+  - name: key
+    type: string
+    primary_key: true
+    required: true
+  - name: value
+    type: string
+    required: true
+
+sources:
+  gas:
+    sheet: "99_設定"
+  firestore:
+    collection: settings
