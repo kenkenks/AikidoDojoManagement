@@ -38,3 +38,13 @@ runner_cash_story_c001()
 完了条件
 
 現金受付 → 入金反映 → 支払済確認までPASSすること。
+
+※ 上記 `runner_payment_story_p005_cash_entry()` は当時の実証に使用したRunnerであり、現行Regression Runnerには含まれない。
+
+現行の回帰確認は以下を参照する。
+
+* 現金受付・請求: `11_MainStoryRunner.js` / `03_BillingRunner.js`
+* 実入口・入金反映: `24_WebInterfaceRunner.js`
+* 月次業務全体: `13_MonthlyIntegrationRunner.js`
+
+Runnerの現行構成およびLegacy整理については `ARCH-003 Runner設計`、入口パターンのContractについては `ARCH-014 Runner契約・入口パターン設計` を参照する。

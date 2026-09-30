@@ -73,63 +73,88 @@ View
 
 Runner
 
-Main Story Runnerは
+Main Storyは、単一のMain Story Runnerだけで保証するものではない。
 
-Business Process Runnerを順番に実行する。
+Main Storyを構成するBusiness Processを、検証境界ごとのRegression Runnerで確認する。
 
-runner_story_m001()
-
-↓
-
-Billing
-
-↓
-
-PaymentRequest
-
-↓
-
-PaymentRecord
-
-↓
-
-PaymentPost
-
-↓
-
-PaymentQuery
-Goal
+```text id="rwknct"
 Main Story
+    ↓
+Business Process
+    ↓
+Regression Contract
+    ├─ Domain / Story
+    ├─ Domain E2E
+    ├─ Entry / Web E2E
+    └─ Integration
+```
 
+会費受付〜入金反映のMain Storyでは、現在以下の構成で確認する。
+
+```text id="tsdj06"
+Billing
+    ↓
+Payment Reception
+    ↓
+Web Entry
+    ↓
+Integration
+```
+
+代表する現行Runner:
+
+```text id="n1fw5m"
+03_BillingRunner.js
+    Billing Domain / Regression
+
+23_PaymentReceptionE2ERunner.js
+    Payment Reception Domain E2E
+
+24_WebInterfaceRunner.js
+    WebConnect / Web Entry E2E
+
+13_MonthlyIntegrationRunner.js
+    月次業務全体のIntegration Regression
+```
+
+旧設計では、
+
+```text id="snc42f"
+runner_story_m001()
 ↓
-
-Runner
-
+Billing
 ↓
-
-Debug
-
+PaymentRequest
 ↓
+PaymentRecord
+↓
+PaymentPost
+↓
+PaymentQuery
+```
 
-運用
+という単一Main Story Runnerによる構成を想定していた。
 
-まで確認できた時点で、
+現在は、同じBusiness Processであっても検証境界が異なれば独立したRegression Contractとして保持する設計へ発展している。
 
-StoryはDoneとする。
+そのため `runner_story_m001()` を現行Runnerの必須入口とはしない。
 
-Main Story Runnerは、
-対象Storyに影響するデータのみを初期化する。
+Goal
 
-システム全体のデータは変更しない。
+```text id="n61ehs"
+Main Story
+    ↓
+Business Process
+    ↓
+Regression Runner
+    ↓
+Judge / Verify
+    ↓
+Regression Contract
+```
 
+Debugは個別関数・APIの開発確認に使用し、Main Storyの成立判定には使用しない。
 
-ARCH
-├─ ARCH-001
-├─ ARCH-002
-└─ ARCH-007 Main Story設計
+Runnerのレイヤー、存廃、検証境界については `ARCH-003 Runner設計` を参照する。
 
-STORY
-├─ STORY-MAIN001   ← 業務全体
-├─ STORY-A001      ← Attendance
-├─ STORY-B001      ← Billing
-└─ STORY-P001～P004← Payment
+Web Entryを含むRunner Contractについては `ARCH-014 Runner契約・入口パターン設計` を参照する。

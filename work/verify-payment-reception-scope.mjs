@@ -15,6 +15,16 @@ const context = {
   Utilities: { getUuid: () => "12345678-0000" }
 };
 vm.createContext(context);
+
+context.DojoPortableDaoPaymentLog = {
+  create: () => ({
+    appendRecord: (_name, values) => {
+      captured.push(values);
+      return { appended: true };
+    }
+  })
+};
+
 [
   "gas/00_Job.js",
   "gas/DAO_Core_Sheets.js",

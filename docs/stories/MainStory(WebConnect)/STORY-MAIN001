@@ -82,54 +82,69 @@ PayPay決済エビデンスが作成される
 05_請求明細が支払済になる
 
 20_会費状態Viewが支払済になる
+
 Runner
-runner_story_m001()
+
+本Storyは単一の `runner_story_m001()` ではなく、Business Processと検証境界ごとの現行Regression Runnerで確認する。
+
 Runner構成
-Prepare
-    ↓
+
+```text
 Billing
     ↓
-PaymentEvidence Request
+Payment Reception Domain E2E
     ↓
-PaymentEvidence Record
+Web Interface E2E
     ↓
-PaymentEvidence Query
-    ↓
-PaymentEvidence Post
-    ↓
-Verify
-    ↓
-Summary
+Monthly Integration
+```
+
 対応Runner
-runner_billing_story_001()
 
-runner_payment_story_p001()
+```text
+03_BillingRunner.js
+    Billing Domain / Regression
 
-runner_payment_story_p002()
+23_PaymentReceptionE2ERunner.js
+    PayPay REQUESTED
+        ↓
+    CONFIRMED
+        ↓
+    POSTED
+        ↓
+    Payment
+        ↓
+    Summary
 
-runner_payment_story_p004()
+24_WebInterfaceRunner.js
+    WebConnect / Web Entry
+        ↓
+    会員側PayPay操作
+        ↓
+    先生側決済更新
+        ↓
+    入金反映・Summary確認
 
-runner_payment_story_p003()
+13_MonthlyIntegrationRunner.js
+    月次業務全体のIntegration Regression
+```
+
 完了条件
-Billing Runner PASS
 
-PaymentEvidence P001 PASS
+* Billing Regression PASS
+* Payment Reception Domain E2E PASS
+* Web Interface PayPay E2E PASS
+* Monthly Integration Regression PASS
+* WebConnect経由で会員画面・先生画面の導線確認ができる
 
-PaymentEvidence P002 PASS
-
-PaymentEvidence P003 PASS
-
-PaymentEvidence P004 PASS
-
-Main Story Runner PASS
-
-WebConnect経由で会員画面・先生画面の導線確認ができる
 備考
 
 Main Storyは画面仕様ではなく、業務仕様を表す。
 
-会員画面・先生画面は、
-本Storyを実現するためのViewである。
+StoryとRunnerは1対1である必要はない。
 
-画面仕様の詳細は、
-WebConnect運用確認タスクで扱う。
+本Storyは複数のBusiness Processと検証境界を持つため、Domain / Web Entry / IntegrationそれぞれのRegression Runnerによって成立を確認する。
+
+旧 `runner_story_m001()` および `runner_payment_story_p001()` ～ `runner_payment_story_p004()` は初期Runner設計時の構成であり、現行Regression Runnerとしては使用しない。
+
+Runnerの検証境界および存廃方針は `ARCH-003 Runner設計`、入口パターンのContractは `ARCH-014 Runner契約・入口パターン設計` を参照する。
