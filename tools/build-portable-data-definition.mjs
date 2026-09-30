@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const schemaPath = resolve(root, 'schema', 'Setting.yml');
 const outputPath = resolve(root, 'shared', 'DAO_Definition_Setting.generated.js');
+const gasCreateOutputPath = resolve(root, 'gas', 'DojoPddCreateSetting.generated.js');
 
 function scalar(text) {
   const value = text.trim();
@@ -110,4 +111,30 @@ const definition = parseSettingDefinition(readFileSync(schemaPath, 'utf8'));
 const transformed = transform(definition);
 const output = `'use strict';\n// Generated from schema/Setting.yml by tools/build-portable-data-definition.mjs. Do not edit.\nconst settingDefinition = ${JSON.stringify(transformed, null, 2)};\nmodule.exports = { settingDefinition };\n`;
 writeFileSync(outputPath, output, 'utf8');
+
+const gasSource = transformed.sources.gas;
+const gasHeaders = definition.fields.map(({name}) => gasSource.fields[name]);
+const gasCreateOutput = `'use strict';
+// Generated from schema/Setting.yml by tools/build-portable-data-definition.mjs. Do not edit.
+function dojoPddEnsureSettingGas_(spreadsheet) {
+  var ss = spreadsheet || SpreadsheetApp.getActiveSpreadsheet();
+  var sheetName = ${JSON.stringify(gasSource.sheet)};
+  var expectedHeaders = ${JSON.stringify(gasHeaders)};
+  var sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+    sheet.getRange(1, 1, 1, expectedHeaders.length).setValues([expectedHeaders]);
+    return { created: true, sheet: sheetName, headers: expectedHeaders.slice() };
+  }
+  var lastColumn = sheet.getLastColumn();
+  if (!lastColumn) throw new Error('PDD_STRUCTURE_MISMATCH: ' + sheetName + ' has no headers');
+  var actualHeaders = sheet.getRange(1, 1, 1, lastColumn).getValues()[0].map(function(value) { return String(value).trim(); });
+  if (actualHeaders.length !== expectedHeaders.length || actualHeaders.some(function(value, index) { return value !== expectedHeaders[index]; })) {
+    throw new Error('PDD_STRUCTURE_MISMATCH: ' + sheetName + ' expected [' + expectedHeaders.join(',') + '] actual [' + actualHeaders.join(',') + ']');
+  }
+  return { created: false, sheet: sheetName, headers: expectedHeaders.slice() };
+}
+`;
+writeFileSync(gasCreateOutputPath, gasCreateOutput, 'utf8');
 console.log('Generated shared/DAO_Definition_Setting.generated.js from schema/Setting.yml');
+console.log('Generated gas/DojoPddCreateSetting.generated.js from schema/Setting.yml');
