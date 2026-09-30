@@ -8,7 +8,7 @@ function setup(){
   const sheets=new Map([['99_設定',original]]);
   const ss={getSheetByName:name=>sheets.get(name),insertSheet(name){const s=sheet([]);sheets.set(name,s);return s;},deleteSheet(s){for(const [name,value]of sheets)if(value===s)sheets.delete(name);}};
   const box={Date,Intl,SpreadsheetApp:{getActiveSpreadsheet:()=>ss},Session:{getScriptTimeZone:()=> 'Asia/Tokyo'},Utilities:{formatDate:format,getUuid:()=> 'test-12345'},createSheetContext:()=>({ss,settings:Object.fromEntries(original.rows.slice(1))}),ensureSheetContext:ctx=>ctx,normalizeMonth:value=>String(value).trim()};
-  vm.createContext(box);for(const name of ['DojoTimeTravel.js','DojoTimeTravelEntry.js','sup_timeTravel.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'../gas',name),'utf8'),box);
+  vm.createContext(box);for(const name of ['DojoTimeTravel.js','DojoTimeTravelEntry.js','DojoTimeTravelStep2.js','DojoTimeTravelStep2Entry.js','sup_timeTravel.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'../gas',name),'utf8'),box);
   return {box,sheets,original};
 }
 test('existing UI entry saves through common DAO and existing clock observes it',()=>{

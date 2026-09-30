@@ -27,10 +27,17 @@ async function getAccessToken() {
 }
 
 async function main() {
+  const args = process.argv.slice(2);
+  let collection = null;
+  if (args.length === 2 && args[0] === '--collection') {
+    collection = args[1];
+  } else if (args.length !== 0) {
+    throw new Error('Usage: node work/seed-pdd001-firestore-real.cjs [--collection <collection>]');
+  }
   const schema = renderFirestoreSchema(settingDefinition);
   const documents = renderFirestoreDocuments(schema, settingSeed);
   const core = createFirestoreCore(profile, { getAccessToken });
-  const source = { collection: schema.collection };
+  const source = { collection: collection || schema.collection };
   const created = [];
   const existing = [];
 
@@ -57,7 +64,7 @@ async function main() {
   process.stdout.write(JSON.stringify({
     ok: true,
     entity: schema.entity,
-    collection: schema.collection,
+    collection: source.collection,
     seed: { total: documents.length, created, existing },
     errors: verification.errors
   }, null, 2) + '\n');

@@ -32,15 +32,27 @@ async function getAccessToken() {
 }
 
 async function main() {
-  const [command = 'get', inputFile, ...extra] = process.argv.slice(2);
+  const args = process.argv.slice(2);
+  let settingCollection = null;
+
+  if (args[0] === '--collection') {
+    if (!args[1]) {
+      throw new Error('Missing collection name after --collection');
+    }
+    settingCollection = args.splice(0, 2)[1];
+  }
+
+  const [command = 'get', inputFile, ...extra] = args;
+
   if (!['get', 'save'].includes(command) || extra.length || (command === 'save') !== Boolean(inputFile)) {
-    throw new Error('Usage: node work/run-time-travel-dev-firebase.cjs get | save <input.json>');
+    throw new Error('Usage: node work/run-time-travel-dev-firebase.cjs [--collection <collection>] get | save <input.json>');
   }
 
   const app = createApplication({
     projectId: profile.projectId,
     mode: profile.mode,
-    confirmedDevelopmentProject: profile.confirmedDevelopmentProject
+    confirmedDevelopmentProject: profile.confirmedDevelopmentProject,
+    ...(settingCollection ? { settingCollection } : {})
   }, { getAccessToken });
 
   const result = command === 'get'

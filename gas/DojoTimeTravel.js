@@ -247,7 +247,9 @@ function createDao(core, backend, registry = definitions) {
     const row = yield core.readById(source, id);
     if (row === null) return null;
     const mapped = Object.fromEntries(Object.entries(source.fields).map(([field, storedField]) => {
-      const value = row[storedField];
+      const value = storedField === source.keyField && row[storedField] === undefined
+        ? id
+        : row[storedField];
       return [field, Object.hasOwn(source.transforms || {}, field) ? source.transforms[field](value) : value];
     }));
     return definition.validate ? definition.validate(mapped, id) : mapped;

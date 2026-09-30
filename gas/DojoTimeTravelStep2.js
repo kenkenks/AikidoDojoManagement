@@ -230,7 +230,9 @@ function createDao(core, backend, registry = definitions) {
     const row = yield core.readById(source, id);
     if (row === null) return null;
     const mapped = Object.fromEntries(Object.entries(source.fields).map(([field, storedField]) => {
-      const value = row[storedField];
+      const value = storedField === source.keyField && row[storedField] === undefined
+        ? id
+        : row[storedField];
       return [field, Object.hasOwn(source.transforms || {}, field) ? source.transforms[field](value) : value];
     }));
     return definition.validate ? definition.validate(mapped, id) : mapped;
@@ -308,6 +310,7 @@ module.exports={now,today,targetMonth,getSetting,getSystemContext,getAdminSettin
 'use strict';
 const {createCore,backend}=require('./DAO_Core.js');
 const {createDao}=require('./DAO_Business.js');
+const {definitions}=require('./DAO_Definitions.js');
 const {createSystemContext}=require('./SystemContext.js');
 const {runSteps}=require('./Flow.js');
 const time=require('./TimeTravel.js');
@@ -318,7 +321,25 @@ function createApplication(config={}, dependencies) {
     dependencies=config; config={};
   }
   dependencies=dependencies||{};
-  const dao=createDao(createCore(config,dependencies),backend);
+
+  let registry=dependencies.registry;
+  if (!registry && config.settingCollection) {
+    registry={
+      ...definitions,
+      setting:{
+        ...definitions.setting,
+        sources:{
+          ...definitions.setting.sources,
+          firestore:{
+            ...definitions.setting.sources.firestore,
+            collection:config.settingCollection
+          }
+        }
+      }
+    };
+  }
+
+  const dao=createDao(createCore(config,dependencies),backend,registry);
   const execute=fn=>runSteps((function*(){
     const ctx=yield createSystemContext(dao,dependencies);
     return yield fn(ctx);
