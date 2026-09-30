@@ -50,7 +50,7 @@ node work/verify-attendance-read-recovery.mjs
 node work/verify-attendance-progress.mjs
 ```
 
-GAS上では`debug_attendance_getMemberState()`を実行し、次を確認する。
+GAS上では`diagnostic_attendance_getMemberStatePerformance()`を実行し、次を確認する。
 
 - `load sheet object map`が1回だけである
 - `getMemberAttendanceState total`が画面タイムアウトより十分短い

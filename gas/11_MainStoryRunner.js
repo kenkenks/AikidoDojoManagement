@@ -1,4 +1,4 @@
-// ========================================
+﻿// ========================================
 // 11_MainStoryRunner.gs
 // Main Story Runner
 // ========================================
@@ -178,22 +178,22 @@ function runner_cash_story_c001() {
     const billingGroupId = "G001";
     const targetMonth = sup_targetMonth(ctx);
 
-    debug_deleteRowsByCondition_("04_月次選択", function(row) {
+    runner_deleteRowsByCondition_("04_月次選択", function(row) {
       return normalizeMonth(row["target_month"]) === normalizeMonth(targetMonth) &&
              normalizeId_(row["billing_group_id"]) === billingGroupId;
     }, ctx);
 
-    debug_deleteRowsByCondition_("05_請求明細", function(row) {
+    runner_deleteRowsByCondition_("05_請求明細", function(row) {
       return normalizeMonth(row["target_month"]) === normalizeMonth(targetMonth) &&
              normalizeId_(row["billing_group_id"]) === billingGroupId;
     }, ctx);
 
-    debug_deleteRowsByCondition_("06_入金ログ", function(row) {
+    runner_deleteRowsByCondition_("06_入金ログ", function(row) {
       return normalizeMonth(row["target_month"]) === normalizeMonth(targetMonth) &&
              normalizeId_(row["billing_group_id"]) === billingGroupId;
     }, ctx);
 
-    debug_deleteRowsByCondition_("09_決済エビデンス", function(row) {
+    runner_deleteRowsByCondition_("09_決済エビデンス", function(row) {
       return normalizeMonth(row["target_month"]) === normalizeMonth(targetMonth) &&
              normalizeId_(row["billing_group_id"]) === billingGroupId;
     }, ctx);
@@ -343,4 +343,31 @@ function runner_cash_story_c001() {
   Logger.log(JSON.stringify(summary, null, 2));
 
   return summary;
+}
+
+
+function runner_deleteRowsByCondition_(sheetName, predicate, ctx) {
+  ctx = ensureSheetContext(ctx);
+
+  const sheet = getRequiredSheet_(sheetName, ctx);
+  const values = sheet.getDataRange().getValues();
+  if (values.length <= 1) return 0;
+
+  const headers = values[0];
+  let deleted = 0;
+
+  for (let r = values.length - 1; r >= 1; r--) {
+    const row = {};
+    headers.forEach(function(header, index) {
+      row[header] = values[r][index];
+    });
+
+    if (predicate(row)) {
+      sheet.deleteRow(r + 1);
+      deleted++;
+    }
+  }
+
+  invalidateSheetRows(ctx, sheetName);
+  return deleted;
 }

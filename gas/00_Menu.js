@@ -10,7 +10,6 @@ function onOpen() {
     .addItem("テスト時刻を設定", "showTimeTravelDialog")
     .addItem("E2Eテストデータ クリーン", "showE2eCleanPrompt")
     .addSeparator()
-    .addItem("デバック実行用", "debug_run")
     .addToUi();
 }
 
