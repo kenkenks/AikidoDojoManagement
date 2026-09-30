@@ -69,3 +69,42 @@ test('Firestore Renderer projects the portable Setting Definition without I/O', 
     ]
   });
 });
+
+test('Firestore Renderer verifies document ID and physical field types', () => {
+  const { settingDefinition } = require('../shared/DAO_Definition_Setting.generated.js');
+  const { renderFirestoreSchema, verifyFirestoreDocuments } = require('../shared/Schema_Renderer_Firestore.js');
+  const schema = renderFirestoreSchema(settingDefinition);
+  assert.deepEqual(verifyFirestoreDocuments(schema, [
+    { id: 'TIME_TRAVEL_ENABLED', fields: { value: 'FALSE' } },
+    { id: 'DEBUG_DATE', fields: { value: '' } }
+  ]), {
+    ok: true,
+    entity: 'setting',
+    collection: 'settings',
+    documents: 2,
+    errors: []
+  });
+
+  assert.deepEqual(verifyFirestoreDocuments(schema, [
+    { id: 'BROKEN', fields: { value: 123 } }
+  ]).errors, [
+    { documentId: 'BROKEN', field: 'value', error: 'TYPE_MISMATCH:string' }
+  ]);
+});
+
+
+test('Firestore Renderer projects logical Setting records into writable documents', () => {
+  const { settingDefinition } = require('../shared/DAO_Definition_Setting.generated.js');
+  const { renderFirestoreSchema, renderFirestoreDocuments } = require('../shared/Schema_Renderer_Firestore.js');
+  const schema = renderFirestoreSchema(settingDefinition);
+  assert.deepEqual(renderFirestoreDocuments(schema, [
+    { key: 'TIME_TRAVEL_ENABLED', value: 'FALSE' },
+    { key: 'DEBUG_DATE', value: '' }
+  ]), [
+    { id: 'TIME_TRAVEL_ENABLED', fields: { value: 'FALSE' } },
+    { id: 'DEBUG_DATE', fields: { value: '' } }
+  ]);
+  assert.throws(() => renderFirestoreDocuments(schema, [
+    { key: 'BROKEN', value: 123 }
+  ]), /TYPE_MISMATCH:value:string/);
+});
