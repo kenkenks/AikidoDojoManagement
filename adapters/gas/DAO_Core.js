@@ -80,8 +80,44 @@ function createCore(config, dependencies = {}) {
       }
       return {found:true};
     },
-    upsertByKey(source,id,values) { const {sheet,row}=locate(source,id); if(row) { sheet.getRange(row,source.valueColumn).setNumberFormat('@').setValue(values.value); return {created:false,updated:true}; } const newRow=sheet.getLastRow()+1; sheet.getRange(newRow,source.keyColumn).setValue(id); sheet.getRange(newRow,source.valueColumn).setNumberFormat('@').setValue(values.value); return {created:true,updated:false}; },
-    append(source,id,values) { const {sheet}=locate(source,id); const row=sheet.getLastRow()+1; sheet.getRange(row,source.keyColumn).setValue(id); sheet.getRange(row,source.valueColumn).setNumberFormat('@').setValue(values.value); }
+    upsertByKey(source,id,values) {
+      const located=locate(source,id);
+      if(located.row) {
+        const headers=(located.values[0]||[]).map(value=>String(value).trim());
+        for(const [field,value] of Object.entries(values)) {
+          if(field===source.keyField) continue;
+          const column=headers.indexOf(field);
+          if(column<0) throw new Error(source.sheet+' に列がありません: '+field);
+          const cell=located.sheet.getRange(located.row,column+1);
+          if(typeof value==='string') cell.setNumberFormat('@');
+          cell.setValue(value);
+        }
+        return {created:false,updated:true};
+      }
+      const sheet=located.sheet;
+      const headers=(located.values[0]||[]).map(value=>String(value).trim());
+      const newRow=sheet.getLastRow()+1;
+      for(const [field,value] of Object.entries(values)) {
+        const column=headers.indexOf(field);
+        if(column<0) throw new Error(source.sheet+' に列がありません: '+field);
+        const cell=sheet.getRange(newRow,column+1);
+        if(typeof value==='string') cell.setNumberFormat('@');
+        cell.setValue(value);
+      }
+      return {created:true,updated:false};
+    },
+    append(source,id,values) {
+      const {sheet,values:rows}=locate(source,id);
+      const headers=(rows[0]||[]).map(value=>String(value).trim());
+      const newRow=sheet.getLastRow()+1;
+      for(const [field,value] of Object.entries(values)) {
+        const column=headers.indexOf(field);
+        if(column<0) throw new Error(source.sheet+' に列がありません: '+field);
+        const cell=sheet.getRange(newRow,column+1);
+        if(typeof value==='string') cell.setNumberFormat('@');
+        cell.setValue(value);
+      }
+    }
     
   };
 }

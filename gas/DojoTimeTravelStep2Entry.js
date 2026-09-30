@@ -37,7 +37,22 @@ function runner_timeTravelStep2_realSheets() {
       now: '2099-07-09T10:00:00+09:00',
       target_month: '2099-07'
     });
+    console.log(JSON.stringify({
+      scope: 'TimeTravelStep2',
+      operation: 'UPSERT_CREATE',
+      stage: 'after-save',
+      result: enabled,
+      physical: sheet.getDataRange().getValues()
+    }));
     if (!enabled.ok || enabled.effective.target_month !== '2099-07') {
+      console.error(JSON.stringify({
+        scope: 'TimeTravelStep2',
+        operation: 'UPSERT_CREATE',
+        stage: 'assertion-failed',
+        expected_target_month: '2099-07',
+        actual_target_month: enabled && enabled.effective ? enabled.effective.target_month : null,
+        physical: sheet.getDataRange().getValues()
+      }));
       throw new Error('CREATE_FAILED');
     }
 
