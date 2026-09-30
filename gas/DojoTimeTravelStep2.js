@@ -26,6 +26,38 @@ function normalizeStorageId(value) {
 module.exports = {normalizeStorageId,byteLength};
 
 },
+"./DAO_Definition_Setting.generated.js":function(module,exports,require){
+'use strict';
+// Generated from schema/Setting.yml by tools/build-portable-data-definition.mjs. Do not edit.
+const settingDefinition = {
+  "writable": [
+    "key",
+    "value"
+  ],
+  "sources": {
+    "firestore": {
+      "collection": "settings",
+      "keyField": "key",
+      "fields": {
+        "key": "key",
+        "value": "value"
+      }
+    },
+    "gas": {
+      "sheet": "99_設定",
+      "keyColumn": 1,
+      "valueColumn": 2,
+      "keyField": "key",
+      "fields": {
+        "key": "key",
+        "value": "value"
+      }
+    }
+  }
+};
+module.exports = { settingDefinition };
+
+},
 "./DAO_Definitions.js":function(module,exports,require){
 'use strict';
 // Step 1: Portable DAO generic registry only. Business feature definitions are added in later patches.

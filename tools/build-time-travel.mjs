@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
-const files=['Flow','StorageId','MemberObject','DAO_Definitions','DAO_Business','SystemContext','TimeTravel','TimeApplication'];
+const files=['Flow','StorageId','MemberObject','DAO_Definition_Setting.generated','DAO_Definitions','DAO_Business','SystemContext','TimeTravel','TimeApplication'];
 const sources=Object.fromEntries(files.map(name=>['./'+name+'.js',fs.readFileSync(path.join(root,'shared',name+'.js'),'utf8')]));
 sources['./DAO_Core.js']=fs.readFileSync(path.join(root,'adapters/gas/DAO_Core.js'),'utf8');
 const modules=Object.entries(sources).map(([name,source])=>JSON.stringify(name)+':function(module,exports,require){\n'+source+'\n}').join(',\n');
