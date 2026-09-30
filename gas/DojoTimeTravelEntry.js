@@ -6,7 +6,7 @@ function runner_timeTravelPortable_smoke() {
   const ss=SpreadsheetApp.getActiveSpreadsheet();
   const sheet=ss.insertSheet('__TIME_TEST_'+Utilities.getUuid().slice(0,8));
   try {
-    sheet.getRange(1,1,1,2).setValues([['key','value']]);
+    sheet.getRange(1,1,1,2).setValues([['キー','値']]);
     const app=dojoTimeTravelApplication_({getSheetByName:()=>sheet});
     const enabled=app.saveTimeTravel({enabled:true,now:'2099-07-09T10:00:00+09:00',target_month:'2099-07'});
     if(!enabled.ok||enabled.effective.target_month!=='2099-07')throw new Error('ENABLE_FAILED');

@@ -18,10 +18,10 @@ const settingDefinition = {
       "sheet": "99_設定",
       "keyColumn": 1,
       "valueColumn": 2,
-      "keyField": "key",
+      "keyField": "キー",
       "fields": {
-        "key": "key",
-        "value": "value"
+        "key": "キー",
+        "value": "値"
       }
     }
   }

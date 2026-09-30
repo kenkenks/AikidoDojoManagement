@@ -3,10 +3,12 @@ version: "0.1"
 
 fields:
   - name: key
+    gas_name: "キー"
     type: string
     primary_key: true
     required: true
   - name: value
+    gas_name: "値"
     type: string
     required: true
 

@@ -64,10 +64,10 @@ const settingDefinition = {
       "sheet": "99_設定",
       "keyColumn": 1,
       "valueColumn": 2,
-      "keyField": "key",
+      "keyField": "キー",
       "fields": {
-        "key": "key",
-        "value": "value"
+        "key": "キー",
+        "value": "値"
       }
     }
   }
@@ -77,15 +77,10 @@ module.exports = { settingDefinition };
 },
 "./DAO_Definitions.js":function(module,exports,require){
 'use strict';
+const { settingDefinition } = require('./DAO_Definition_Setting.generated.js');
 // Step 1: Portable DAO generic registry only. Business feature definitions are added in later patches.
 const definitions = {
-  setting: {
-    writable: ['key', 'value'],
-    sources: {
-      firestore: { collection: 'settings', keyField: 'key', fields: { key: 'key', value: 'value' } },
-      gas: { sheet: '99_設定', keyColumn: 1, valueColumn: 2, keyField: 'key', fields: { key: 'key', value: 'value' } }
-    }
-  },
+  setting: settingDefinition,
   monthlySelection: {
     writable: ['target_month','member_id','billing_group_id','plan_id','宣言日','状態','備考'],
     sources: {

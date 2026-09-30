@@ -53,12 +53,12 @@ test('PDD001 GAS Create creates missing Setting sheet from Definition', () => {
   const ss = spreadsheet();
   const result = ensure(ss);
   assert.equal(result.created, true);
-  assert.deepEqual(ss.getSheetByName('99_設定').data[0], ['key','value']);
+  assert.deepEqual(ss.getSheetByName('99_設定').data[0], ['キー','値']);
 });
 
 test('PDD001 GAS Create is idempotent and preserves existing Setting data', () => {
   const ensure = loadEnsure();
-  const ss = spreadsheet({'99_設定': [['key','value'], ['TIME_TRAVEL_ENABLED','TRUE']]});
+  const ss = spreadsheet({'99_設定': [['キー','値'], ['TIME_TRAVEL_ENABLED','TRUE']]});
   const before = JSON.stringify(ss.getSheetByName('99_設定').data);
   const result = ensure(ss);
   assert.equal(result.created, false);
@@ -67,7 +67,17 @@ test('PDD001 GAS Create is idempotent and preserves existing Setting data', () =
 
 test('PDD001 GAS Create refuses structural mismatch instead of migrating it', () => {
   const ensure = loadEnsure();
-  const ss = spreadsheet({'99_設定': [['key','wrong'], ['TIME_TRAVEL_ENABLED','TRUE']]});
+  const ss = spreadsheet({'99_設定': [['キー','wrong'], ['TIME_TRAVEL_ENABLED','TRUE']]});
   assert.throws(() => ensure(ss), /PDD_STRUCTURE_MISMATCH/);
-  assert.deepEqual(ss.getSheetByName('99_設定').data[0], ['key','wrong']);
+  assert.deepEqual(ss.getSheetByName('99_設定').data[0], ['キー','wrong']);
+});
+
+
+test('PDD001 GAS Create accepts shared Setting container with extra physical columns', () => {
+  const ensure = loadEnsure();
+  const ss = spreadsheet({'99_設定': [['キー','値',''], ['TIME_TRAVEL_ENABLED','TRUE','既存項目']]});
+  const before = JSON.stringify(ss.getSheetByName('99_設定').data);
+  const result = ensure(ss);
+  assert.equal(result.created, false);
+  assert.equal(JSON.stringify(ss.getSheetByName('99_設定').data), before);
 });

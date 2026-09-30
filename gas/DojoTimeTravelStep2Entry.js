@@ -15,7 +15,7 @@ function runner_timeTravelStep2_realSheets() {
   var name = '__PORTABLE_TT_' + Utilities.getUuid().slice(0, 8);
   var sheet = ss.insertSheet(name);
   try {
-    sheet.getRange(1, 1, 1, 2).setValues([['key', 'value']]);
+    sheet.getRange(1, 1, 1, 2).setValues([['キー', '値']]);
     sheet.getRange(2, 1, 2, 2).setValues([
       ['TIME_TRAVEL_ENABLED', 'FALSE'],
       ['DEBUG', 'TRUE']
