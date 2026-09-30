@@ -16,6 +16,12 @@ if (!existsSync(profilePath)) throw new Error(`Target profile not found: targets
 const profile = JSON.parse(readFileSync(profilePath, "utf8"));
 validateProfile(profile);
 
+if (profile.runtime === "firebase") {
+  if (command !== "build") throw new Error(`Unsupported command for firebase target: ${command}`);
+  buildFirebase();
+  process.exit(0);
+}
+
 const gasSourceDir = resolve(repoRoot, profile.sourceDir || "gas");
 const webSourceDir = resolve(repoRoot, profile.webSourceDir || "web/qr");
 const outRoot = join(repoRoot, ".build", targetName);
@@ -28,8 +34,24 @@ const gasUrl = `https://script.google.com/macros/s/${profile.gas.deploymentId}/e
 build();
 if (command === "push") runClasp(["push"]);
 
+function buildFirebase() {
+  const builder = join(repoRoot, "tools", "build-time-travel-step2-firestore.mjs");
+  const result = spawnSync(process.execPath, [builder], { cwd: repoRoot, stdio: "inherit", windowsHide: true });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`Firebase build failed: exit ${result.status}`);
+  console.log(`Target: ${targetName}`);
+  console.log("Output: .build/portable-timetravel-step2-firestore");
+  console.log(`Firebase project: ${profile.projectId}`);
+}
+
 function validateProfile(value) {
   if (value.target !== targetName) throw new Error(`Target name mismatch: ${value.target} != ${targetName}`);
+  if (value.runtime === "firebase") {
+    if (value.mode !== "development") throw new Error(`Target ${targetName}: firebase mode must be development.`);
+    if (!value.projectId) throw new Error(`Target ${targetName}: projectId is not configured.`);
+    if (value.confirmedDevelopmentProject !== value.projectId) throw new Error(`Target ${targetName}: confirmedDevelopmentProject mismatch.`);
+    return;
+  }
   if (value.runtime !== "gas") throw new Error(`Unsupported runtime: ${value.runtime}`);
   if (!value.gas?.scriptId) throw new Error(`Target ${targetName}: gas.scriptId is not configured.`);
   if (!value.gas?.deploymentId) throw new Error(`Target ${targetName}: gas.deploymentId is not configured.`);

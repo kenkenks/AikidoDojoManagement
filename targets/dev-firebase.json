@@ -1,0 +1,7 @@
+{
+  "target": "dev-firebase",
+  "runtime": "firebase",
+  "mode": "development",
+  "projectId": "dojo-management-dev",
+  "confirmedDevelopmentProject": "dojo-management-dev"
+}
