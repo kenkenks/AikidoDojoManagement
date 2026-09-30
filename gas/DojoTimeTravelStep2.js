@@ -30,6 +30,22 @@ module.exports = {normalizeStorageId,byteLength};
 'use strict';
 // Generated from schema/Setting.yml by tools/build-portable-data-definition.mjs. Do not edit.
 const settingDefinition = {
+  "schema": {
+    "entity": "setting",
+    "version": "0.1",
+    "fields": {
+      "key": {
+        "type": "string",
+        "required": true,
+        "primaryKey": true
+      },
+      "value": {
+        "type": "string",
+        "required": true,
+        "primaryKey": false
+      }
+    }
+  },
   "writable": [
     "key",
     "value"

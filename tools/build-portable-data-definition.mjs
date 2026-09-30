@@ -93,8 +93,14 @@ function transform(definition) {
   const firestoreFields = Object.fromEntries(definition.fields.map(({name}) => [name, name]));
   const gasFields = Object.fromEntries(definition.fields.map(({name, gas_name}) => [name, gas_name || name]));
   const writable = definition.fields.map(({name}) => name);
+  const schemaFields = Object.fromEntries(definition.fields.map(field => [field.name, {
+    type: field.type,
+    required: field.required === true,
+    primaryKey: field.primary_key === true
+  }]));
   const gasKeyField = gasFields[keyField];
   return {
+    schema: { entity: definition.entity, version: definition.version, fields: schemaFields },
     writable,
     sources: {
       firestore: { collection: definition.sources.firestore.collection, keyField, fields: firestoreFields },

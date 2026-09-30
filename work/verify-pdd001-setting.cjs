@@ -11,6 +11,14 @@ test('PDD001 Setting Definition generates the existing GAS/Firestore contract', 
   delete require.cache[require.resolve('../shared/DAO_Definition_Setting.generated.js')];
   const { settingDefinition } = require('../shared/DAO_Definition_Setting.generated.js');
   assert.deepEqual(settingDefinition, {
+    schema: {
+      entity: 'setting',
+      version: '0.1',
+      fields: {
+        key: { type: 'string', required: true, primaryKey: true },
+        value: { type: 'string', required: true, primaryKey: false }
+      }
+    },
     writable: ['key', 'value'],
     sources: {
       firestore: { collection: 'settings', keyField: 'key', fields: { key: 'key', value: 'value' } },
@@ -44,4 +52,20 @@ test('Time Travel builders bundle the generated Setting Definition', () => {
     assert.match(source, /"collection": "settings"/);
     assert.match(source, /"sheet": "99_設定"/);
   }
+});
+
+
+test('Firestore Renderer projects the portable Setting Definition without I/O', () => {
+  const { settingDefinition } = require('../shared/DAO_Definition_Setting.generated.js');
+  const { renderFirestoreSchema } = require('../shared/Schema_Renderer_Firestore.js');
+  assert.deepEqual(renderFirestoreSchema(settingDefinition), {
+    entity: 'setting',
+    version: '0.1',
+    collection: 'settings',
+    documentIdField: 'key',
+    fields: [
+      { logicalName: 'key', physicalName: 'key', type: 'string', required: true, documentId: true },
+      { logicalName: 'value', physicalName: 'value', type: 'string', required: true, documentId: false }
+    ]
+  });
 });
