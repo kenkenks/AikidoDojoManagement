@@ -9,7 +9,8 @@
  * 将来的にはRepository候補。
  */
 function billingRecordAppendInvoice_(invoice, ctx) {
-  return daoPortableInvoice_append_(invoice, ctx);
+  ctx = daoContext_(ctx);
+  return daoCore_(ctx).append('invoices', [invoice], ctx);
 }
 
 /**

@@ -58,16 +58,49 @@ function daoPaymentAppend_(ctx, payment) {
 
 
 
-// STEP8-B: 05_請求明細の支払状態 read/update persistence boundaryをPortable DAOへ切替。
-// 配賦計算は payment_calculateInvoiceStatuses_ に残し、ここでは永続化だけを扱う。
+// 05_請求明細の支払状態 read/update persistence boundary。
+// 配賦計算は payment_calculateInvoiceStatuses_ に残し、永続化は既存 DAO Core を使用する。
 function daoPaymentLoadInvoiceStatusRows_(ctx) {
-  return daoPortableInvoice_readStatusRows_(ctx);
+  ctx = daoContext_(ctx);
+
+  return daoCore_(ctx).read('invoices', ctx).map(function(row, index) {
+    return {
+      // Compatibility only: payment_calculateInvoiceStatuses_ returns rowNumber in its DTO.
+      // Persistence updates below use invoice_id, not the physical row number.
+      rowNumber: index + 2,
+      target_month: row.target_month,
+      billing_group_id: row.billing_group_id,
+      invoice_id: row.invoice_id,
+      amount: Number(row['請求予定額'] || row['金額'] || 0),
+      current_status: String(row['支払状態'] || '')
+    };
+  });
 }
 
 function daoPaymentUpdateInvoiceStatuses_(allocations, ctx) {
-  return daoPortableInvoice_updateStatuses_(allocations, ctx);
-}
+  ctx = daoContext_(ctx);
 
+  var updated = 0;
+  (allocations || []).forEach(function(allocation) {
+    var invoiceId = String(allocation.invoice_id || '').trim();
+    if (!invoiceId) throw new Error('INVOICE_ID_REQUIRED_FOR_STATUS_UPDATE');
+
+    var result = daoCore_(ctx).updateByKey(
+      'invoices',
+      'invoice_id',
+      invoiceId,
+      { '支払状態': allocation.status },
+      ctx
+    );
+
+    if (!result || result.found !== true) {
+      throw new Error('INVOICE_NOT_FOUND_FOR_STATUS_UPDATE: ' + invoiceId);
+    }
+    updated++;
+  });
+
+  return { updated: updated };
+}
 
 function daoPaymentEvidenceRequiredHeaders_() {
   return [
