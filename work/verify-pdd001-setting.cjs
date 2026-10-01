@@ -34,24 +34,13 @@ test('DAO registry consumes the generated Setting Definition', () => {
   assert.deepEqual(definitions.setting, settingDefinition);
 });
 
-test('Time Travel builders bundle the generated Setting Definition', () => {
-  for (const script of [
-    'tools/build-time-travel.mjs',
-    'tools/build-time-travel-step2.mjs',
-    'tools/build-time-travel-step2-gas-runtime.mjs',
-    'tools/build-time-travel-firestore.mjs'
-  ]) cp.execFileSync(process.execPath, [script], { cwd: root, stdio: 'pipe' });
+test('Time Travel Firestore builder bundles the generated Setting Definition', () => {
+  cp.execFileSync(process.execPath, ['tools/build-time-travel-firestore.mjs'], { cwd: root, stdio: 'pipe' });
 
-  for (const artifact of [
-    'gas/DojoTimeTravel.js',
-    'gas/DojoTimeTravelStep2.js',
-    '.build/portable-timetravel-firestore/DojoTimeTravelFirestore.cjs'
-  ]) {
-    const source = fs.readFileSync(path.join(root, artifact), 'utf8');
-    assert.match(source, /Generated from schema\/Setting\.yml/);
-    assert.match(source, /"collection": "settings"/);
-    assert.match(source, /"sheet": "99_設定"/);
-  }
+  const source = fs.readFileSync(path.join(root, '.build/portable-timetravel-firestore/DojoTimeTravelFirestore.cjs'), 'utf8');
+  assert.match(source, /Generated from schema\/Setting\.yml/);
+  assert.match(source, /"collection": "settings"/);
+  assert.match(source, /"sheet": "99_設定"/);
 });
 
 

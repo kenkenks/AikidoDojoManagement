@@ -9,7 +9,7 @@ function setup(){
   const sheets=new Map([[settingDefinition.sources.gas.sheet,original]]);
   const ss={getSheetByName:name=>sheets.get(name),insertSheet(name){const s=sheet([]);sheets.set(name,s);return s;},deleteSheet(s){for(const [name,value]of sheets)if(value===s)sheets.delete(name);}};
   const box={Date,Intl,SpreadsheetApp:{getActiveSpreadsheet:()=>ss},Session:{getScriptTimeZone:()=> 'Asia/Tokyo'},Utilities:{formatDate:format,getUuid:()=> 'test-12345'},createSheetContext:()=>({ss,settings:Object.fromEntries(original.rows.slice(1))}),ensureSheetContext:ctx=>ctx,normalizeMonth:value=>String(value).trim()};
-  vm.createContext(box);for(const name of ['DojoTimeTravel.js','DojoTimeTravelEntry.js','DojoTimeTravelStep2.js','DojoTimeTravelStep2Entry.js','sup_timeTravel.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'../gas',name),'utf8'),box);
+  vm.createContext(box);vm.runInContext(fs.readFileSync(path.join(__dirname,'../gas/sup_timeTravel.js'),'utf8'),box);
   return {box,sheets,original};
 }
 test('existing UI entry saves through common DAO and existing clock observes it',()=>{
@@ -21,9 +21,4 @@ test('existing UI entry saves through common DAO and existing clock observes it'
   assert.equal(box.sup_timeTravel_getSystemContext(box.createSheetContext()).target_month,'2099-07');
   assert.equal(box.sup_timeTravel_saveAdminSetting({enabled:false}).effective.time_travel_enabled,false);
   assert.equal(original.rows.find(r=>r[0]==='DEBUG')[1],'TRUE');
-});
-test('physical IO smoke cleans up temporary sheet and leaves real settings intact',()=>{
-  const {box,sheets,original}=setup(),before=JSON.stringify(original.rows);
-  assert.equal(box.runner_timeTravelPortable_smoke().message,'TIME-TRAVEL-PORTABLE PASS');
-  assert.equal(JSON.stringify(original.rows),before);assert.equal(sheets.size,1);
 });

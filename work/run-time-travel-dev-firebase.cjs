@@ -5,7 +5,7 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const profile = JSON.parse(fs.readFileSync(path.join(root, 'targets', 'dev-firebase.json'), 'utf8'));
-const artifactPath = path.join(root, '.build', 'portable-timetravel-step2-firestore', 'DojoTimeTravelStep2.cjs');
+const artifactPath = path.join(root, '.build', 'portable-timetravel-firestore', 'DojoTimeTravelFirestore.cjs');
 
 if (!fs.existsSync(artifactPath)) {
   throw new Error('FIREBASE_BUILD_REQUIRED: npm run target:build -- dev-firebase');

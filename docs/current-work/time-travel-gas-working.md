@@ -1,41 +1,16 @@
-# タイムトリップ：開発GAS実動確認済み
+# Time Travel current route
 
-元リポジトリ `C:\Users\pxk07\Documents\道場サポ\workspace\clasp_道場サポ` と、targets/dev-gas.jsonで指定された開発GASへ反映しました。コミットはまだ行っていません。本番GAS・Firestoreには反映していません。
+Time Travel のGAS本番経路は `gas/sup_timeTravel.js` を入口とし、`createSheetContext()` / `ctx.settings` を通じて既存の `99_設定` を使用する。
+旧 `DojoTimeTravel*` 生成物・Entry・Step2 GAS builder は撤去済みで、本番経路には使用しない。
 
-## 確認結果
+Firestore側は `tools/build-time-travel-firestore.mjs` が `.build/portable-timetravel-firestore/DojoTimeTravelFirestore.cjs` を生成する。
+構成は `TimeApplicationCore -> DAO_Business_Setting -> Firestore Core` で、旧 generic Portable DAO / `TimeApplicationStep2` には依存しない。
 
-Apps Script APIで開発GASの最新保存コードを実行し、次を確認しました。
+主な確認:
 
-```json
-{"ok":true,"message":"TIME-TRAVEL-PORTABLE PASS","success":4}
-```
-
-実際の一時シートで新規保存・更新・再読込・無効化を実行し、finallyで一時シートを削除しました。99_設定は変更していません。確認時の既存設定は有効、2026-07-06 10:00:00、対象月2026-07でした。
-
-## 使い方
-
-開発GASの既存タイムトリップ設定ダイアログを使用できます。Apps Scriptエディターから `showTimeTravelDialog` を実行すると既存画面を開きます（紐付いたスプレッドシートの画面から利用する関数です）。その画面の取得・保存が共通DAOにつながっています。
-
-エディターから `runner_timeTravelPortable_smoke` を実行すると、現在の設定を変えずに同じ実I/O確認を再実行できます。テスト中に強制停止した場合はfinallyが動かず、一時シートが残る可能性があります。
-
-既存のバージョン固定Webアプリのデプロイ更新はしていません。今回確認したのは開発GASの最新保存コードです。
-
-## 変更範囲
-
-- gas/sup_timeTravel.js：既存の取得・保存・システムコンテキスト入口を共通実装へ委譲。
-- gas/DojoTimeTravel.js：shared＋GAS DAOから生成したコード。
-- gas/DojoTimeTravelEntry.js：GAS環境への接続、実I/O確認関数。
-- shared/、adapters/gas/DAO_Core.js：共通定義・処理とGAS用DAO。出席処理の既存入口は変更していません。
-- tools/build-time-travel.mjs：生成用。work/verify-time-travel-entry.cjs：ローカル入口検証。
-
-共通ソースを修正したら、リポジトリ直下で再生成します。
-
-```powershell
-node tools/build-time-travel.mjs
+```bash
 node --test work/verify-time-travel-entry.cjs
-npm run target:build -- dev-gas
+node --test work/verify-time-travel-firestore-composition.cjs
+node --test work/verify-pdd001-setting.cjs
+node tools/build-time-travel-firestore.mjs
 ```
-
-通常のtargetビルドは生成済みgas/DojoTimeTravel.jsをコピーします。生成物を直接編集せず、shared側を修正して再生成してください。
-
-開発GAS更新前の全ソースは作業環境にバックアップしました。反映時はリモートの他ファイルを維持し、上記GAS3ファイルのみ変更しました。
