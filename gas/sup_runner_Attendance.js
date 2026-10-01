@@ -28,7 +28,7 @@ function runner_story_attendance_001() {
   const teacherId = "T001";
 
   const members = [
-    "M001", "M002", "M003", "M004", "M005",
+    "M001", "M002", "M003", "M004", "M005-1",
     "M006", "M007", "M008", "M009", "M010"
   ];
 
