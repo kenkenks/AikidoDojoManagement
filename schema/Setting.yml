@@ -14,6 +14,6 @@ fields:
 
 sources:
   gas:
-    sheet: "999_設定"
+    sheet: "99_設定"
   firestore:
     collection: settings

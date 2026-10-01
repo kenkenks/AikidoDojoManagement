@@ -1,7 +1,7 @@
 'use strict';
 // Generated from schema/Setting.yml by tools/build-portable-data-definition.mjs. Do not edit.
 function dojoPddDescribeSettingGas_() {
-  return { sheet: "999_設定", requiredHeaders: ["キー","値"] };
+  return { sheet: "99_設定", requiredHeaders: ["キー","値"] };
 }
 function dojoPddEnsureSettingGas_(spreadsheet) {
   var ss = spreadsheet || SpreadsheetApp.getActiveSpreadsheet();

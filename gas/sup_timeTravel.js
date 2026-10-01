@@ -132,12 +132,43 @@ function sup_timeTravel_getSystemContext(ctx) {
   };
 }
 
-function sup_timeTravel_getAdminSetting(spreadsheet) {
-  return dojoTimeTravelStep2Application_(spreadsheet).getTimeTravel();
+function sup_timeTravel_getAdminSetting() {
+  const ctx = createSheetContext();
+  const setting = sup_getTimeTravelSetting_(ctx);
+  return {
+    ok: true,
+    enabled: setting.enabled === true,
+    now: setting.now && !isNaN(new Date(setting.now).getTime()) ? new Date(setting.now).toISOString() : "",
+    target_month: setting.targetMonth || "",
+    effective: sup_timeTravel_getSystemContext(ctx)
+  };
 }
 
-function sup_timeTravel_saveAdminSetting(input, spreadsheet) {
-  return dojoTimeTravelStep2Application_(spreadsheet).saveTimeTravel(input);
+function sup_timeTravel_saveAdminSetting(input) {
+  input = input || {};
+  const ctx = createSheetContext();
+  const enabled = input.enabled === true || String(input.enabled).toUpperCase() === "TRUE";
+  const debugDate = enabled ? String(input.now || "").trim() : "";
+  const targetMonth = enabled ? normalizeMonth(input.target_month || "") : "";
+  if (enabled && (!debugDate || isNaN(new Date(debugDate).getTime()))) {
+    return { ok: false, message: "有効にする場合はテスト日時を指定してください。" };
+  }
+  if (enabled && !/^\d{4}-\d{2}$/.test(targetMonth)) {
+    return { ok: false, message: "有効にする場合は対象月を指定してください。" };
+  }
+
+  const updates = {
+    TIME_TRAVEL_ENABLED: enabled ? "TRUE" : "FALSE",
+    DEBUG_DATE: debugDate,
+    DEBUG_TARGET_MONTH: targetMonth
+  };
+  sup_timeTravel_writeSettings_(updates, ctx);
+  ctx.settings = Object.assign({}, ctx.settings || {}, updates);
+  return {
+    ok: true,
+    message: enabled ? "テスト時刻を有効にしました。" : "実時刻へ戻しました。",
+    effective: sup_timeTravel_getSystemContext(ctx)
+  };
 }
 
 function sup_timeTravel_writeSettings_(updates, ctx) {
