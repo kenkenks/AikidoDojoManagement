@@ -1,0 +1,25 @@
+# Provisional controlled vocabulary.
+# This file is an architectural checkpoint only; runtime/build integration is intentionally deferred.
+version: "0.1"
+
+terms:
+  member_id:
+    type: string
+    label: "会員ID"
+
+  attendance_id:
+    type: string
+    label: "出席ID"
+
+  target_month:
+    type: string
+    format: "YYYY-MM"
+    label: "対象月"
+
+  attendance_date:
+    type: string
+    label: "稽古日時"
+
+  status:
+    type: string
+    label: "状態"

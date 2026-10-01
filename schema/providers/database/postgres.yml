@@ -1,0 +1,4 @@
+# Provisional Database Provider marker. Detailed PostgreSQL rules are intentionally deferred.
+provider: postgres
+kind: database
+version: "0.1"

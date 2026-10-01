@@ -1,0 +1,10 @@
+# Provisional ID -> Entity relationships.
+# Detailed formats belong to Dictionary.yml; relations may be derived later from ID + Entity definitions.
+version: "0.1"
+
+ids:
+  member_id:
+    entity: Member
+
+  attendance_id:
+    entity: Attendance

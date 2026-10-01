@@ -1,0 +1,4 @@
+# Provisional Host Provider marker. Detailed Firebase rules are intentionally deferred.
+provider: firebase
+kind: host
+version: "0.1"

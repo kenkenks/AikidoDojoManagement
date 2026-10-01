@@ -1,0 +1,4 @@
+# Provisional Host Provider marker. Detailed GAS rules are intentionally deferred.
+provider: gas
+kind: host
+version: "0.1"

@@ -1,0 +1,4 @@
+# Provisional Database Provider marker. Firestore is the primary design baseline.
+provider: firestore
+kind: database
+version: "0.1"

@@ -1,0 +1,17 @@
+# Provisional build-target catalog.
+# A target selects one Host Provider and one Database Provider.
+# Build integration is intentionally deferred; targets are not all built at once.
+version: "0.1"
+
+targets:
+  demo-gas:
+    host: gas
+    database: spreadsheet
+
+  production-gas:
+    host: gas
+    database: spreadsheet
+
+  production-firebase:
+    host: firebase
+    database: firestore

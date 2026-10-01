@@ -1,0 +1,4 @@
+# Provisional Database Provider marker. Detailed Spreadsheet rules are intentionally deferred.
+provider: spreadsheet
+kind: database
+version: "0.1"
