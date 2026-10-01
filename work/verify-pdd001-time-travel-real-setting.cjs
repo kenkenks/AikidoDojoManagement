@@ -39,7 +39,8 @@ function load({ hasSheet = true } = {}) {
     console: { log() {} },
     SpreadsheetApp: { getActiveSpreadsheet() { return { getSheetByName(name) { return hasSheet && name === settingSheetName ? sheet : null; } }; } },
     dojoPddDescribeSettingGas_() { return { sheet: settingSheetName, requiredHeaders: ['キー', '値'] }; },
-    dojoTimeTravelStep2Application_() { return app; }
+    sup_timeTravel_getAdminSetting() { return app.getTimeTravel(); },
+    sup_timeTravel_saveAdminSetting(input) { return app.saveTimeTravel(input); }
   };
   vm.createContext(context);
   vm.runInContext(runner, context);

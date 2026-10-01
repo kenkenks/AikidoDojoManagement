@@ -7,14 +7,13 @@ function runner_pdd001_timeTravelRealSetting() {
   var sheet = ss.getSheetByName(settingSheetName);
   if (!sheet) throw new Error('PDD001_TIME_TRAVEL_MISSING: ' + settingSheetName);
 
-  var app = dojoTimeTravelStep2Application_(ss);
   var checks = [];
 
-  var initial = app.getTimeTravel();
+  var initial = sup_timeTravel_getAdminSetting();
   if (!initial || typeof initial.enabled !== 'boolean') throw new Error('PDD001_TIME_TRAVEL_READ_FAILED');
   checks.push('READ');
 
-  var created = app.saveTimeTravel({
+  var created = sup_timeTravel_saveAdminSetting({
     enabled: true,
     now: '2099-07-09T10:00:00+09:00',
     target_month: '2099-07'
@@ -24,7 +23,7 @@ function runner_pdd001_timeTravelRealSetting() {
   }
   checks.push('CREATE');
 
-  var updated = app.saveTimeTravel({
+  var updated = sup_timeTravel_saveAdminSetting({
     enabled: true,
     now: '2099-07-10T10:00:00+09:00',
     target_month: '2099-08'
@@ -34,11 +33,11 @@ function runner_pdd001_timeTravelRealSetting() {
   }
   checks.push('UPDATE');
 
-  var reread = app.getTimeTravel();
+  var reread = sup_timeTravel_getAdminSetting();
   if (!reread || reread.target_month !== '2099-08') throw new Error('PDD001_TIME_TRAVEL_READ_AGAIN_FAILED');
   checks.push('READ_AGAIN');
 
-  var disabled = app.saveTimeTravel({ enabled: false });
+  var disabled = sup_timeTravel_saveAdminSetting({ enabled: false });
   if (!disabled.ok || !disabled.effective || disabled.effective.time_travel_enabled) {
     throw new Error('PDD001_TIME_TRAVEL_DISABLE_FAILED');
   }
