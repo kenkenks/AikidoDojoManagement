@@ -10,3 +10,8 @@ sources:
     identity: attendance_id
     fields:
       - attendance_id
+      - location_id
+      - slot_id
+      - billing_block_id
+      - teacher_id
+      - attendance_session_id

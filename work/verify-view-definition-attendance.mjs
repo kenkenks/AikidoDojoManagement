@@ -32,14 +32,30 @@ test('View.yml starts with Attendance source and member-month key', () => {
   assert.equal(view.view, 'MemberMonthlySummary');
   assert.deepEqual(view.key, ['member_id', 'target_month']);
   assert.equal(view.sources.attendance.identity, 'attendance_id');
-  assert.deepEqual(view.sources.attendance.fields, ['attendance_id']);
+  assert.deepEqual(view.sources.attendance.fields, [
+    'attendance_id',
+    'location_id',
+    'slot_id',
+    'billing_block_id',
+    'teacher_id',
+    'attendance_session_id'
+  ]);
 });
 
 test('actual Attendance DTO satisfies current View.yml without repacking', () => {
   const dto = makeAttendancePlan(options(), facts(), deps()).rowsToAppend[0];
   assert.deepEqual(checkDtoAgainstView(view, 'attendance', dto), {
     ok: true,
-    required: ['member_id', 'target_month', 'attendance_id'],
+    required: [
+      'member_id',
+      'target_month',
+      'attendance_id',
+      'location_id',
+      'slot_id',
+      'billing_block_id',
+      'teacher_id',
+      'attendance_session_id'
+    ],
     missing: []
   });
 });
