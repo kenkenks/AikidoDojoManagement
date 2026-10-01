@@ -39,13 +39,13 @@ test('Time Travel builders bundle the generated Setting Definition', () => {
     'tools/build-time-travel.mjs',
     'tools/build-time-travel-step2.mjs',
     'tools/build-time-travel-step2-gas-runtime.mjs',
-    'tools/build-time-travel-step2-firestore.mjs'
+    'tools/build-time-travel-firestore.mjs'
   ]) cp.execFileSync(process.execPath, [script], { cwd: root, stdio: 'pipe' });
 
   for (const artifact of [
     'gas/DojoTimeTravel.js',
     'gas/DojoTimeTravelStep2.js',
-    '.build/portable-timetravel-step2-firestore/DojoTimeTravelStep2.cjs'
+    '.build/portable-timetravel-firestore/DojoTimeTravelFirestore.cjs'
   ]) {
     const source = fs.readFileSync(path.join(root, artifact), 'utf8');
     assert.match(source, /Generated from schema\/Setting\.yml/);

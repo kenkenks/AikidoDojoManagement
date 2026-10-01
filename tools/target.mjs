@@ -35,12 +35,12 @@ build();
 if (command === "push") runClasp(["push"]);
 
 function buildFirebase() {
-  const builder = join(repoRoot, "tools", "build-time-travel-step2-firestore.mjs");
+  const builder = join(repoRoot, "tools", "build-time-travel-firestore.mjs");
   const result = spawnSync(process.execPath, [builder], { cwd: repoRoot, stdio: "inherit", windowsHide: true });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Firebase build failed: exit ${result.status}`);
   console.log(`Target: ${targetName}`);
-  console.log("Output: .build/portable-timetravel-step2-firestore");
+  console.log("Output: .build/portable-timetravel-firestore");
   console.log(`Firebase project: ${profile.projectId}`);
 }
 
