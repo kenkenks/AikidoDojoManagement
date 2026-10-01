@@ -1,0 +1,12 @@
+view: MemberMonthlySummary
+version: "0.1"
+
+key:
+  - member_id
+  - target_month
+
+sources:
+  attendance:
+    identity: attendance_id
+    fields:
+      - attendance_id
