@@ -1,9 +1,11 @@
 // PDD001 final GAS E2E runner.
-// Uses the real PDD-created 99_設定 and intentionally leaves the final state visible.
+// Uses the real PDD-created Setting sheet and intentionally leaves the final state visible.
 function runner_pdd001_timeTravelRealSetting() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName('99_設定');
-  if (!sheet) throw new Error('PDD001_TIME_TRAVEL_MISSING: 99_設定');
+  var settingDescription = dojoPddDescribeSettingGas_();
+  var settingSheetName = settingDescription.sheet;
+  var sheet = ss.getSheetByName(settingSheetName);
+  if (!sheet) throw new Error('PDD001_TIME_TRAVEL_MISSING: ' + settingSheetName);
 
   var app = dojoTimeTravelStep2Application_(ss);
   var checks = [];
@@ -47,7 +49,7 @@ function runner_pdd001_timeTravelRealSetting() {
   var result = {
     ok: true,
     message: 'PDD001 TIME TRAVEL REAL SETTING PASS',
-    sheet: '99_設定',
+    sheet: settingSheetName,
     success: checks.length,
     checks: checks,
     physical: physical

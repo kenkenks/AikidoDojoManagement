@@ -7,6 +7,8 @@ const vm = require('node:vm');
 const root = path.resolve(__dirname, '..');
 const ensureSource = fs.readFileSync(path.join(root, 'gas/DojoPddCreateSetting.generated.js'), 'utf8');
 const runnerSource = fs.readFileSync(path.join(root, 'gas/25_PddRealContactRunner.js'), 'utf8');
+const { settingDefinition } = require('../shared/DAO_Definition_Setting.generated.js');
+const settingSheetName = settingDefinition.sources.gas.sheet;
 
 function sheet(rows) {
   const data = rows.map(row => row.slice());
@@ -25,7 +27,7 @@ function sheet(rows) {
 function run(rows) {
   const settingSheet = rows ? sheet(rows) : null;
   const spreadsheet = {
-    getSheetByName(name) { return name === '99_設定' ? settingSheet : null; },
+    getSheetByName(name) { return name === settingSheetName ? settingSheet : null; },
     insertSheet() { throw new Error('REAL_CONTACT_MUST_NOT_CREATE'); }
   };
   const context = {

@@ -6,6 +6,8 @@ const cp = require('node:child_process');
 const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
+const { settingDefinition } = require('../shared/DAO_Definition_Setting.generated.js');
+const settingSheetName = settingDefinition.sources.gas.sheet;
 
 function loadEnsure() {
   cp.execFileSync(process.execPath, ['tools/build-portable-data-definition.mjs'], { cwd: root, stdio: 'pipe' });
@@ -53,31 +55,31 @@ test('PDD001 GAS Create creates missing Setting sheet from Definition', () => {
   const ss = spreadsheet();
   const result = ensure(ss);
   assert.equal(result.created, true);
-  assert.deepEqual(ss.getSheetByName('99_設定').data[0], ['キー','値']);
+  assert.deepEqual(ss.getSheetByName(settingSheetName).data[0], ['キー','値']);
 });
 
 test('PDD001 GAS Create is idempotent and preserves existing Setting data', () => {
   const ensure = loadEnsure();
-  const ss = spreadsheet({'99_設定': [['キー','値'], ['TIME_TRAVEL_ENABLED','TRUE']]});
-  const before = JSON.stringify(ss.getSheetByName('99_設定').data);
+  const ss = spreadsheet({[settingSheetName]: [['キー','値'], ['TIME_TRAVEL_ENABLED','TRUE']]});
+  const before = JSON.stringify(ss.getSheetByName(settingSheetName).data);
   const result = ensure(ss);
   assert.equal(result.created, false);
-  assert.equal(JSON.stringify(ss.getSheetByName('99_設定').data), before);
+  assert.equal(JSON.stringify(ss.getSheetByName(settingSheetName).data), before);
 });
 
 test('PDD001 GAS Create refuses structural mismatch instead of migrating it', () => {
   const ensure = loadEnsure();
-  const ss = spreadsheet({'99_設定': [['キー','wrong'], ['TIME_TRAVEL_ENABLED','TRUE']]});
+  const ss = spreadsheet({[settingSheetName]: [['キー','wrong'], ['TIME_TRAVEL_ENABLED','TRUE']]});
   assert.throws(() => ensure(ss), /PDD_STRUCTURE_MISMATCH/);
-  assert.deepEqual(ss.getSheetByName('99_設定').data[0], ['キー','wrong']);
+  assert.deepEqual(ss.getSheetByName(settingSheetName).data[0], ['キー','wrong']);
 });
 
 
 test('PDD001 GAS Create accepts shared Setting container with extra physical columns', () => {
   const ensure = loadEnsure();
-  const ss = spreadsheet({'99_設定': [['キー','値',''], ['TIME_TRAVEL_ENABLED','TRUE','既存項目']]});
-  const before = JSON.stringify(ss.getSheetByName('99_設定').data);
+  const ss = spreadsheet({[settingSheetName]: [['キー','値',''], ['TIME_TRAVEL_ENABLED','TRUE','既存項目']]});
+  const before = JSON.stringify(ss.getSheetByName(settingSheetName).data);
   const result = ensure(ss);
   assert.equal(result.created, false);
-  assert.equal(JSON.stringify(ss.getSheetByName('99_設定').data), before);
+  assert.equal(JSON.stringify(ss.getSheetByName(settingSheetName).data), before);
 });

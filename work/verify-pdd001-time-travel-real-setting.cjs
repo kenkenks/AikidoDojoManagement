@@ -7,6 +7,8 @@ const path = require('node:path');
 
 const root = path.resolve(__dirname, '..');
 const runner = fs.readFileSync(path.join(root, 'gas', '27_PddTimeTravelRealSettingRunner.js'), 'utf8');
+const { settingDefinition } = require('../shared/DAO_Definition_Setting.generated.js');
+const settingSheetName = settingDefinition.sources.gas.sheet;
 
 function load({ hasSheet = true } = {}) {
   const values = [['キー', '値']];
@@ -35,7 +37,8 @@ function load({ hasSheet = true } = {}) {
   };
   const context = {
     console: { log() {} },
-    SpreadsheetApp: { getActiveSpreadsheet() { return { getSheetByName(name) { return hasSheet && name === '99_設定' ? sheet : null; } }; } },
+    SpreadsheetApp: { getActiveSpreadsheet() { return { getSheetByName(name) { return hasSheet && name === settingSheetName ? sheet : null; } }; } },
+    dojoPddDescribeSettingGas_() { return { sheet: settingSheetName, requiredHeaders: ['キー', '値'] }; },
     dojoTimeTravelStep2Application_() { return app; }
   };
   vm.createContext(context);
@@ -53,7 +56,7 @@ test('PDD001 final runner exercises real Setting route and leaves observable dis
   assert.equal(result.physical[1][1], 'FALSE');
 });
 
-test('PDD001 final runner refuses to fabricate missing 99_設定', () => {
+test('PDD001 final runner refuses to fabricate missing Setting sheet', () => {
   const { context } = load({ hasSheet: false });
   assert.throws(() => context.runner_pdd001_timeTravelRealSetting(), /PDD001_TIME_TRAVEL_MISSING/);
 });

@@ -8,6 +8,8 @@ const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const generated = fs.readFileSync(path.join(root, 'gas', 'DojoPddCreateSetting.generated.js'), 'utf8');
 const runner = fs.readFileSync(path.join(root, 'gas', '26_PddRealCreateRunner.js'), 'utf8');
+const { settingDefinition } = require('../shared/DAO_Definition_Setting.generated.js');
+const settingSheetName = settingDefinition.sources.gas.sheet;
 
 function makeSheet(name, headers = [], rows = []) {
   const values = [headers.slice(), ...rows.map(r => r.slice())];
@@ -53,7 +55,7 @@ test('PDD001 real create creates missing Setting sheet from Definition', () => {
   assert.equal(result.created, true);
   assert.equal(result.changed, true);
   assert.deepEqual(Array.from(result.headers), ['キー', '値']);
-  assert.deepEqual(ss.getSheetByName('99_設定')._values[0], ['キー', '値']);
+  assert.deepEqual(ss.getSheetByName(settingSheetName)._values[0], ['キー', '値']);
 });
 
 test('PDD001 real create second run is idempotent', () => {
@@ -66,7 +68,7 @@ test('PDD001 real create second run is idempotent', () => {
 });
 
 test('PDD001 real create preserves existing shared Setting rows', () => {
-  const sheet = makeSheet('99_設定', ['キー', '値', '備考'], [['A', '1', 'keep']]);
+  const sheet = makeSheet(settingSheetName, ['キー', '値', '備考'], [['A', '1', 'keep']]);
   const { context } = load([sheet]);
   const before = JSON.stringify(sheet._values);
   const result = context.runner_pdd001_settingRealCreate();
