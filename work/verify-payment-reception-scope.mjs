@@ -16,15 +16,6 @@ const context = {
 };
 vm.createContext(context);
 
-context.DojoPortableDaoPaymentLog = {
-  create: () => ({
-    appendRecord: (_name, values) => {
-      captured.push(values);
-      return { appended: true };
-    }
-  })
-};
-
 [
   "gas/00_Job.js",
   "gas/DAO_Core_Sheets.js",

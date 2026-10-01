@@ -23,17 +23,7 @@ function daoPaymentLoadEvidenceReadModel_(ctx) {
 function daoPaymentAppend_(ctx, payment) {
   ctx = daoContext_(ctx);
 
-  // STEP7-B: 06_入金ログの永続化だけを Portable DAO へ切り替える。
-  // Payment の計算・05請求状態更新・09 Evidence・20 View は従来経路のまま。
-  const portableDao = DojoPortableDaoPaymentLog.create({}, {
-    spreadsheet: ctx.ss
-  });
-
-  // 06_入金ログは base 9列に加え、paymentReception_ensureSchema() が
-  // 受付Scope 5列を正式に拡張する（reception_date / location_id /
-  // billing_block_id / teacher_id / reception_session_id）。
-  // member_id は06の物理列ではないため保存しない。
-  const result = portableDao.appendRecord("paymentLog", {
+  return daoCore_(ctx).append("payments", [{
     payment_id: payment.payment_id,
     日時: payment.日時,
     target_month: payment.target_month,
@@ -48,15 +38,8 @@ function daoPaymentAppend_(ctx, payment) {
     billing_block_id: payment.billing_block_id,
     teacher_id: payment.teacher_id,
     reception_session_id: payment.reception_session_id
-  });
-
-  // 直後の payment_updateInvoiceStatus() は getPayments(ctx) を読む。
-  // 旧 daoCoreSheets_append() と同じ契約を維持するため、06キャッシュを必ず破棄する。
-  invalidatePayments(ctx);
-  return result;
+  }], ctx);
 }
-
-
 
 // 05_請求明細の支払状態 read/update persistence boundary。
 // 配賦計算は payment_calculateInvoiceStatuses_ に残し、永続化は既存 DAO Core を使用する。
