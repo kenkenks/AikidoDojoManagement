@@ -3,6 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {makeAttendancePlan}=require('../shared/AttendanceNative.js');
+const {reconcileSystemKeys}=require('../shared/SystemKey.js');
 
 const root=path.resolve(__dirname,'..');
 const legacySource=['gas/04_Attendance.js','gas/04_AttendanceCore.js','gas/DAO_Business_Attendance.js']
@@ -67,9 +68,20 @@ function semanticLegacy(plan){
   };
 }
 function semanticNative(plan){
+  const rt=runtime();
+  const append=plan.rowsToAppend.map(row=>{
+    const dto=reconcileSystemKeys(row,rt);
+    return {
+      attendance_id:dto.attendance_id,'稽古日':dto.attendance_date,'登録日時':dto.created_at,
+      member_id:dto.member_id,target_month:dto.target_month,location_id:dto.location_id,slot_id:dto.slot_id,
+      billing_block_id:dto.billing_block_id,teacher_id:dto.teacher_id,attendance_session_id:dto.attendance_session_id,
+      '稽古時間分':dto.training_minutes,'状態':dto.status,source:dto.source,
+      '取消日時':'','取消者teacher_id':'','取消理由':'','備考':dto.remarks
+    };
+  });
   return {
     result:plan.result,
-    append:plan.rowsToAppend,
+    append,
     cancel:plan.rowsToCancel.map(row=>({attendance_id:row.attendance_id,slot_id:row.slot_id}))
   };
 }

@@ -1,0 +1,22 @@
+# System-managed keys discovered from existing runtime behavior.
+# Collection phase: do not normalize or merge keys here.
+version: "0.1"
+
+system_keys:
+  attendance_id:
+    type: string
+    auto_generate: true
+    generator: uuid
+    prefix: "ATT-"
+    comment: "Attendance生成時にシステムがRecord単位で自動生成する識別キー。"
+
+  created_at:
+    type: datetime
+    auto_generate: true
+    generator: now
+    comment: "Record生成時刻。旧Attendanceの登録日時から採掘。"
+
+  source:
+    type: string
+    auto_generate: false
+    comment: "処理元を示すシステム情報。Frameworkへの踏襲方法は別途検討する。"

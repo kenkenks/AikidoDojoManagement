@@ -1,0 +1,16 @@
+version: "0.1"
+
+items:
+  cancelled_by_teacher_id:
+    found_in: Attendance
+    reason: "teacher_idとの意味・役割の違いが未整理。新規Attendance Payloadでは使用しない。"
+
+  common_record_trailer:
+    found_in: Attendance
+    reason: "created_at等をFramework共通Record Trailerとして扱える可能性がある。複数Entityで確認する。"
+    comment: "期限なしの宿題。次のEntity実装等で材料が得られ次第、なるべく早く再検討する。"
+
+  attendance_session_structure:
+    found_in: Attendance
+    reason: "attendance_session_idは論理的な上位単位を表すが、現行物理モデルでは独立Recordを持たずAttendanceへ複製保持される。"
+    comment: "現行1テーブル構造を維持するためAttendance固有Condenserで暫定吸収する。Framework共通仕様にはしない。"

@@ -1,0 +1,15 @@
+entity: Attendance
+version: "0.1"
+
+fields:
+  - name: attendance_date
+  - name: member_id
+  - name: target_month
+  - name: location_id
+  - name: slot_id
+  - name: billing_block_id
+  - name: teacher_id
+  - name: attendance_session_id
+  - name: training_minutes
+  - name: status
+  - name: remarks

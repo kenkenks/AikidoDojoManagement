@@ -6,6 +6,7 @@ import { parseViewDefinition, checkDtoAgainstView, assertDtoAgainstView } from '
 
 const require = createRequire(import.meta.url);
 const { makeAttendancePlan } = require('../shared/AttendanceNative.js');
+const { reconcileSystemKeys } = require('../shared/SystemKey.js');
 const view = parseViewDefinition(fs.readFileSync(new URL('../schema/View.yml', import.meta.url), 'utf8'));
 
 const facts = () => ({
@@ -42,8 +43,8 @@ test('View.yml starts with Attendance source and member-month key', () => {
   ]);
 });
 
-test('actual Attendance DTO satisfies current View.yml without repacking', () => {
-  const dto = makeAttendancePlan(options(), facts(), deps()).rowsToAppend[0];
+test('record-gated Attendance DTO satisfies current View.yml without repacking', () => {
+  const dto = reconcileSystemKeys(makeAttendancePlan(options(), facts(), deps()).rowsToAppend[0], deps());
   assert.deepEqual(checkDtoAgainstView(view, 'attendance', dto), {
     ok: true,
     required: [
@@ -63,6 +64,6 @@ test('actual Attendance DTO satisfies current View.yml without repacking', () =>
 test('adding a View field immediately detects a DTO mismatch', () => {
   const extended = structuredClone(view);
   extended.sources.attendance.fields.push('not_yet_in_dto');
-  const dto = makeAttendancePlan(options(), facts(), deps()).rowsToAppend[0];
+  const dto = reconcileSystemKeys(makeAttendancePlan(options(), facts(), deps()).rowsToAppend[0], deps());
   assert.throws(() => assertDtoAgainstView(extended, 'attendance', dto), /DTOにないView項目: not_yet_in_dto/);
 });

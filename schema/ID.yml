@@ -8,3 +8,15 @@ ids:
 
   attendance_id:
     entity: Attendance
+
+  location_id:
+    entity: Location
+
+  slot_id:
+    entity: TrainingSlot
+
+  billing_block_id:
+    entity: BillingBlock
+
+  teacher_id:
+    entity: Teacher

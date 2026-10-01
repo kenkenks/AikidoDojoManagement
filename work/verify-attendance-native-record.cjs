@@ -42,18 +42,22 @@ function portable(initial=[]){
 function appendRow(id='NEW1'){
   return {attendance_id:id,'稽古日':'2099-07-09','登録日時':'2099-07-09T10:00:00+09:00',member_id:'M1',target_month:'2099-07',location_id:'L1',slot_id:'S2',billing_block_id:'B1',teacher_id:'T1',attendance_session_id:'SESSION','稽古時間分':60,'状態':'有効',source:'native','取消日時':'','取消者teacher_id':'','取消理由':'','備考':''};
 }
+function appendDto(){
+  return {attendance_date:'2099-07-09',member_id:'M1',target_month:'2099-07',location_id:'L1',slot_id:'S2',billing_block_id:'B1',teacher_id:'T1',attendance_session_id:'SESSION',training_minutes:60,status:'有効',source:'native',remarks:''};
+}
 
 test('native record applies cancel and append through Portable GAS DAO',()=>{
   const old=appendRow('OLD1'); old.slot_id='S1';
   const {dao,attendance}=portable([old]);
   const result={ok:true,message:'done'};
-  const plan={result,rowsToCancel:[old],rowsToAppend:[appendRow()]};
-  const actual=recordAttendancePlan(plan,{teacher_id:'T1',cancel_reason:'sync'},dao,{now:()=> '2099-07-09T11:00:00+09:00'});
+  const plan={result,rowsToCancel:[old],rowsToAppend:[appendDto()]};
+  const actual=recordAttendancePlan(plan,{teacher_id:'T1',cancel_reason:'sync'},dao,{uuid:()=> 'NEW1',now:()=> '2099-07-09T11:00:00+09:00'});
   assert.equal(actual,result);
   const rows=attendance.objects();
   assert.equal(rows.length,2);
   assert.deepEqual(rows[0],{...old,'状態':'取消','取消日時':'2099-07-09T11:00:00+09:00','取消者teacher_id':'T1','取消理由':'sync'});
-  assert.deepEqual(rows[1],appendRow());
+  assert.deepEqual(rows[1],{...appendRow('ATT-NEW1'),'登録日時':'2099-07-09T11:00:00+09:00'});
+  assert.equal(plan.rowsToAppend[0].attendance_id,'ATT-NEW1');
 });
 
 test('native record does not write a rejected plan',()=>{

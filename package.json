@@ -3,7 +3,7 @@
     "target:build": "node tools/target.mjs build",
     "target:push": "node tools/target.mjs push",
     "target:deploy": "node deploy_prod.mjs",
-    "schema:build": "node tools/build-portable-data-definition.mjs && node tools/build-time-travel.mjs && node tools/build-time-travel-step2-gas-runtime.mjs"
+    "schema:build": "node tools/build-portable-data-definition.mjs && node tools/build-time-travel.mjs && node tools/build-time-travel-step2-gas-runtime.mjs && node tools/build-attendance-native-gas.mjs"
   },
   "devDependencies": {
     "@eslint/css": "^1.2.0",

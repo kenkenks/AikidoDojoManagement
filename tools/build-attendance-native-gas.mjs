@@ -5,10 +5,12 @@ import {fileURLToPath} from 'node:url';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
 const read=p=>fs.readFileSync(path.join(root,p),'utf8');
 const sources={
+  './DAO_Definition_Setting.generated.js':read('shared/DAO_Definition_Setting.generated.js'),
   './DAO_Definitions.js':read('shared/DAO_Definitions.js'),
   './DAO_Business.js':read('shared/DAO_Business.js'),
   './StorageId.js':read('shared/StorageId.js'),
   './Flow.js':read('shared/Flow.js'),
+  './SystemKey.js':read('shared/SystemKey.js'),
   './AttendanceNative.js':read('shared/AttendanceNative.js'),
   './ApplicationAttendanceNative.js':read('shared/ApplicationAttendanceNative.js'),
   './DAO_Core.js':read('adapters/gas/DAO_Core.js')

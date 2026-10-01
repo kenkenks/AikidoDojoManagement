@@ -1,15 +1,58 @@
 /* Generated Native GAS Attendance artifact. */
-var DojoAttendanceNative=(function(){const modules={"./DAO_Definitions.js":function(module,exports,require){
+var DojoAttendanceNative=(function(){const modules={"./DAO_Definition_Setting.generated.js":function(module,exports,require){
 'use strict';
-// Step 1: Portable DAO generic registry only. Business feature definitions are added in later patches.
-const definitions = {
-  setting: {
-    writable: ['key', 'value'],
-    sources: {
-      firestore: { collection: 'settings', keyField: 'key', fields: { key: 'key', value: 'value' } },
-      gas: { sheet: '99_設定', keyColumn: 1, valueColumn: 2, keyField: 'key', fields: { key: 'key', value: 'value' } }
+// Generated from schema/Setting.yml by tools/build-portable-data-definition.mjs. Do not edit.
+const settingDefinition = {
+  "schema": {
+    "entity": "setting",
+    "version": "0.1",
+    "fields": {
+      "key": {
+        "type": "string",
+        "required": true,
+        "primaryKey": true
+      },
+      "value": {
+        "type": "string",
+        "required": true,
+        "primaryKey": false
+      }
     }
   },
+  "writable": [
+    "key",
+    "value"
+  ],
+  "sources": {
+    "firestore": {
+      "collection": "settings",
+      "keyField": "key",
+      "fields": {
+        "key": "key",
+        "value": "value"
+      }
+    },
+    "gas": {
+      "sheet": "999_設定",
+      "keyColumn": 1,
+      "valueColumn": 2,
+      "keyField": "キー",
+      "fields": {
+        "key": "キー",
+        "value": "値"
+      }
+    }
+  }
+};
+module.exports = { settingDefinition };
+
+},
+"./DAO_Definitions.js":function(module,exports,require){
+'use strict';
+const { settingDefinition } = require('./DAO_Definition_Setting.generated.js');
+// Step 1: Portable DAO generic registry only. Business feature definitions are added in later patches.
+const definitions = {
+  setting: settingDefinition,
   monthlySelection: {
     writable: ['target_month','member_id','billing_group_id','plan_id','宣言日','状態','備考'],
     sources: {
@@ -160,7 +203,9 @@ function createDao(core, backend, registry = definitions) {
     const row = yield core.readById(source, id);
     if (row === null) return null;
     const mapped = Object.fromEntries(Object.entries(source.fields).map(([field, storedField]) => {
-      const value = row[storedField];
+      const value = storedField === source.keyField && row[storedField] === undefined
+        ? id
+        : row[storedField];
       return [field, Object.hasOwn(source.transforms || {}, field) ? source.transforms[field](value) : value];
     }));
     return definition.validate ? definition.validate(mapped, id) : mapped;
@@ -196,8 +241,40 @@ function runSteps(iterator) {
 module.exports = { runSteps };
 
 },
+"./SystemKey.js":function(module,exports,require){
+'use strict';
+
+const SYSTEM_KEYS = Object.freeze({
+  attendance_id: Object.freeze({autoGenerate:true,generator:'uuid',prefix:'ATT-'}),
+  created_at: Object.freeze({autoGenerate:true,generator:'now'}),
+  source: Object.freeze({autoGenerate:false})
+});
+
+function reconcileSystemKeys(dto = {}, dependencies = {}) {
+  const out={...dto};
+  for(const [key,rule] of Object.entries(SYSTEM_KEYS)) {
+    if(!rule.autoGenerate || (out[key] !== undefined && out[key] !== null && out[key] !== '')) continue;
+    if(rule.generator === 'uuid') {
+      if(typeof dependencies.uuid !== 'function') throw new Error('UUID_PROVIDER_REQUIRED');
+      out[key]=String(rule.prefix || '') + dependencies.uuid();
+      continue;
+    }
+    if(rule.generator === 'now') {
+      if(typeof dependencies.now !== 'function') throw new Error('NOW_PROVIDER_REQUIRED');
+      out[key]=dependencies.now();
+      continue;
+    }
+    throw new Error('SYSTEM_KEY_GENERATOR_UNSUPPORTED: ' + key);
+  }
+  return out;
+}
+
+module.exports={SYSTEM_KEYS,reconcileSystemKeys};
+
+},
 "./AttendanceNative.js":function(module,exports,require){
 'use strict';
+const {reconcileSystemKeys}=require('./SystemKey.js');
 
 // Native Attendance decision logic.
 // This module has no storage side effects. It receives already-collected facts
@@ -214,14 +291,14 @@ function makeAttendancePlan(options = {}, facts = {}, dependencies = {}) {
     return String(value == null ? '' : value).trim().slice(0, 10);
   });
   const uuid = dependencies.uuid;
-  const now = dependencies.now;
   if(typeof uuid !== 'function') throw new Error('UUID_PROVIDER_REQUIRED');
-  if(typeof now !== 'function') throw new Error('NOW_PROVIDER_REQUIRED');
 
   const teacherId = normalizeId(options.teacher_id);
   const locationId = normalizeId(options.location_id);
   const billingBlockId = normalizeId(options.billing_block_id);
-  const sessionId = normalizeId(options.attendance_session_id) || ('ASES-' + uuid());
+  // Attendance Condenser: current storage has no independent AttendanceSession record.
+  // Generate the logical parent key once and clone it into every Attendance row.
+  const attendanceSessionId = normalizeId(options.attendance_session_id) || ('ASES-' + uuid());
   const attendanceDate = options.attendance_date;
   const targetMonth = options.target_month;
   const items = Array.isArray(options.attendance_items) ? options.attendance_items : [];
@@ -305,10 +382,10 @@ function makeAttendancePlan(options = {}, facts = {}, dependencies = {}) {
       if(existingBySlot[slotId]) { result.retained_slot_ids.push(slotId); return; }
       const slot = slotMap[slotId];
       rowsToAppend.push({
-        attendance_id:'ATT-' + uuid(), '稽古日':attendanceDate, '登録日時':now(), member_id:memberId,
+        attendance_date:attendanceDate, member_id:memberId,
         target_month:targetMonth, location_id:locationId, slot_id:slotId, billing_block_id:billingBlockId,
-        teacher_id:teacherId, attendance_session_id:sessionId, '稽古時間分':Number(slot['稽古時間分'] || 60),
-        '状態':initialStatus, source, '取消日時':'', '取消者teacher_id':'', '取消理由':'', '備考':remarks
+        teacher_id:teacherId, attendance_session_id:attendanceSessionId, training_minutes:Number(slot['稽古時間分'] || 60),
+        status:initialStatus, source, remarks
       });
       result.registered_slot_ids.push(slotId);
     });
@@ -317,7 +394,7 @@ function makeAttendancePlan(options = {}, facts = {}, dependencies = {}) {
 
   return {
     result:{
-      ok:true, attendance_session_id:sessionId, registered_count:rowsToAppend.length,
+      ok:true, attendance_session_id:attendanceSessionId, registered_count:rowsToAppend.length,
       retained_count:results.reduce((sum,result)=>sum+result.retained_slot_ids.length,0),
       cancelled_count:rowsToCancel.length, results,
       message:String(options.message || '出席登録を処理しました。')
@@ -338,6 +415,25 @@ function collectAttendanceFacts(dao) {
     billingBlocks: dao.readAll('billingBlocks'),
     trainingSlots: dao.readAll('trainingSlots'),
     attendances: dao.readAll('attendance')
+  };
+}
+
+function toAttendanceStorageRecord(dto = {}) {
+  return {
+    attendance_id:dto.attendance_id,
+    '稽古日':dto.attendance_date,
+    '登録日時':dto.created_at,
+    member_id:dto.member_id,
+    target_month:dto.target_month,
+    location_id:dto.location_id,
+    slot_id:dto.slot_id,
+    billing_block_id:dto.billing_block_id,
+    teacher_id:dto.teacher_id,
+    attendance_session_id:dto.attendance_session_id,
+    '稽古時間分':dto.training_minutes,
+    '状態':dto.status,
+    source:dto.source,
+    '備考':dto.remarks
   };
 }
 
@@ -362,7 +458,12 @@ function recordAttendancePlan(plan = {}, options = {}, dao, dependencies = {}) {
     });
     if(updated && updated.found === false) throw new Error('ATTENDANCE_NOT_FOUND: ' + attendanceId);
   }
-  for(const row of plan.rowsToAppend || []) dao.appendRecord('attendance', row);
+  const appended=plan.rowsToAppend || [];
+  for(let index=0; index<appended.length; index++) {
+    const reconciled=reconcileSystemKeys(appended[index],{uuid:dependencies.uuid,now:dependencies.now});
+    appended[index]=reconciled;
+    dao.appendRecord('attendance',toAttendanceStorageRecord(reconciled));
+  }
   return plan.result;
 }
 
@@ -401,7 +502,7 @@ function createApplication(config={},dependencies={}) {
       dateKey:dependencies.dateKey
     });
     if(!plan.result || plan.result.ok!==true) return plan.result;
-    attendance.recordAttendancePlan(plan,options,dao,{now:dependencies.now});
+    attendance.recordAttendancePlan(plan,options,dao,{uuid:dependencies.uuid,now:dependencies.now});
     return attendance.postAttendancePlan(plan,{projectAttendances:dependencies.projectAttendances});
   }
 
@@ -493,8 +594,44 @@ function createCore(config, dependencies = {}) {
       }
       return {found:true};
     },
-    upsertByKey(source,id,values) { const {sheet,row}=locate(source,id); if(row) { sheet.getRange(row,source.valueColumn).setNumberFormat('@').setValue(values.value); return {created:false,updated:true}; } const newRow=sheet.getLastRow()+1; sheet.getRange(newRow,source.keyColumn).setValue(id); sheet.getRange(newRow,source.valueColumn).setNumberFormat('@').setValue(values.value); return {created:true,updated:false}; },
-    append(source,id,values) { const {sheet}=locate(source,id); const row=sheet.getLastRow()+1; sheet.getRange(row,source.keyColumn).setValue(id); sheet.getRange(row,source.valueColumn).setNumberFormat('@').setValue(values.value); },
+    upsertByKey(source,id,values) {
+      const located=locate(source,id);
+      if(located.row) {
+        const headers=(located.values[0]||[]).map(value=>String(value).trim());
+        for(const [field,value] of Object.entries(values)) {
+          if(field===source.keyField) continue;
+          const column=headers.indexOf(field);
+          if(column<0) throw new Error(source.sheet+' に列がありません: '+field);
+          const cell=located.sheet.getRange(located.row,column+1);
+          if(typeof value==='string') cell.setNumberFormat('@');
+          cell.setValue(value);
+        }
+        return {created:false,updated:true};
+      }
+      const sheet=located.sheet;
+      const headers=(located.values[0]||[]).map(value=>String(value).trim());
+      const newRow=sheet.getLastRow()+1;
+      for(const [field,value] of Object.entries(values)) {
+        const column=headers.indexOf(field);
+        if(column<0) throw new Error(source.sheet+' に列がありません: '+field);
+        const cell=sheet.getRange(newRow,column+1);
+        if(typeof value==='string') cell.setNumberFormat('@');
+        cell.setValue(value);
+      }
+      return {created:true,updated:false};
+    },
+    append(source,id,values) {
+      const {sheet,values:rows}=locate(source,id);
+      const headers=(rows[0]||[]).map(value=>String(value).trim());
+      const newRow=sheet.getLastRow()+1;
+      for(const [field,value] of Object.entries(values)) {
+        const column=headers.indexOf(field);
+        if(column<0) throw new Error(source.sheet+' に列がありません: '+field);
+        const cell=sheet.getRange(newRow,column+1);
+        if(typeof value==='string') cell.setNumberFormat('@');
+        cell.setValue(value);
+      }
+    }
     
   };
 }

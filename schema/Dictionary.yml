@@ -23,3 +23,32 @@ terms:
   status:
     type: string
     label: "状態"
+
+  location_id:
+    type: string
+    label: "道場ID"
+
+  slot_id:
+    type: string
+    label: "稽古枠ID"
+
+  billing_block_id:
+    type: string
+    label: "課金枠ID"
+
+  teacher_id:
+    type: string
+    label: "先生ID"
+
+  attendance_session_id:
+    type: string
+    label: "出席登録セッションID"
+    comment: "1回の出席登録処理で生成される複数Attendanceを束ねる。現行物理モデルでは独立Recordを持たず、Attendance固有Condenserで同じ値を複製保持する。"
+
+  training_minutes:
+    type: number
+    label: "稽古時間分"
+
+  remarks:
+    type: string
+    label: "備考"

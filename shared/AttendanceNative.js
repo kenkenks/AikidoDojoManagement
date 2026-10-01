@@ -1,4 +1,5 @@
 'use strict';
+const {reconcileSystemKeys}=require('./SystemKey.js');
 
 // Native Attendance decision logic.
 // This module has no storage side effects. It receives already-collected facts
@@ -15,14 +16,14 @@ function makeAttendancePlan(options = {}, facts = {}, dependencies = {}) {
     return String(value == null ? '' : value).trim().slice(0, 10);
   });
   const uuid = dependencies.uuid;
-  const now = dependencies.now;
   if(typeof uuid !== 'function') throw new Error('UUID_PROVIDER_REQUIRED');
-  if(typeof now !== 'function') throw new Error('NOW_PROVIDER_REQUIRED');
 
   const teacherId = normalizeId(options.teacher_id);
   const locationId = normalizeId(options.location_id);
   const billingBlockId = normalizeId(options.billing_block_id);
-  const sessionId = normalizeId(options.attendance_session_id) || ('ASES-' + uuid());
+  // Attendance Condenser: current storage has no independent AttendanceSession record.
+  // Generate the logical parent key once and clone it into every Attendance row.
+  const attendanceSessionId = normalizeId(options.attendance_session_id) || ('ASES-' + uuid());
   const attendanceDate = options.attendance_date;
   const targetMonth = options.target_month;
   const items = Array.isArray(options.attendance_items) ? options.attendance_items : [];
@@ -106,10 +107,10 @@ function makeAttendancePlan(options = {}, facts = {}, dependencies = {}) {
       if(existingBySlot[slotId]) { result.retained_slot_ids.push(slotId); return; }
       const slot = slotMap[slotId];
       rowsToAppend.push({
-        attendance_id:'ATT-' + uuid(), '稽古日':attendanceDate, '登録日時':now(), member_id:memberId,
+        attendance_date:attendanceDate, member_id:memberId,
         target_month:targetMonth, location_id:locationId, slot_id:slotId, billing_block_id:billingBlockId,
-        teacher_id:teacherId, attendance_session_id:sessionId, '稽古時間分':Number(slot['稽古時間分'] || 60),
-        '状態':initialStatus, source, '取消日時':'', '取消者teacher_id':'', '取消理由':'', '備考':remarks
+        teacher_id:teacherId, attendance_session_id:attendanceSessionId, training_minutes:Number(slot['稽古時間分'] || 60),
+        status:initialStatus, source, remarks
       });
       result.registered_slot_ids.push(slotId);
     });
@@ -118,7 +119,7 @@ function makeAttendancePlan(options = {}, facts = {}, dependencies = {}) {
 
   return {
     result:{
-      ok:true, attendance_session_id:sessionId, registered_count:rowsToAppend.length,
+      ok:true, attendance_session_id:attendanceSessionId, registered_count:rowsToAppend.length,
       retained_count:results.reduce((sum,result)=>sum+result.retained_slot_ids.length,0),
       cancelled_count:rowsToCancel.length, results,
       message:String(options.message || '出席登録を処理しました。')
@@ -139,6 +140,25 @@ function collectAttendanceFacts(dao) {
     billingBlocks: dao.readAll('billingBlocks'),
     trainingSlots: dao.readAll('trainingSlots'),
     attendances: dao.readAll('attendance')
+  };
+}
+
+function toAttendanceStorageRecord(dto = {}) {
+  return {
+    attendance_id:dto.attendance_id,
+    '稽古日':dto.attendance_date,
+    '登録日時':dto.created_at,
+    member_id:dto.member_id,
+    target_month:dto.target_month,
+    location_id:dto.location_id,
+    slot_id:dto.slot_id,
+    billing_block_id:dto.billing_block_id,
+    teacher_id:dto.teacher_id,
+    attendance_session_id:dto.attendance_session_id,
+    '稽古時間分':dto.training_minutes,
+    '状態':dto.status,
+    source:dto.source,
+    '備考':dto.remarks
   };
 }
 
@@ -163,7 +183,12 @@ function recordAttendancePlan(plan = {}, options = {}, dao, dependencies = {}) {
     });
     if(updated && updated.found === false) throw new Error('ATTENDANCE_NOT_FOUND: ' + attendanceId);
   }
-  for(const row of plan.rowsToAppend || []) dao.appendRecord('attendance', row);
+  const appended=plan.rowsToAppend || [];
+  for(let index=0; index<appended.length; index++) {
+    const reconciled=reconcileSystemKeys(appended[index],{uuid:dependencies.uuid,now:dependencies.now});
+    appended[index]=reconciled;
+    dao.appendRecord('attendance',toAttendanceStorageRecord(reconciled));
+  }
   return plan.result;
 }
 

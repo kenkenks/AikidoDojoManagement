@@ -15,7 +15,7 @@ function createApplication(config={},dependencies={}) {
       dateKey:dependencies.dateKey
     });
     if(!plan.result || plan.result.ok!==true) return plan.result;
-    attendance.recordAttendancePlan(plan,options,dao,{now:dependencies.now});
+    attendance.recordAttendancePlan(plan,options,dao,{uuid:dependencies.uuid,now:dependencies.now});
     return attendance.postAttendancePlan(plan,{projectAttendances:dependencies.projectAttendances});
   }
 
