@@ -2,10 +2,11 @@ const {test}=require('node:test');
 const assert=require('node:assert/strict');
 const fs=require('node:fs'),path=require('node:path'),vm=require('node:vm');
 const {format}=require('../shared/TimeTravel.js');
+const {settingDefinition}=require('../shared/DAO_Definition_Setting.generated.js');
 function sheet(rows){return {rows,getDataRange:()=>({getValues:()=>rows.map(r=>[...r])}),getLastRow:()=>rows.length,getRange(r,c,h=1,w=1){return {setNumberFormat(){return this;},setValue(v){while(rows.length<r)rows.push([]);rows[r-1][c-1]=v;return this;},setValues(values){for(let i=0;i<h;i++)for(let j=0;j<w;j++){while(rows.length<r+i)rows.push([]);rows[r+i-1][c+j-1]=values[i][j];}return this;}};}};}
 function setup(){
   const original=sheet([['キー','値'],['TIME_TRAVEL_ENABLED','FALSE'],['DEBUG','TRUE']]);
-  const sheets=new Map([['99_設定',original]]);
+  const sheets=new Map([[settingDefinition.sources.gas.sheet,original]]);
   const ss={getSheetByName:name=>sheets.get(name),insertSheet(name){const s=sheet([]);sheets.set(name,s);return s;},deleteSheet(s){for(const [name,value]of sheets)if(value===s)sheets.delete(name);}};
   const box={Date,Intl,SpreadsheetApp:{getActiveSpreadsheet:()=>ss},Session:{getScriptTimeZone:()=> 'Asia/Tokyo'},Utilities:{formatDate:format,getUuid:()=> 'test-12345'},createSheetContext:()=>({ss,settings:Object.fromEntries(original.rows.slice(1))}),ensureSheetContext:ctx=>ctx,normalizeMonth:value=>String(value).trim()};
   vm.createContext(box);for(const name of ['DojoTimeTravel.js','DojoTimeTravelEntry.js','DojoTimeTravelStep2.js','DojoTimeTravelStep2Entry.js','sup_timeTravel.js']) vm.runInContext(fs.readFileSync(path.join(__dirname,'../gas',name),'utf8'),box);

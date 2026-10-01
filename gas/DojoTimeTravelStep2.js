@@ -60,7 +60,7 @@ const settingDefinition = {
       }
     },
     "gas": {
-      "sheet": "99_設定",
+      "sheet": "999_設定",
       "keyColumn": 1,
       "valueColumn": 2,
       "keyField": "キー",
