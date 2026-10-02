@@ -208,14 +208,14 @@ function paymentEvidenceRecord_make(context, ctx) {
 function paymentEvidenceRecord_update(record, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const target = daoPortablePaymentEvidence_findById_(record.evidence_id, ctx);
+  const target = daoPaymentFindEvidence_(record.evidence_id, ctx);
   if (!target) {
     throw new Error("record: 決済エビデンスが見つかりません: " + record.evidence_id);
   }
 
   // Portable DAO updateByKey: GAS adapter writes the whole physical row once,
   // preserving the existing CONFIRMED transition atomicity.
-  const updated = daoPortablePaymentEvidence_updateById_(record.evidence_id, {
+  const updated = daoPaymentUpdateEvidenceById_(record.evidence_id, {
     status: record.status,
     evidence_code: record.evidence_code,
     confirmed_at: record.confirmed_at,

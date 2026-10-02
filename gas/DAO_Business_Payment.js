@@ -154,6 +154,18 @@ function daoPaymentFindEvidence_(evidenceId, ctx) {
   }) || null;
 }
 
+function daoPaymentUpdateEvidenceById_(evidenceId, values, ctx) {
+  ctx = daoContext_(ctx);
+
+  return daoCore_(ctx).updateByKey(
+    'paymentEvidences',
+    'evidence_id',
+    evidenceId,
+    values,
+    ctx
+  );
+}
+
 // 行全体を1回で保存する既存の更新契約をCoreへ委譲する。
 function daoPaymentUpdateEvidenceRowAtomic_(rowNumber, valuesByHeader, requiredHeaders, ctx) {
   return daoCore_(ctx).updateEvidenceRowAtomic(rowNumber, valuesByHeader, requiredHeaders, ctx);

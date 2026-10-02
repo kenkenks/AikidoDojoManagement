@@ -268,7 +268,7 @@ function paypayCode_record(data, ctx) {
       continue;
     }
 
-    const target = daoPortablePaymentEvidence_findForPayPay_(evidenceId, ctx);
+    const target = daoPaymentFindEvidence_(evidenceId, ctx);
     if (!target) {
       skipped.push({ ok: false, index: i, evidence_id: evidenceId, message: '決済エビデンスが見つかりません。' });
       continue;
@@ -300,7 +300,7 @@ function paypayCode_record(data, ctx) {
           updates.confirmed_by = memberId;
         }
 
-        const updated = daoPortablePaymentEvidence_updateForPayPay_(evidenceId, updates, ctx);
+        const updated = daoPaymentUpdateEvidenceById_(evidenceId, updates, ctx);
         if (!updated || !updated.found) {
           throw new Error('PayPay Evidence更新対象が見つかりません: ' + evidenceId);
         }
@@ -408,13 +408,13 @@ function paypayCode_repairReusableEvidenceScope_(row, scope, ctx) {
     return row;
   }
 
-  const target = daoPortablePaymentEvidence_findForPayPay_(evidenceId, ctx);
+  const target = daoPaymentFindEvidence_(evidenceId, ctx);
   if (!target) return row;
 
-  const updated = daoPortablePaymentEvidence_updateForPayPay_(evidenceId, updates, ctx);
+  const updated = daoPaymentUpdateEvidenceById_(evidenceId, updates, ctx);
   if (!updated || !updated.found) return row;
 
-  const refreshed = daoPortablePaymentEvidence_findForPayPay_(evidenceId, ctx);
+  const refreshed = daoPaymentFindEvidence_(evidenceId, ctx);
   return refreshed || row;
 }
 

@@ -234,12 +234,12 @@ function paymentEvidencePost_make(context, ctx) {
 function paymentEvidencePost_updatePosted(input, ctx) {
   ctx = ensureSheetContext(ctx);
 
-  const target = daoPortablePaymentEvidence_findById_(input.evidence_id, ctx);
+  const target = daoPaymentFindEvidence_(input.evidence_id, ctx);
   if (!target) {
     throw new Error("post: 決済エビデンスが見つかりません: " + input.evidence_id);
   }
 
-  const updated = daoPortablePaymentEvidence_updateById_(input.evidence_id, {
+  const updated = daoPaymentUpdateEvidenceById_(input.evidence_id, {
     status: "POSTED",
     posted_at: sup_now(ctx),
     payment_log_id: input.payment_log_id
