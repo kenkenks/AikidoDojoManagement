@@ -161,7 +161,48 @@ HEAD: commit hash
 
 忘れた場合、迷った場合、作業方法が再び大量コピペ中心になり始めた場合は、このARCHと `docs/dev-workflow/workflow_v1.md` を読み直し、標準ループへ戻る。
 
+## Architecture expansion guard
+
+AI/agent implementation can produce internally consistent abstractions faster than a human review can absorb them. Therefore consistency, test PASS, or successful equivalence verification alone are not sufficient reasons to add a new production execution path.
+
+Before adding a new Facade, Entry bridge, Adapter family, Generator, generated runtime, or parallel Core path, record answers to all of the following:
+
+```text
+1. What concrete deficiency exists in the current canonical path?
+2. Which existing layer is allowed to change?
+3. Which existing layer must not be bypassed?
+4. Why can the deficiency not be solved by a local change to the canonical Core/DAO seam?
+5. What new runtime path/files/build steps will be added?
+6. What is the removal/merge plan if the experiment proves unnecessary?
+```
+
+If item 4 has no concrete answer, stop horizontal rollout and prefer a local canonical-path modification.
+
+Attendance Phase 1 restoration (`0083d3c`) is the reference case. The Native experiment contained useful `Read → Plan → Write → Post` ideas, but the useful idea did not require the added `Entry → Application → generated Native → Portable DAO` production topology. See `ARCH-023_ATTENDANCE_NATIVE_SALVAGE_CATALOG.md` for the code-level salvage record.
+
+### Horizontal rollout guard
+
+Do not propagate a newly introduced abstraction to a second domain merely because the first domain passes tests. Before horizontal rollout:
+
+```text
+first domain implementation
+        ↓
+compare with original architecture
+        ↓
+identify measured benefit / new capability
+        ↓
+human architecture review
+        ↓
+only then expand to another domain
+```
+
+An emergency detour may be accepted temporarily, but it must be explicitly labelled as a detour and must not become the default architecture by repetition.
+
 ## Version history
+
+### v1.1 - 2026-10-02
+
+Attendance restorationからArchitecture expansion guardを追加。新しいFacade/Adapter/Generator/parallel pathの水平展開前に、既存canonical pathへの局所変更で解決できない理由を明示する。コードレベルの救出例はARCH-023へ分離した。
 
 ### v1.0 - 2026-10-02
 
