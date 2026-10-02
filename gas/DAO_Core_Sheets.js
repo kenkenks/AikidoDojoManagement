@@ -161,10 +161,20 @@ function daoCoreSheets_updateByKey(table, keyField, keyValue, values, ctx) {
     if (daoCoreSheets_normalizeKey_(data[i][keyColumn]) === daoCoreSheets_normalizeKey_(keyValue)) { rowNo = i + 1; break; }
   }
   if (rowNo < 0) return { found: false };
-  const keys = Object.keys(values || {}).filter(function(key) { return header.map[key] !== undefined; });
+
+  const keys = Object.keys(values || {}).filter(function(key) {
+    return header.map[key] !== undefined;
+  });
+
+  const nextRow = data[rowNo - 1].slice();
+  keys.forEach(function(key) {
+    nextRow[header.map[key]] = values[key];
+  });
+
   const t0 = Date.now();
-  keys.forEach(function(key) { sheet.getRange(rowNo, header.map[key] + 1).setValue(values[key]); });
+  sheet.getRange(rowNo, 1, 1, nextRow.length).setValues([nextRow]);
   console.log('[PERF-WRITE] sheet=' + sheet.getName() + ' op=update row=' + rowNo + ' cells=' + keys.length + ' ms=' + (Date.now() - t0));
+
   invalidateSheetRows(ctx, sheetName);
   return { found: true };
 }
