@@ -36,3 +36,21 @@ test('Cloud Run source deployment builds TimeTrip artifact and starts existing a
   assert.equal(packageJson.scripts['gcp-build'], 'npm run target:build -- dev-firebase');
   assert.equal(packageJson.scripts.start, 'node cloud/time-travel/admin-server.cjs');
 });
+
+
+test('TimeTrip admin server handles browser CORS before Firebase Auth', () => {
+  const source = fs.readFileSync(serverPath, 'utf8');
+
+  assert.match(source, /dojo-management-dev\.web\.app/);
+  assert.match(source, /dojo-management-dev\.firebaseapp\.com/);
+  assert.match(source, /req\.method === ['"]OPTIONS['"]/);
+  assert.match(source, /writeHead\(204/);
+  assert.match(source, /Access-Control-Allow-Origin/);
+  assert.match(source, /Access-Control-Allow-Methods['"]:\s*['"]GET, POST, OPTIONS/);
+  assert.match(source, /Access-Control-Allow-Headers['"]:\s*['"]Authorization, Content-Type/);
+  assert.match(source, /result\.headers, \.\.\.corsHeaders/);
+
+  const optionsIndex = source.indexOf("req.method === 'OPTIONS'");
+  const handleIndex = source.indexOf('const result = await handle(');
+  assert.ok(optionsIndex >= 0 && optionsIndex < handleIndex, 'OPTIONS must be handled before authenticated API dispatch');
+});

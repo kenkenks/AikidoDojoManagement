@@ -33,6 +33,21 @@ const application = createTimeTravelTarget({
   getAccessToken: async () => (await credential.getAccessToken()).access_token
 });
 
+const allowedOrigins = new Set([
+  'https://dojo-management-dev.web.app',
+  'https://dojo-management-dev.firebaseapp.com'
+]);
+
+function getCorsHeaders(origin) {
+  if (!origin || !allowedOrigins.has(origin)) return {};
+  return {
+    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Authorization, Content-Type',
+    'Vary': 'Origin'
+  };
+}
+
 const handle = createAdminTimeTravelApi({
   verifyIdToken: (token, revoked) => getAuth(firebaseApp).verifyIdToken(token, revoked),
   getTimeTravel: () => application.getTimeTravel(),
@@ -53,8 +68,28 @@ async function readJsonBody(req) {
 
 createServer(async (req, res) => {
   try {
+    const corsHeaders = getCorsHeaders(req.headers.origin);
+
+    if (req.method === 'OPTIONS') {
+      if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) {
+        res.writeHead(403, {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Cache-Control': 'no-store'
+        });
+        res.end(JSON.stringify({ error: 'ORIGIN_NOT_ALLOWED' }));
+        return;
+      }
+      res.writeHead(204, {
+        ...corsHeaders,
+        'Cache-Control': 'no-store'
+      });
+      res.end();
+      return;
+    }
+
     if (req.method === 'GET' && req.url === '/hello') {
       res.writeHead(200, {
+        ...corsHeaders,
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-store'
       });
@@ -68,6 +103,7 @@ createServer(async (req, res) => {
         body = await readJsonBody(req);
       } catch {
         res.writeHead(400, {
+          ...corsHeaders,
           'Content-Type': 'application/json; charset=utf-8',
           'Cache-Control': 'no-store'
         });
@@ -83,11 +119,12 @@ createServer(async (req, res) => {
       body
     });
 
-    res.writeHead(result.status, result.headers);
+    res.writeHead(result.status, { ...result.headers, ...corsHeaders });
     res.end(JSON.stringify(result.body));
   } catch (error) {
     console.error(error?.stack || error);
     res.writeHead(500, {
+      ...getCorsHeaders(req.headers.origin),
       'Content-Type': 'application/json; charset=utf-8',
       'Cache-Control': 'no-store'
     });
