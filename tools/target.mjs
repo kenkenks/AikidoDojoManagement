@@ -40,8 +40,16 @@ function buildFirebase() {
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Firebase build failed: exit ${result.status}`);
   const artifactDir = join(repoRoot, ".build", "portable-timetravel-firestore");
+  const firebaseOutRoot = join(repoRoot, ".build", targetName);
+  const firebaseWebOutDir = join(firebaseOutRoot, "web", "qr");
   const deployRoot = join(repoRoot, ".build", targetName, "cloud-run", "dojo-time-travel-admin");
-  rmSync(deployRoot, { recursive: true, force: true });
+  rmSync(firebaseOutRoot, { recursive: true, force: true });
+
+  for (const file of walk(resolve(repoRoot, profile.webSourceDir || "web/qr"))) {
+    const rel = normalize(relative(resolve(repoRoot, profile.webSourceDir || "web/qr"), file));
+    copy(file, join(firebaseWebOutDir, rel));
+  }
+  writeFileSync(join(firebaseWebOutDir, "runtime_config.js"), renderFirebaseRuntimeConfig(), "utf8");
 
   for (const name of ["admin-server.cjs", "admin-api.cjs", "target.cjs"]) {
     copy(join(repoRoot, "cloud", "time-travel", name), join(deployRoot, "cloud", "time-travel", name));
@@ -59,6 +67,7 @@ function buildFirebase() {
 
   console.log(`Target: ${targetName}`);
   console.log("Output: .build/portable-timetravel-firestore");
+  console.log(`Firebase Web artifact: ${normalize(relative(repoRoot, firebaseWebOutDir))}`);
   console.log(`Cloud Run deploy unit: ${normalize(relative(repoRoot, deployRoot))}`);
   console.log(`Firebase project: ${profile.projectId}`);
 }
@@ -68,6 +77,11 @@ function validateProfile(value) {
   if (value.runtime === "firebase") {
     if (value.mode !== "development") throw new Error(`Target ${targetName}: firebase mode must be development.`);
     if (!value.projectId) throw new Error(`Target ${targetName}: projectId is not configured.`);
+    if (!value.apiBaseUrl) throw new Error(`Target ${targetName}: apiBaseUrl is not configured.`);
+    for (const key of ["apiKey", "authDomain", "projectId", "appId"]) {
+      if (!value.firebaseWeb?.[key]) throw new Error(`Target ${targetName}: firebaseWeb.${key} is not configured.`);
+    }
+    if (value.firebaseWeb.projectId !== value.projectId) throw new Error(`Target ${targetName}: firebaseWeb.projectId mismatch.`);
     if (value.confirmedDevelopmentProject !== value.projectId) throw new Error(`Target ${targetName}: confirmedDevelopmentProject mismatch.`);
     return;
   }
@@ -162,6 +176,21 @@ function validateWebRuntimeOrder() {
   if (errors.length > 0) {
     throw new Error("Web runtime dependency order is invalid:\\n" + errors.map((x) => `  - ${x}`).join("\\n"));
   }
+}
+
+function renderFirebaseRuntimeConfig() {
+  const config = {
+    target: targetName,
+    runtime: profile.runtime,
+    apiBaseUrl: profile.apiBaseUrl,
+    firebase: {
+      apiKey: profile.firebaseWeb.apiKey,
+      authDomain: profile.firebaseWeb.authDomain,
+      projectId: profile.firebaseWeb.projectId,
+      appId: profile.firebaseWeb.appId
+    }
+  };
+  return `(function() {\n  window.DOJO_RUNTIME_CONFIG = Object.freeze(${JSON.stringify(config, null, 2)});\n})();\n`;
 }
 
 function renderRuntimeConfig() {

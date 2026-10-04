@@ -3,5 +3,12 @@
   "runtime": "firebase",
   "mode": "development",
   "projectId": "dojo-management-dev",
-  "confirmedDevelopmentProject": "dojo-management-dev"
+  "confirmedDevelopmentProject": "dojo-management-dev",
+  "apiBaseUrl": "https://dojo-time-travel-admin-374758850136.asia-northeast1.run.app",
+  "firebaseWeb": {
+    "apiKey": "AIzaSyCXPQYBV78lExcmyBP02YZoLp9KpeFR2Vs",
+    "authDomain": "dojo-management-dev.firebaseapp.com",
+    "projectId": "dojo-management-dev",
+    "appId": "1:374758850136:web:d87e3aca0e781720df542d"
+  }
 }
