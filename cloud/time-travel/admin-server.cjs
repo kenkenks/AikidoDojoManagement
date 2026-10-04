@@ -13,6 +13,8 @@ const { createAdminTimeTravelApi } = require('./admin-api.cjs');
 const { createTimeTravelTarget } = require('./target.cjs');
 
 const root = path.resolve(__dirname, '..', '..');
+const port = Number(process.env.PORT || 8082);
+const host = process.env.PORT ? '0.0.0.0' : '127.0.0.1';
 const profile = JSON.parse(
   fs.readFileSync(path.join(root, 'targets', 'dev-firebase.json'), 'utf8')
 );
@@ -51,6 +53,15 @@ async function readJsonBody(req) {
 
 createServer(async (req, res) => {
   try {
+    if (req.method === 'GET' && req.url === '/hello') {
+      res.writeHead(200, {
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
+      res.end(JSON.stringify({ ok: true, service: 'dojo-time-travel-admin' }));
+      return;
+    }
+
     let body = null;
     if (req.method === 'POST') {
       try {
@@ -82,7 +93,7 @@ createServer(async (req, res) => {
     });
     res.end(JSON.stringify({ error: 'INTERNAL_ERROR' }));
   }
-}).listen(8082, '127.0.0.1', () => {
-  console.log('Admin TimeTrip API: http://127.0.0.1:8082');
+}).listen(port, host, () => {
+  console.log(`Admin TimeTrip API: http://${host}:${port}`);
   console.log(`Firebase project: ${profile.projectId}`);
 });

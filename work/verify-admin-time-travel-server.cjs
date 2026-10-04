@@ -19,7 +19,10 @@ test('TimeTrip admin server composes Firebase Auth with existing TimeTrip target
   assert.match(source, /application\.getTimeTravel\(\)/);
   assert.match(source, /application\.saveTimeTravel\(input\)/);
   assert.match(source, /targets['"],\s*['"]dev-firebase\.json/);
-  assert.match(source, /listen\(8082,\s*['"]127\.0\.0\.1['"]/);
+  assert.match(source, /process\.env\.PORT/);
+  assert.match(source, /['"]0\.0\.0\.0['"]/);
+  assert.match(source, /listen\(port,\s*host/);
+  assert.match(source, /req\.url === ['"]\/hello['"]/);
 });
 
 test('TimeTrip admin server rejects Auth emulator configuration', () => {
