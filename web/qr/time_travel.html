@@ -143,6 +143,31 @@
   function postAndVerify(payload, successMessage) {
     setBusy(true);
     setStatus("保存中です…");
+    if (IS_FIREBASE) {
+      const firebasePayload = {
+        enabled:payload.enabled === true,
+        now:payload.now || "",
+        target_month:payload.target_month || ""
+      };
+      firebaseAuthClient.ready.then(function() {
+        return dojoApiClient.request(firebaseApiUrl("/api/admin/time-travel"), {
+          method:"POST",
+          headers:{ "Content-Type":"application/json" },
+          body:JSON.stringify(firebasePayload)
+        });
+      }).then(function(response) {
+        if (!response.ok) throw new Error("設定保存APIでエラーが発生しました。HTTP " + response.status);
+        return response.json();
+      }).then(function(data) {
+        if (!data || data.ok !== true) throw new Error((data && data.message) || "設定を保存できませんでした。");
+        loadSetting(successMessage);
+      }).catch(function(error) {
+        setBusy(false);
+        showError(error);
+      });
+      return;
+    }
+
     fetch(GAS_URL, {
       method:"POST",
       mode:"no-cors",

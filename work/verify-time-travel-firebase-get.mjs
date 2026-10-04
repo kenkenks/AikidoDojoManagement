@@ -5,7 +5,7 @@ import vm from "node:vm";
 
 const html = readFileSync(new URL("../web/qr/time_travel.html", import.meta.url), "utf8");
 
-test("TimeTrip Firebase GET routes through Auth and Dojo API Client while GAS GET remains", () => {
+test("TimeTrip Firebase GET/POST routes through Auth and Dojo API Client while GAS path remains", () => {
   assert.match(html, /<script src="runtime_config\.js"><\/script>/);
   assert.match(html, /<script src="firebase_auth\.js"><\/script>/);
   assert.match(html, /<script src="dojo_api_client\.js"><\/script>/);
@@ -17,7 +17,15 @@ test("TimeTrip Firebase GET routes through Auth and Dojo API Client while GAS GE
   assert.match(html, /Googleでログイン/);
   assert.match(html, /firebaseAuthClient\.onUserChanged/);
   assert.match(html, /dojoApiClient\.request\(firebaseApiUrl\("\/api\/admin\/time-travel"\)\)/);
+  assert.match(html, /dojoApiClient\.request\(firebaseApiUrl\("\/api\/admin\/time-travel"\), \{/);
+  assert.match(html, /method:"POST"/);
+  assert.match(html, /"Content-Type":"application\/json"/);
+  assert.match(html, /body:JSON\.stringify\(firebasePayload\)/);
+  assert.match(html, /enabled:payload\.enabled === true/);
+  assert.match(html, /loadSetting\(successMessage\)/);
   assert.match(html, /jsonp\(GAS_URL, \{ action:"time_travel_admin" \}\)/);
+  assert.match(html, /mode:"no-cors"/);
+  assert.match(html, /"Content-Type":"text\/plain;charset=utf-8"/);
 
   const inlineScripts = [...html.matchAll(/<script(?![^>]*src=)[^>]*>([\s\S]*?)<\/script>/gi)];
   assert.ok(inlineScripts.length > 0);
