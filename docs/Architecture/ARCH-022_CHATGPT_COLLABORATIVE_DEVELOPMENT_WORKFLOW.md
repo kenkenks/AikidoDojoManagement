@@ -1,7 +1,7 @@
 # ARCH-022 ChatGPT Collaborative Development Workflow
 
-Version: 1.0
-Date: 2026-10-02
+Version: 1.2
+Date: 2026-10-04
 Status: ACTIVE
 
 ## Purpose
@@ -82,6 +82,38 @@ Patchの詳細手順、Current Baseline、Remote Workflowは `docs/dev-workflow/
 - ZIP内コードを会話へ転記したもの
 
 コード調査が必要な場合は、可能な限り共有workspaceのBaseline / ZIP / 実ファイルをChatGPT側で直接確認する。
+
+### Request minimization rule
+
+リクエスト過多を避けるため、調査目的の逐次的なユーザー操作要求を標準手順にしない。
+共有workspaceにCurrent Baselineが存在する場合、ChatGPTは必要なDocs・ソース・差分をBaselineからまとめて調査する。
+
+ユーザーへの通常の依頼は、原則として次の1セットへ集約する。
+
+```text
+Patch適用
+  ↓
+指定コマンドを実行
+  ↓
+結果ログをチャットへ貼付
+```
+
+`Get-Content`、`Select-String`、個別ファイルの貼付などをユーザーへ繰り返し要求して調査を進めない。
+それらが必要になるのは、Current Baselineに存在しない未commit変更や、ユーザー環境でのみ再現する状態を確認するなど、共有workspaceだけでは観測できない場合に限定する。
+
+ChatGPT側の通常責務は次とする。
+
+```text
+Current Baseline / Docsを確認
+  ↓
+必要な調査をChatGPT側で実施
+  ↓
+最小Patchを作成・検証
+  ↓
+Patchと実行コマンドを提示
+```
+
+この集約は単なる操作簡略化ではなく、会話往復数と診断リクエスト数を抑え、リクエスト過多を防ぐための運用要件である。
 
 ## Warning signal
 
@@ -199,6 +231,10 @@ only then expand to another domain
 An emergency detour may be accepted temporarily, but it must be explicitly labelled as a detour and must not become the default architecture by repetition.
 
 ## Version history
+
+### v1.2 - 2026-10-04
+
+Request minimization ruleを追加。共有workspaceにCurrent Baselineがある通常開発では、ChatGPT側がDocs・ソース調査をまとめて行い、ユーザーへの依頼を原則 `Patch適用 → 指定コマンド実行 → 結果ログ返却` の1セットへ集約する。`Get-Content` / `Select-String` 等の逐次調査依頼は、共有workspaceから観測できない例外時に限定する。
 
 ### v1.1 - 2026-10-02
 
