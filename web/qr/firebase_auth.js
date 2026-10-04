@@ -20,6 +20,8 @@
         auth = firebase.getAuth(app);
         auth.languageCode = "ja";
         await firebase.setPersistence(auth, firebase.browserSessionPersistence);
+        if (typeof auth.authStateReady === "function") await auth.authStateReady();
+        currentUser = auth.currentUser || null;
         firebase.onAuthStateChanged(auth, user => {
           currentUser = user || null;
           for (const listener of listeners) listener(currentUser);
@@ -41,7 +43,21 @@
       return auth;
     }
 
-    const api = Object.freeze({ ready, getCurrentUser, onUserChanged, getAuth });
+    async function signInWithGoogle() {
+      await ready;
+      const firebase = await loadFirebase();
+      const provider = new firebase.GoogleAuthProvider();
+      provider.setCustomParameters({ prompt: "select_account" });
+      return firebase.signInWithPopup(auth, provider);
+    }
+
+    async function signOut() {
+      await ready;
+      const firebase = await loadFirebase();
+      return firebase.signOut(auth);
+    }
+
+    const api = Object.freeze({ ready, getCurrentUser, onUserChanged, getAuth, signInWithGoogle, signOut });
     return api;
   }
 

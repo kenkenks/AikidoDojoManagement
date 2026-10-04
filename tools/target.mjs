@@ -50,6 +50,21 @@ function buildFirebase() {
     copy(file, join(firebaseWebOutDir, rel));
   }
   writeFileSync(join(firebaseWebOutDir, "runtime_config.js"), renderFirebaseRuntimeConfig(), "utf8");
+  writeFileSync(
+    join(firebaseOutRoot, "web", "firebase.json"),
+    JSON.stringify({
+      hosting: {
+        site: profile.projectId,
+        public: ".",
+        ignore: ["firebase.json", "**/.*", "**/node_modules/**"],
+        headers: [
+          { source: "**/*.html", headers: [{ key: "Cache-Control", value: "no-cache" }] },
+          { source: "**/*.js", headers: [{ key: "Cache-Control", value: "no-store" }] }
+        ]
+      }
+    }, null, 2) + "\n",
+    "utf8"
+  );
 
   for (const name of ["admin-server.cjs", "admin-api.cjs", "target.cjs"]) {
     copy(join(repoRoot, "cloud", "time-travel", name), join(deployRoot, "cloud", "time-travel", name));

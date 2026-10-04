@@ -24,11 +24,20 @@ const runtimeConfig = {
 
 test("Firebase Auth client uses target config, session persistence, and exposes currentUser", async () => {
   const calls = [];
-  const auth = { currentUser: null };
+  const auth = {
+    currentUser: null,
+    async authStateReady() { calls.push(["authStateReady"]); }
+  };
   const user = { uid: "TEST_ADMIN", getIdToken: async () => "token" };
   let authObserver = null;
+  const popupUser = { uid: "POPUP_ADMIN" };
+
+  class GoogleAuthProvider {
+    setCustomParameters(params) { calls.push(["setCustomParameters", params]); }
+  }
 
   const firebase = {
+    GoogleAuthProvider,
     browserSessionPersistence: { kind: "session" },
     initializeApp(config) {
       calls.push(["initializeApp", config]);
@@ -45,6 +54,13 @@ test("Firebase Auth client uses target config, session persistence, and exposes 
       calls.push(["onAuthStateChanged", receivedAuth]);
       authObserver = observer;
       return () => {};
+    },
+    async signInWithPopup(receivedAuth, provider) {
+      calls.push(["signInWithPopup", receivedAuth, provider]);
+      return { user: popupUser };
+    },
+    async signOut(receivedAuth) {
+      calls.push(["signOut", receivedAuth]);
     }
   };
 
@@ -56,7 +72,8 @@ test("Firebase Auth client uses target config, session persistence, and exposes 
   assert.deepEqual(calls[0], ["initializeApp", runtimeConfig.firebase]);
   assert.equal(calls[2][0], "setPersistence");
   assert.equal(calls[2][2], firebase.browserSessionPersistence);
-  assert.equal(calls[3][0], "onAuthStateChanged");
+  assert.equal(calls[3][0], "authStateReady");
+  assert.equal(calls[4][0], "onAuthStateChanged");
   assert.equal(client.getCurrentUser(), null);
 
   authObserver(user);
@@ -64,4 +81,12 @@ test("Firebase Auth client uses target config, session persistence, and exposes 
 
   const apiClientOptions = { getCurrentUser: client.getCurrentUser };
   assert.equal(apiClientOptions.getCurrentUser(), user);
+
+  const credential = await client.signInWithGoogle();
+  assert.equal(credential.user, popupUser);
+  assert.ok(calls.some(call => call[0] === "setCustomParameters" && call[1].prompt === "select_account"));
+  assert.ok(calls.some(call => call[0] === "signInWithPopup" && call[1] === auth));
+
+  await client.signOut();
+  assert.ok(calls.some(call => call[0] === "signOut" && call[1] === auth));
 });
