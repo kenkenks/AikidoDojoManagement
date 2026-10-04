@@ -1,0 +1,41 @@
+'use strict';
+
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+const test = require('node:test');
+
+const root = path.resolve(__dirname, '..');
+const deployRoot = path.join(root, '.build', 'dev-firebase', 'cloud-run', 'dojo-time-travel-admin');
+
+test('dev-firebase target build creates self-contained Cloud Run deploy unit', () => {
+  const result = spawnSync(process.execPath, ['tools/target.mjs', 'build', 'dev-firebase'], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+
+  for (const rel of [
+    'cloud/time-travel/admin-server.cjs',
+    'cloud/time-travel/admin-api.cjs',
+    'cloud/time-travel/target.cjs',
+    'targets/dev-firebase.json',
+    '.build/portable-timetravel-firestore/DojoTimeTravelFirestore.cjs',
+    'package.json',
+    'package-lock.json'
+  ]) {
+    assert.equal(fs.existsSync(path.join(deployRoot, rel)), true, `missing deploy artifact: ${rel}`);
+  }
+
+  const pkg = JSON.parse(fs.readFileSync(path.join(deployRoot, 'package.json'), 'utf8'));
+  assert.deepEqual(pkg.scripts, { start: 'node cloud/time-travel/admin-server.cjs' });
+  assert.equal(pkg.scripts['gcp-build'], undefined);
+
+  const names = fs.readdirSync(deployRoot);
+  assert.equal(names.includes('docs'), false);
+  assert.equal(names.includes('gas'), false);
+  assert.equal(names.includes('work'), false);
+  assert.equal(names.includes('tools'), false);
+});

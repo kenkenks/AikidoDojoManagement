@@ -39,8 +39,27 @@ function buildFirebase() {
   const result = spawnSync(process.execPath, [builder], { cwd: repoRoot, stdio: "inherit", windowsHide: true });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`Firebase build failed: exit ${result.status}`);
+  const artifactDir = join(repoRoot, ".build", "portable-timetravel-firestore");
+  const deployRoot = join(repoRoot, ".build", targetName, "cloud-run", "dojo-time-travel-admin");
+  rmSync(deployRoot, { recursive: true, force: true });
+
+  for (const name of ["admin-server.cjs", "admin-api.cjs", "target.cjs"]) {
+    copy(join(repoRoot, "cloud", "time-travel", name), join(deployRoot, "cloud", "time-travel", name));
+  }
+  copy(profilePath, join(deployRoot, "targets", `${targetName}.json`));
+  copy(
+    join(artifactDir, "DojoTimeTravelFirestore.cjs"),
+    join(deployRoot, ".build", "portable-timetravel-firestore", "DojoTimeTravelFirestore.cjs")
+  );
+
+  const rootPackage = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
+  rootPackage.scripts = { start: "node cloud/time-travel/admin-server.cjs" };
+  writeFileSync(join(deployRoot, "package.json"), JSON.stringify(rootPackage, null, 2) + "\n", "utf8");
+  copy(join(repoRoot, "package-lock.json"), join(deployRoot, "package-lock.json"));
+
   console.log(`Target: ${targetName}`);
   console.log("Output: .build/portable-timetravel-firestore");
+  console.log(`Cloud Run deploy unit: ${normalize(relative(repoRoot, deployRoot))}`);
   console.log(`Firebase project: ${profile.projectId}`);
 }
 
