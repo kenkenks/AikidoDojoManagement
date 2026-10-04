@@ -39,10 +39,10 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
     const memberId = normalizeId_(member["member_id"]);
     if (!targetIds[memberId] || !isActiveMasterRow_(member)) return;
 
-    const currentRank = String(member["現在級段位"] || "").trim();
+    const currentRank = String(member["current_rank"] || "").trim();
     const standard = standardMap[currentRank] || {};
     const rankOption = rankOptionMap[currentRank] || {};
-    const overrideCount = attendanceProgress_toNonNegativeNumber_(member["審査可能稽古数"]);
+    const overrideCount = attendanceProgress_toNonNegativeNumber_(member["eligible_training_count"]);
     const standardCount = standard.progress_display_enabled
       ? attendanceProgress_toNonNegativeNumber_(standard.required_training_count)
       : 0;
@@ -93,7 +93,7 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       next_rank: String(state.standard.next_rank || ""),
       examination_note: String(state.standard.note || ""),
       rank_source: String(member["級段位登録元"] || ""),
-      rank_updated_at: member["級段位更新日時"] || "",
+      rank_updated_at: member["rank_updated_at"] || "",
       rank_start_date: state.start_date,
       carried_training_count: state.carried_count,
       recorded_training_count: recordedCount,

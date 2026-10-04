@@ -59,7 +59,7 @@ function billingUsageCollect_(memberId, targetMonth, ctx) {
   const member = daoBillingFindActiveMember_(memberId, ctx);
   if (!member) return { ok: false, message: "有効な会員が見つかりません: " + memberId };
 
-  const billingGroupId = normalizeId_(member["請求グループID"]);
+  const billingGroupId = normalizeId_(member["billing_group_id"]);
   const selection = daoBillingFindMonthlySelection_(billingGroupId, targetMonth, ctx);
   if (!selection) {
     return { ok: true, skipped: true, message: "対象月の会費タイプが未選択です。" };

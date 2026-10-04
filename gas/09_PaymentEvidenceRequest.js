@@ -370,7 +370,7 @@ function paymentEvidence_findUnpaidInvoiceIdByMember_(memberId, ctx) {
     throw new Error("会員が見つかりません: " + memberId);
   }
 
-  const billingGroupId = normalizeId_(member["請求グループID"]);
+  const billingGroupId = normalizeId_(member["billing_group_id"]);
   if (!billingGroupId) {
     throw new Error("請求グループIDがありません: " + memberId);
   }

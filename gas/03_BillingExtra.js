@@ -42,7 +42,7 @@ function billingExtraCollect_(memberId, planId, ctx) {
   facts.fee = daoBillingFindActiveFee_(facts.planId, ctx);
   if (!facts.fee || String(facts.fee['会費タイプ'] || '').trim() !== '審査費') return facts;
   facts.targetMonth = sup_targetMonth(ctx);
-  facts.billingGroupId = normalizeId_(facts.member['請求グループID']);
+  facts.billingGroupId = normalizeId_(facts.member['billing_group_id']);
   if (!facts.billingGroupId) return facts;
   facts.existing = daoBillingFindOpenExtraInvoice_(facts.memberId, facts.planId, facts.targetMonth, ctx);
   return facts;

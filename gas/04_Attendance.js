@@ -212,7 +212,7 @@ function getMemberAttendanceState(params, ctx) {
 function attendance_getBillingSelectionState_(member, ctx) {
   ctx = ensureSheetContext(ctx);
   const memberId = normalizeId_(member["member_id"]);
-  const billingGroupId = normalizeId_(member["請求グループID"]);
+  const billingGroupId = normalizeId_(member["billing_group_id"]);
   const targetMonth = sup_targetMonth(ctx);
   const existing = billingGroupId
     ? billingCoreGetMonthlySelection_(billingGroupId, targetMonth, ctx)
@@ -284,7 +284,7 @@ function getAttendanceSavedState(params, ctx) {
   return {
     ok: true,
     member_id: memberId,
-    current_rank: String(member["現在級段位"] || "").trim(),
+    current_rank: String(member["current_rank"] || "").trim(),
     selected_slot_ids: Array.from(new Set(rows.map(function(row) {
       return normalizeId_(row["slot_id"]);
     }).filter(Boolean)))

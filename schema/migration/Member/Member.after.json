@@ -1,0 +1,28 @@
+{
+  "entity": "member",
+  "source": "gas",
+  "sheet": "01_会員マスタ",
+  "headers": [
+    "member_id",
+    "member_name",
+    "member_name_kana",
+    "member_type",
+    "status",
+    "billing_group_id",
+    "joined_date",
+    "withdrawn_date",
+    "suspension_start_month",
+    "suspension_end_month",
+    "birth_date",
+    "insurance_type",
+    "email",
+    "phone",
+    "remarks",
+    "current_rank",
+    "rank_source",
+    "rank_updated_at",
+    "rank_start_date",
+    "carried_training_count",
+    "eligible_training_count"
+  ]
+}

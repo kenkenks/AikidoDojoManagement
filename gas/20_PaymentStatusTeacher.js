@@ -62,7 +62,7 @@ function paymentStatusTeacher_makeMonthlyRows_(targetMonth, payments, ctx) {
   const membersByGroup = {};
   getMembers(ctx).forEach(function(member) {
     if (!isActiveMasterRow_(member)) return;
-    const groupId = normalizeId_(member["請求グループID"]);
+    const groupId = normalizeId_(member["billing_group_id"]);
     if (!groupId) return;
     if (!membersByGroup[groupId]) membersByGroup[groupId] = [];
     membersByGroup[groupId].push({

@@ -124,7 +124,7 @@ function billingMonthlyCollect(memberId, planId, ctx) {
     throw new Error("会員が見つかりません。");
   }
 
-  const billingGroupId = String(member["請求グループID"] || "").trim();
+  const billingGroupId = String(member["billing_group_id"] || "").trim();
   if (!billingGroupId) {
     throw new Error("請求グループIDがありません。");
   }

@@ -61,7 +61,7 @@ function runner_billing_story_002_repeatAttendance() {
   }
 
   const memberId = normalizeId_(member["member_id"]);
-  const groupId = normalizeId_(member["請求グループID"]);
+  const groupId = normalizeId_(member["billing_group_id"]);
   const planId = normalizeId_(fee["plan_id"]);
   const unitPrice = Number(fee["回数単価"] || 0);
   const cap = Number(fee["上限金額"] || 0);
@@ -211,7 +211,7 @@ function runner_view_paymentStatus_001() {
   }
 
   const memberId = normalizeId_(member["member_id"]);
-  const groupId = normalizeId_(member["請求グループID"]);
+  const groupId = normalizeId_(member["billing_group_id"]);
   const planId = normalizeId_(fee["plan_id"]);
   const unitPrice = Number(fee["回数単価"] || 0);
   const cap = Number(fee["上限金額"] || 0);
@@ -393,7 +393,7 @@ function runner_billing_story_003_teacherPartialCash() {
 
   const teacherId = normalizeId_(teacher["teacher_id"]);
   const memberId = normalizeId_(member["member_id"]);
-  const groupId = normalizeId_(member["請求グループID"]);
+  const groupId = normalizeId_(member["billing_group_id"]);
   const planId = normalizeId_(fee["plan_id"]);
   const unitPrice = Number(fee["回数単価"] || 0);
 
@@ -623,7 +623,7 @@ function runner_billing_story_004_perUseComplexMonth(options) {
 
   const teacherId = normalizeId_(teacher["teacher_id"]);
   const memberId = normalizeId_(member["member_id"]);
-  const groupId = normalizeId_(member["請求グループID"]);
+  const groupId = normalizeId_(member["billing_group_id"]);
   const planId = normalizeId_(fee["plan_id"]);
   const unitPrice = Number(fee["回数単価"] || 0);
   const cap = Number(fee["上限金額"] || 0);

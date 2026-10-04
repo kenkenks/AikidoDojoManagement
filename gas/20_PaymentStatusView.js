@@ -62,7 +62,7 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   }
 
   const memberName = member["氏名"];
-  const billingGroupId = member["請求グループID"];
+  const billingGroupId = member["billing_group_id"];
   const normalizedTargetMonth = normalizeMonth(targetMonth);
 
   const lessonCount =
