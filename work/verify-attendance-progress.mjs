@@ -1,7 +1,8 @@
 import fs from "node:fs";
 import vm from "node:vm";
 
-const code = fs.readFileSync(new URL("../gas/04_AttendanceProgress.js", import.meta.url), "utf8");
+const code = ["00_Job.js", "04_AttendanceProgress.js"]
+  .map(name => fs.readFileSync(new URL(`../gas/${name}`, import.meta.url), "utf8")).join("\n");
 
 globalThis.ensureSheetContext = value => value || {};
 globalThis.normalizeId_ = value => String(value || "").trim();
@@ -16,22 +17,23 @@ globalThis.rankMaster_getOptionMap = () => ({
   "成人二級": { rank_id: "ADULT_KYU_2", sort_order: 1050 },
   "成人初段": { rank_id: "ADULT_DAN_1", sort_order: 1070 }
 });
-globalThis.getMembers = () => [{
+
+globalThis.daoMemberGetAll_ = () => [{
   member_id: "M001",
-  "氏名": "テスト会員",
-  "現在級段位": "成人二級",
-  "級段位登録元": "本人申告",
-  "級段位起算日": "2026-06-01",
-  "繰越稽古数": 4,
-  "審査可能稽古数": 10,
-  "状態": "有効"
+  member_name: "テスト会員",
+  current_rank: "成人二級",
+  rank_source: "本人申告",
+  rank_start_date: "2026-06-01",
+  carried_training_count: 4,
+  eligible_training_count: 10,
+  status: "有効"
 }, {
   member_id: "M002",
-  "氏名": "マスタ参照会員",
-  "現在級段位": "成人初段",
-  "級段位起算日": "2026-06-01",
-  "審査可能稽古数": "",
-  "状態": "有効"
+  member_name: "マスタ参照会員",
+  current_rank: "成人初段",
+  rank_start_date: "2026-06-01",
+  eligible_training_count: "",
+  status: "有効"
 }];
 globalThis.getAttendances = () => [
   { member_id: "M001", "稽古日": "2026-05-31", "状態": "有効", slot_id: "S1" },

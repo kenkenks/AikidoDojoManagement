@@ -35,14 +35,16 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
   const states = {};
   const standardMap = examinationStandard_getMap(ctx);
   const rankOptionMap = rankMaster_getOptionMap(ctx);
-  getMembers(ctx).forEach(function(member) {
-    const memberId = normalizeId_(member["member_id"]);
-    if (!targetIds[memberId] || !isActiveMasterRow_(member)) return;
+  daoMemberGetAll_(ctx).forEach(function(member) {
+    const memberId = normalizeId_(member.member_id);
+    const status = normalizeId_(member.status);
+    const isActive = status === "" || status === "有効" || status === "在籍" || status === "TRUE";
+    if (!targetIds[memberId] || !isActive) return;
 
-    const currentRank = String(member["current_rank"] || "").trim();
+    const currentRank = String(member.current_rank || "").trim();
     const standard = standardMap[currentRank] || {};
     const rankOption = rankOptionMap[currentRank] || {};
-    const overrideCount = attendanceProgress_toNonNegativeNumber_(member["eligible_training_count"]);
+    const overrideCount = attendanceProgress_toNonNegativeNumber_(member.eligible_training_count);
     const standardCount = standard.progress_display_enabled
       ? attendanceProgress_toNonNegativeNumber_(standard.required_training_count)
       : 0;
@@ -51,8 +53,8 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       member: member,
       standard: standard,
       rank_option: rankOption,
-      start_date: attendanceProgress_normalizeOptionalDate_(member["級段位起算日"], ctx),
-      carried_count: attendanceProgress_toNonNegativeNumber_(member["繰越稽古数"]),
+      start_date: attendanceProgress_normalizeOptionalDate_(member.rank_start_date, ctx),
+      carried_count: attendanceProgress_toNonNegativeNumber_(member.carried_training_count),
       required_count: requiredCount,
       required_count_source: overrideCount > 0 ? "会員個別" : (standardCount > 0 ? "審査基準マスタ" : "未設定"),
       attendance_keys: {},
@@ -86,14 +88,14 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
     summaries[memberId] = {
       ok: true,
       member_id: memberId,
-      member_name: String(member["氏名"] || ""),
-      current_rank: String(member["現在級段位"] || "").trim(),
+      member_name: String(member.member_name || ""),
+      current_rank: String(member.current_rank || "").trim(),
       current_rank_id: String(state.rank_option.rank_id || ""),
       rank_sort_order: Number(state.rank_option.sort_order || 999999),
       next_rank: String(state.standard.next_rank || ""),
       examination_note: String(state.standard.note || ""),
-      rank_source: String(member["級段位登録元"] || ""),
-      rank_updated_at: member["rank_updated_at"] || "",
+      rank_source: String(member.rank_source || ""),
+      rank_updated_at: member.rank_updated_at || "",
       rank_start_date: state.start_date,
       carried_training_count: state.carried_count,
       recorded_training_count: recordedCount,
