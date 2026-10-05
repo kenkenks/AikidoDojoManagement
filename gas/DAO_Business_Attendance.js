@@ -19,9 +19,11 @@ function daoAttendanceGetMemberMap_(ctx) {
   ctx = daoContext_(ctx);
 
   const members = {};
-  daoCore_(ctx).read('members', ctx).forEach(function(row) {
-    if (isActiveMasterRow_(row)) {
-      members[normalizeId_(row["member_id"])] = row;
+  daoMemberGetAll_(ctx).forEach(function(member) {
+    const memberId = normalizeId_(member.member_id);
+    const status = normalizeId_(member.status);
+    if (memberId && (status === "" || status === "有効" || status === "在籍" || status === "TRUE")) {
+      members[memberId] = member;
     }
   });
   return members;

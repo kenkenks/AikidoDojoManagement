@@ -215,13 +215,15 @@ function monthlyIntegration902_collectConfig_(ctx) {
 
   const members = [];
   const usedGroups = {};
-  getMembers(ctx).forEach(function(row) {
-    if (members.length >= 4 || !isActiveMasterRow_(row)) return;
-    const memberId = normalizeId_(row["member_id"]);
-    const groupId = normalizeId_(row["請求グループID"]);
+  daoMemberGetAll_(ctx).forEach(function(member) {
+    const status = normalizeId_(member.status);
+    const isActive = status === "" || status === "有効" || status === "在籍" || status === "TRUE";
+    if (members.length >= 4 || !isActive) return;
+    const memberId = normalizeId_(member.member_id);
+    const groupId = normalizeId_(member.billing_group_id);
     if (!memberId || !groupId || usedGroups[groupId]) return;
     usedGroups[groupId] = true;
-    members.push({ member_id: memberId, member_name: String(row["氏名"] || ""), billing_group_id: groupId });
+    members.push({ member_id: memberId, member_name: String(member.member_name || ""), billing_group_id: groupId });
   });
   if (members.length < 4) errors.push("異なる請求グループの有効会員が4名必要です。現在: " + members.length + "名");
 
