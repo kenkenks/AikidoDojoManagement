@@ -26,7 +26,7 @@ class MemberCardGenerateJob extends Job {
 
     return {
       access: access,
-      members: access.readMembers(),
+      members: daoMemberGetAll_(),
       webAppUrl: ScriptApp.getService().getUrl()
     };
   }
@@ -35,7 +35,7 @@ class MemberCardGenerateJob extends Job {
     const rows = [];
 
     collected.members.forEach(member => {
-      if (member["状態"] === "退会") return;
+      if (member["status"] === "退会") return;
 
       const memberId = member["member_id"];
 
@@ -49,7 +49,7 @@ class MemberCardGenerateJob extends Job {
 
       rows.push([
         memberId,
-        member["氏名"],
+        member["member_name"],
         url,
         qrFormula
       ]);
