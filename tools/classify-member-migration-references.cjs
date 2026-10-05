@@ -8,6 +8,7 @@ function classifyHit(before, hit, file) {
   const ext = path.extname(file).toLowerCase();
 
   if (file.startsWith('schema/migration/Member/') ||
+      file === 'tools/classify-member-migration-references.cjs' ||
       /verify-pdd-member-(before|mapping|migration|scanner|classifier)/.test(file)) {
     return { classification: 'KEEP', reason: 'migration-spec' };
   }
@@ -65,7 +66,7 @@ function classifyReport(scan) {
         file:entry.file,
         hits:(entry.hits||[]).map(hit=>({
           ...hit,
-          ...classifyHit(result.before,{...hit,raw_text:hit.text},entry.file)
+          ...classifyHit(result.before,{...hit,raw_text:hit.raw_text || hit.text},entry.file)
         }))
       }));
       const counts={REPLACE:0,KEEP:0,REVIEW:0};

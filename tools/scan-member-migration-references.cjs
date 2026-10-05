@@ -15,7 +15,9 @@ const EXCLUDED_DIR_NAMES = new Set([
 const EXCLUDED_RELATIVE_FILES = new Set([
   'schema/migration/Member/Member.before.json',
   'schema/migration/Member/Member.mapping.json',
-  'schema/migration/Member/Member.after.json'
+  'schema/migration/Member/Member.after.json',
+  'work/member-migration-scan.json',
+  'work/member-migration-classified.json'
 ]);
 
 const TEXT_EXTENSIONS = new Set([
@@ -58,7 +60,8 @@ function findLiteralHits(text, needle) {
       hits.push({
         line: index + 1,
         column: column + 1,
-        text: line.trim()
+        text: line.trim(),
+        raw_text: line
       });
       fromIndex = column + needle.length;
     }
@@ -126,14 +129,24 @@ function printReport(report) {
   }
 }
 
+function resolveOutputPath(outputArg, cwd = process.cwd()) {
+  if (!outputArg) return null;
+
+  const outputPath = path.resolve(cwd, outputArg);
+  if (outputPath === path.resolve(mappingPath)) {
+    throw new Error('Refusing to overwrite Member.mapping.json with scanner output');
+  }
+  return outputPath;
+}
+
 function main() {
-  const report = scanMigrationReferences();
   const outputArg = process.argv[2];
+  const outputPath = resolveOutputPath(outputArg);
+  const report = scanMigrationReferences();
 
   printReport(report);
 
-  if (outputArg) {
-    const outputPath = path.resolve(process.cwd(), outputArg);
+  if (outputPath) {
     fs.mkdirSync(path.dirname(outputPath), { recursive: true });
     fs.writeFileSync(outputPath, JSON.stringify(report, null, 2) + '\n', 'utf8');
     console.log(`Wrote ${path.relative(repoRoot, outputPath)}`);
@@ -147,5 +160,6 @@ if (require.main === module) {
 module.exports = {
   EXCLUDED_RELATIVE_FILES,
   findLiteralHits,
+  resolveOutputPath,
   scanMigrationReferences
 };

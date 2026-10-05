@@ -95,3 +95,43 @@ test('classifier source only writes the explicitly requested report path', () =>
   assert.ok(writes.length <= 1);
   if (writes.length === 1) assert.match(writes[0], /path\.resolve\(output\)/);
 });
+
+
+test('report classifies indented explicit member occurrence as REPLACE using raw_text coordinates', () => {
+  const line = '    current_rank: String(member["現在級段位"] || "").trim(),';
+  const scan = {
+    entity: 'member',
+    results: [{
+      before: '現在級段位',
+      after: 'current_rank',
+      action: 'review',
+      hit_count: 1,
+      files: [{
+        file: 'gas/04_AttendanceProgress.js',
+        hits: [{
+          line: 90,
+          column: line.indexOf('現在級段位') + 1,
+          text: line.trim(),
+          raw_text: line
+        }]
+      }]
+    }]
+  };
+  const out = classifyReport(scan);
+  const hit = out.results[0].files[0].hits[0];
+  assert.equal(hit.classification, 'REPLACE');
+  assert.equal(hit.reason, 'explicit-member-field');
+});
+
+
+test('classifier source is KEEP and cannot classify its own example as REPLACE', () => {
+  const line = '    // A line can contain member["氏名"] and teacher["氏名"] simultaneously.';
+  const column = line.indexOf('氏名') + 1;
+  const result = classifyHit(
+    '氏名',
+    { text: line.trim(), raw_text: line, column },
+    'tools/classify-member-migration-references.cjs'
+  );
+  assert.equal(result.classification, 'KEEP');
+  assert.equal(result.reason, 'migration-spec');
+});

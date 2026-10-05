@@ -8,7 +8,8 @@ const path = require('node:path');
 
 const {
   EXCLUDED_RELATIVE_FILES,
-  findLiteralHits
+  findLiteralHits,
+  resolveOutputPath
 } = require('../tools/scan-member-migration-references.cjs');
 
 test('Scanner excludes the Member migration triplet itself', () => {
@@ -48,4 +49,35 @@ test('Scanner supports an optional JSON report output', () => {
 
   assert.match(source, /JSON\.stringify\(report/);
   assert.match(source, /process\.argv\[2\]/);
+});
+
+
+test('Scanner refuses to overwrite Member.mapping.json with report output', () => {
+  assert.throws(
+    () => resolveOutputPath('schema/migration/Member/Member.mapping.json', path.resolve(__dirname, '..')),
+    /Refusing to overwrite Member\.mapping\.json/
+  );
+});
+
+test('Scanner still accepts a normal report output path', () => {
+  const repo = path.resolve(__dirname, '..');
+  assert.equal(
+    resolveOutputPath('work/member-migration-scan.json', repo),
+    path.resolve(repo, 'work/member-migration-scan.json')
+  );
+});
+
+
+test('Scanner excludes its generated scan and classification reports', () => {
+  assert.ok(EXCLUDED_RELATIVE_FILES.has('work/member-migration-scan.json'));
+  assert.ok(EXCLUDED_RELATIVE_FILES.has('work/member-migration-classified.json'));
+});
+
+
+test('literal scanner preserves raw line for column-aligned classification', () => {
+  const line = '    current_rank: String(member["現在級段位"] || "").trim(),';
+  const [hit] = findLiteralHits(line, '現在級段位');
+  assert.equal(hit.text, line.trim());
+  assert.equal(hit.raw_text, line);
+  assert.equal(hit.column, line.indexOf('現在級段位') + 1);
 });
