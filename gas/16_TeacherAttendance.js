@@ -1,3 +1,19 @@
+function DB_TeacherAttendanceDTO(data) {
+  return {
+    teacher_attendance_id: data.teacher_attendance_id,
+    "稽古日": data["稽古日"],
+    "登録日時": data["登録日時"],
+    teacher_id: data.teacher_id,
+    member_id: data.member_id,
+    location_id: data.location_id,
+    slot_id: data.slot_id,
+    billing_block_id: data.billing_block_id,
+    "担当区分": data["担当区分"],
+    "状態": data["状態"],
+    source: data.source
+  };
+}
+
 // 先生本人の出席事実を、会員出席とは独立して記録する。
 
 const TEACHER_ATTENDANCE_SHEET = "16_先生出席ログ";
@@ -132,7 +148,7 @@ class TeacherAttendanceSyncJob extends Job {
     });
     const append = slotIds.filter(function(slotId) { return retained.indexOf(slotId) < 0; }).map(function(slotId) {
       registered.push(slotId);
-      return {
+      return DB_TeacherAttendanceDTO({
         teacher_attendance_id:"TATT-" + Utilities.getUuid().slice(0, 8),
         "稽古日":formatAttendanceDate_(date, ctx),
         "登録日時":sup_now(ctx),
@@ -144,7 +160,7 @@ class TeacherAttendanceSyncJob extends Job {
         "担当区分":role,
         "状態":"有効",
         source:String(data.source || "teacher_attendance.html")
-      };
+      });
     });
     if (append.length) {
       daoTeacherAttendanceAppend_(append, ctx);
@@ -226,5 +242,5 @@ function teacherAttendance_validateWeekday_(date, locationId, blockId, ctx) {
 function teacherAttendance_teacherName_(teacher, ctx) {
   const memberId = normalizeId_(teacher["member_id"]);
   const member = memberId ? getMembers(ctx).find(function(row) { return normalizeId_(row["member_id"]) === memberId; }) : null;
-  return String((member && member["氏名"]) || teacher["氏名"] || teacher["先生名"] || teacher["表示名"] || "");
+  return String((member && member["member_name"]) || teacher["氏名"] || teacher["先生名"] || teacher["表示名"] || "");
 }

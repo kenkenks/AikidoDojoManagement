@@ -1,3 +1,15 @@
+function DB_MonthlySelectionDTO(selection, ctx) {
+  return {
+    target_month: selection.target_month,
+    member_id: selection.member_id,
+    billing_group_id: selection.billing_group_id,
+    plan_id: selection.plan_id,
+    宣言日: selection.宣言日 || sup_now(ctx),
+    状態: selection.状態 || "有効",
+    備考: selection.備考 || ""
+  };
+}
+
 /**
  * ROLE
  * BillingRecord
@@ -26,15 +38,8 @@ function billingRecordAppendInvoice_(invoice, ctx) {
 function billingRecordAppendMonthlySelection_(selection, ctx) {
   ctx = daoContext_(ctx);
 
-  return daoCore_(ctx).append('monthlySelections', [{
-    target_month: selection.target_month,
-    member_id: selection.member_id,
-    billing_group_id: selection.billing_group_id,
-    plan_id: selection.plan_id,
-    宣言日: selection.宣言日 || sup_now(ctx),
-    状態: selection.状態 || "有効",
-    備考: selection.備考 || ""
-  }], ctx);
+  const dbMonthlySelection = DB_MonthlySelectionDTO(selection, ctx);
+  return daoCore_(ctx).append('monthlySelections', [dbMonthlySelection], ctx);
 }
 
 /**

@@ -1,3 +1,25 @@
+function DB_InvoiceDTO(data) {
+  return {
+    invoice_id: data.invoice_id,
+    target_month: data.target_month,
+    billing_group_id: data.billing_group_id,
+    member_id: data.member_id,
+    plan_id: data.plan_id,
+    請求種別: data.請求種別,
+    表示名: data.表示名,
+    数量: data.数量,
+    単価: data.単価,
+    上限金額: data.上限金額,
+    計算額: data.計算額,
+    請求予定額: data.請求予定額,
+    金額: data.金額,
+    支払状態: data.支払状態,
+    支払期限: data.支払期限,
+    作成日: data.作成日,
+    備考: data.備考
+  };
+}
+
 function billingCoreMakeInvoiceObject_(targetMonth, billingGroupId, memberId, planId, type, name, quantity, unitPrice, monthlyCap, ctx) {
   const now = sup_now(ctx);
   const invoiceId = `INV-${targetMonth}-${billingGroupId}-${memberId || "GROUP"}-${Utilities.getUuid().slice(0, 8)}`;
@@ -22,7 +44,7 @@ function billingCoreMakeInvoiceObject_(targetMonth, billingGroupId, memberId, pl
 
   const amount = plannedAmount;
 
-  return {
+  return DB_InvoiceDTO({
     invoice_id: invoiceId,
     target_month: targetMonth,
     billing_group_id: billingGroupId,
@@ -40,7 +62,7 @@ function billingCoreMakeInvoiceObject_(targetMonth, billingGroupId, memberId, pl
     支払期限: "",
     作成日: now,
     備考: ""
-  };
+  });
 }
 
 // ==============================

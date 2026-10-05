@@ -9,7 +9,7 @@ function daoPaymentLoadEvidenceReadModel_(ctx) {
 
   const memberNames = {};
   daoCore_(ctx).read('members', ctx).forEach(function(member) {
-    memberNames[normalizeId_(member["member_id"])] = String(member["氏名"] || "");
+    memberNames[normalizeId_(member["member_id"])] = String(member["member_name"] || "");
   });
 
   return {
@@ -20,10 +20,8 @@ function daoPaymentLoadEvidenceReadModel_(ctx) {
 }
 
 
-function daoPaymentAppend_(ctx, payment) {
-  ctx = daoContext_(ctx);
-
-  return daoCore_(ctx).append("payments", [{
+function DB_PaymentDTO(payment) {
+  return {
     payment_id: payment.payment_id,
     日時: payment.日時,
     target_month: payment.target_month,
@@ -38,7 +36,14 @@ function daoPaymentAppend_(ctx, payment) {
     billing_block_id: payment.billing_block_id,
     teacher_id: payment.teacher_id,
     reception_session_id: payment.reception_session_id
-  }], ctx);
+  };
+}
+
+function daoPaymentAppend_(ctx, payment) {
+  ctx = daoContext_(ctx);
+
+  const dbPayment = DB_PaymentDTO(payment);
+  return daoCore_(ctx).append("payments", [dbPayment], ctx);
 }
 
 // 05_請求明細の支払状態 read/update persistence boundary。

@@ -216,8 +216,32 @@ function paymentEvidenceRequest_collect_(input, ctx) {
  * RESPONSIBILITY
  * REQUESTEDレコードを生成する。
  */
-function paymentEvidenceRequest_make_(context, ctx) {
+function DB_PaymentEvidenceDTO(data) {
   return {
+    evidence_id: data.evidence_id,
+    invoice_id: data.invoice_id,
+    billing_group_id: data.billing_group_id,
+    member_id: data.member_id,
+    payment_method: data.payment_method,
+    amount: data.amount,
+    reception_date: data.reception_date,
+    location_id: data.location_id,
+    billing_block_id: data.billing_block_id,
+    teacher_id: data.teacher_id,
+    reception_session_id: data.reception_session_id,
+    status: data.status,
+    evidence_code: data.evidence_code,
+    requested_at: data.requested_at,
+    confirmed_at: data.confirmed_at,
+    confirmed_by: data.confirmed_by,
+    posted_at: data.posted_at,
+    payment_log_id: data.payment_log_id,
+    remarks: data.remarks
+  };
+}
+
+function paymentEvidenceRequest_make_(context, ctx) {
+  return DB_PaymentEvidenceDTO({
     evidence_id: paymentEvidence_createEvidenceId_(context.payment_method),
     invoice_id: context.invoice_id,
     billing_group_id: context.billing_group_id,
@@ -237,7 +261,7 @@ function paymentEvidenceRequest_make_(context, ctx) {
     posted_at: "",
     payment_log_id: "",
     remarks: context.remarks || ""
-  };
+  });
 }
 
 /**

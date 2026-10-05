@@ -1,3 +1,25 @@
+function DB_AttendanceDTO(data) {
+  return {
+    attendance_id: data.attendance_id,
+    "稽古日": data["稽古日"],
+    "登録日時": data["登録日時"],
+    member_id: data.member_id,
+    target_month: data.target_month,
+    location_id: data.location_id,
+    slot_id: data.slot_id,
+    billing_block_id: data.billing_block_id,
+    teacher_id: data.teacher_id,
+    attendance_session_id: data.attendance_session_id,
+    "稽古時間分": data["稽古時間分"],
+    "状態": data["状態"],
+    source: data.source,
+    "取消日時": data["取消日時"],
+    "取消者teacher_id": data["取消者teacher_id"],
+    "取消理由": data["取消理由"],
+    "備考": data["備考"]
+  };
+}
+
 // ========================================
 // 04_AttendanceCore.js
 // 出席共通Core
@@ -143,7 +165,7 @@ function attendanceCore_registerBatch_(options, ctx) {
 
       const slot = slots[slotId];
 
-      rowsToAppend.push({
+      rowsToAppend.push(DB_AttendanceDTO({
         attendance_id: "ATT-" + Utilities.getUuid(),
         "稽古日": attendanceDate,
         "登録日時": sup_now(ctx),
@@ -161,7 +183,7 @@ function attendanceCore_registerBatch_(options, ctx) {
         "取消者teacher_id": "",
         "取消理由": "",
         "備考": remarks
-      });
+      }));
 
       result.registered_slot_ids.push(slotId);
     });
