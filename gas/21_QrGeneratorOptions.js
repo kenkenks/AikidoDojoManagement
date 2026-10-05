@@ -17,13 +17,16 @@
 function qrGenerator_getOptions(ctx) {
   ctx = ensureSheetContext(ctx || createSheetContext());
 
-  const members = getMembers(ctx)
-    .filter(isActiveMasterRow_)
+  const members = daoMemberGetAll_(ctx)
+    .filter(function(row) {
+      const status = normalizeId_(row.status);
+      return status === "" || status === "有効" || status === "在籍" || status === "TRUE";
+    })
     .map(function(row) {
       return {
-        member_id: normalizeId_(row["member_id"]),
-        member_name: String(row["氏名"] || "").trim(),
-        member_type: String(row["区分"] || "").trim()
+        member_id: normalizeId_(row.member_id),
+        member_name: String(row.member_name || "").trim(),
+        member_type: String(row.member_type || "").trim()
       };
     })
     .filter(function(row) { return !!row.member_id; })
