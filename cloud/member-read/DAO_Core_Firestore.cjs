@@ -15,7 +15,7 @@ function firestoreEndpoint(config) {
 }
 function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {}) {
   const base = firestoreEndpoint(config);
-  async function write(source, documentId, values, exists) {
+  async function write(source, documentId, values, exists, replace = false) {
     const id = normalizeStorageId(documentId);
     const collection = normalizeStorageId(source.collection);
     const fields = Object.fromEntries(Object.entries(values).map(([key,value]) => {
@@ -27,7 +27,7 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     if (typeof token !== 'string' || !token.trim()) throw new Error('ACCESS_TOKEN_REQUIRED');
     const query = new URLSearchParams();
     if (exists !== null) query.set('currentDocument.exists',String(exists));
-    for (const key of Object.keys(fields)) query.append('updateMask.fieldPaths',key);
+    if (!replace) for (const key of Object.keys(fields)) query.append('updateMask.fieldPaths',key);
     const response = await fetchImpl(`${base}/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?${query}`, {
       method:'PATCH', headers:{Authorization:'Bearer '+token.trim(),'Content-Type':'application/json'},
       body:JSON.stringify({fields}), redirect:'error', signal:AbortSignal.timeout(10000)
@@ -45,6 +45,7 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     append: (source,id,values) => write(source,id,values,false),
     updateByKey: (source,id,values) => write(source,id,values,true),
     upsertByKey: (source,id,values) => write(source,id,values,null),
+    replaceByKey: (source,id,values) => write(source,id,values,true,true),
     async readById(source, documentId) {
     const id = normalizeStorageId(documentId);
     const collection = normalizeStorageId(source.collection);
