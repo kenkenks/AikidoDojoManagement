@@ -15,8 +15,8 @@ test('PDD001 Setting Definition generates the existing GAS/Firestore contract', 
       entity: 'setting',
       version: '0.1',
       fields: {
-        key: { type: 'string', required: true, primaryKey: true },
-        value: { type: 'string', required: true, primaryKey: false }
+        key: { type: 'string', group: 'Unclassified', required: true, primaryKey: true },
+        value: { type: 'string', group: 'Unclassified', required: true, primaryKey: false }
       }
     },
     writable: ['key', 'value'],

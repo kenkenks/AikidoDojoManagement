@@ -26,3 +26,52 @@ test('Portable Definition core preserves declared field types for renderers', ()
   const transformed = transformPortableDefinition(definition);
   assert.equal(transformed.schema.fields.count.type, 'number');
 });
+
+
+test('Portable Definition core preserves all supported semantic field groups', () => {
+  const groups = ['Identity', 'Name', 'Profile', 'State', 'Relation', 'Track', 'Derived', 'Unclassified'];
+  const definition = {
+    entity: 'sample', version: '1.0',
+    fields: groups.map((group, index) => ({
+      name: index === 0 ? 'sample_id' : `field_${index}`,
+      type: 'string',
+      group,
+      primary_key: index === 0
+    })),
+    sources: { gas: { sheet: '90_サンプル' }, firestore: { collection: 'samples' } }
+  };
+  const transformed = transformPortableDefinition(definition);
+  assert.deepEqual(
+    Object.values(transformed.schema.fields).map(({group}) => group),
+    groups
+  );
+});
+
+test('Portable Definition core defaults an omitted field group to Unclassified', () => {
+  const definition = {
+    entity: 'sample', version: '1.0',
+    fields: [
+      { name: 'sample_id', type: 'string', primary_key: true },
+      { name: 'label', type: 'string' }
+    ],
+    sources: { gas: { sheet: '90_サンプル' }, firestore: { collection: 'samples' } }
+  };
+  const transformed = transformPortableDefinition(definition);
+  assert.equal(transformed.schema.fields.sample_id.group, 'Unclassified');
+  assert.equal(transformed.schema.fields.label.group, 'Unclassified');
+});
+
+test('Portable Definition core rejects an unknown semantic field group', () => {
+  const definition = {
+    entity: 'sample', version: '1.0',
+    fields: [
+      { name: 'sample_id', type: 'string', primary_key: true, group: 'Identity' },
+      { name: 'label', type: 'string', group: 'UnknownGroup' }
+    ],
+    sources: { gas: { sheet: '90_サンプル' }, firestore: { collection: 'samples' } }
+  };
+  assert.throws(
+    () => transformPortableDefinition(definition),
+    /Unsupported field group: label: UnknownGroup/
+  );
+});

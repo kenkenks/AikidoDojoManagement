@@ -1,3 +1,14 @@
+const PORTABLE_FIELD_GROUPS = new Set([
+  'Identity',
+  'Name',
+  'Profile',
+  'State',
+  'Relation',
+  'Track',
+  'Derived',
+  'Unclassified'
+]);
+
 function scalar(text) {
   const value = text.trim();
   if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) return value.slice(1, -1);
@@ -68,6 +79,9 @@ export function validatePortableDefinition(definition) {
     if (!field.name || names.has(field.name)) throw new Error('Field name must be unique');
     names.add(field.name);
     if (!field.type) throw new Error(`Field type is required: ${field.name}`);
+    if (field.group !== undefined && !PORTABLE_FIELD_GROUPS.has(field.group)) {
+      throw new Error(`Unsupported field group: ${field.name}: ${field.group}`);
+    }
     if (field.primary_key === true) {
       if (primaryKey) throw new Error('Definition supports one primary key');
       primaryKey = field.name;
@@ -86,6 +100,7 @@ export function transformPortableDefinition(definition) {
   const writable = definition.fields.map(({name}) => name);
   const schemaFields = Object.fromEntries(definition.fields.map(field => [field.name, {
     type: field.type,
+    group: field.group || 'Unclassified',
     required: field.required === true,
     primaryKey: field.primary_key === true
   }]));
