@@ -143,6 +143,7 @@ globalThis.paymentStatusView_projectAttendances_ = (added, cancelled) => { proje
 globalThis.getTeachers = () => [{ teacher_id: "T001", "出席受付可": true, "状態": "有効" }];
 globalThis.getLocations = () => [{ location_id: "HONBU", "状態": "有効" }];
 globalThis.getMembers = () => [{ member_id: "M001", "請求グループID": "G001", "状態": "有効" }];
+globalThis.daoMemberGetAll_ = () => [{ member_id: "M001", billing_group_id: "G001", status: "有効" }];
 globalThis.getTrainingSlots = () => [
   { slot_id: "S1", location_id: "HONBU", billing_block_id: "B1", "開始時刻": "10:30", "終了時刻": "11:30", "稽古時間分": 60, "状態": "有効" },
   { slot_id: "S2", location_id: "HONBU", billing_block_id: "B1", "開始時刻": "11:30", "終了時刻": "12:30", "稽古時間分": 60, "状態": "有効" }
