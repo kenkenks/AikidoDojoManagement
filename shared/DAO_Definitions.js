@@ -28,8 +28,8 @@ const definitions = {
   members: {
     writable: [],
     sources: {
-      firestore: { collection: 'members', fields: { member_id:'member_id', 状態:'状態' } },
-      gas: { sheet: '01_会員マスタ', fields: { member_id:'member_id', 状態:'状態' } }
+      firestore: { collection: 'members', keyField: 'member_id', fields: { member_id:'member_id', member_name:'member_name', member_name_kana:'member_name_kana', member_type:'member_type', status:'status', billing_group_id:'billing_group_id', joined_date:'joined_date', withdrawn_date:'withdrawn_date', suspension_start_month:'suspension_start_month', suspension_end_month:'suspension_end_month', birth_date:'birth_date', insurance_type:'insurance_type', email:'email', phone:'phone', remarks:'remarks', current_rank:'current_rank', rank_source:'rank_source', rank_updated_at:'rank_updated_at', rank_start_date:'rank_start_date', carried_training_count:'carried_training_count', eligible_training_count:'eligible_training_count' } },
+      gas: { sheet: '01_会員マスタ', keyField: 'member_id', fields: { member_id:'member_id', member_name:'member_name', member_name_kana:'member_name_kana', member_type:'member_type', status:'status', billing_group_id:'billing_group_id', joined_date:'joined_date', withdrawn_date:'withdrawn_date', suspension_start_month:'suspension_start_month', suspension_end_month:'suspension_end_month', birth_date:'birth_date', insurance_type:'insurance_type', email:'email', phone:'phone', remarks:'remarks', current_rank:'current_rank', rank_source:'rank_source', rank_updated_at:'rank_updated_at', rank_start_date:'rank_start_date', carried_training_count:'carried_training_count', eligible_training_count:'eligible_training_count' } }
     }
   },
   teachers: {
