@@ -5,7 +5,8 @@
     "target:deploy": "node deploy_prod.mjs",
     "schema:build": "node tools/build-portable-data-definition.mjs",
     "gcp-build": "npm run target:build -- dev-firebase",
-    "start": "node cloud/time-travel/admin-server.cjs"
+    "start": "node cloud/time-travel/admin-server.cjs",
+    "migration:member:build": "node tools/build-member-migration-after.cjs && node tools/build-member-migration-gas.cjs"
   },
   "devDependencies": {
     "@eslint/css": "^1.2.0",
