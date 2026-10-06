@@ -7,11 +7,13 @@ const settingDefinition = {
     "fields": {
       "key": {
         "type": "string",
+        "group": "Unclassified",
         "required": true,
         "primaryKey": true
       },
       "value": {
         "type": "string",
+        "group": "Unclassified",
         "required": true,
         "primaryKey": false
       }
