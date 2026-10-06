@@ -310,10 +310,10 @@ function getMemberPaymentInfo_(memberId, plan_id, ctx) {
     plan_id_r = "";
   }
   if (!plan_id_r) {
-    const memberRow = getMembers(ctx).find(function(row) {
-      return normalizeId_(row["member_id"]) === normalizeId_(memberId);
+    const memberRow = daoMemberGetAll_(ctx).find(function(row) {
+      return normalizeId_(row.member_id) === normalizeId_(memberId);
     });
-    const billingGroupId = memberRow ? normalizeId_(memberRow["請求グループID"]) : "";
+    const billingGroupId = memberRow ? normalizeId_(memberRow.billing_group_id) : "";
     const selection = billingGroupId
       ? billing_getMonthlySelection(billingGroupId, sup_targetMonth(ctx), ctx)
       : null;

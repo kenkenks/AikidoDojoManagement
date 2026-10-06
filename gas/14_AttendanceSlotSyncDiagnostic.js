@@ -26,9 +26,9 @@ function runner_diagnostic_attendance_slot_sync_902() {
     Logger.log(JSON.stringify(result, null, 2));
     return result;
   }
-  const rank = String((getMembers(ctx).find(function(row) {
-    return normalizeId_(row["member_id"]) === scope.member_id;
-  }) || {})["現在級段位"] || "").trim();
+  const rank = String((daoMemberGetAll_(ctx).find(function(row) {
+    return normalizeId_(row.member_id) === scope.member_id;
+  }) || {}).current_rank || "").trim();
 
   const normalizeResult = registerAttendanceBatchLocked_({
     teacher_id: scope.teacher_id,

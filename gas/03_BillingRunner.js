@@ -28,8 +28,10 @@ function runner_billing_story_002_repeatAttendance() {
   const teacher = getTeachers(ctx).find(function(row) {
     return isActiveMasterRow_(row) && isTrueValue_(row["出席受付可"]);
   });
-  const member = getMembers(ctx).find(function(row) {
-    return isActiveMasterRow_(row) && normalizeId_(row["請求グループID"]);
+  const member = daoMemberGetAll_(ctx).find(function(row) {
+    const status = normalizeId_(row.status);
+    return (status === "" || status === "有効" || status === "在籍" || status === "TRUE") &&
+      normalizeId_(row.billing_group_id);
   });
   const fee = getFees(ctx).find(function(row) {
     return isActiveMasterRow_(row) &&
@@ -176,8 +178,10 @@ function runner_view_paymentStatus_001() {
   const teacher = getTeachers(ctx).find(function(row) {
     return isActiveMasterRow_(row) && isTrueValue_(row["出席受付可"]);
   });
-  const member = getMembers(ctx).find(function(row) {
-    return isActiveMasterRow_(row) && normalizeId_(row["請求グループID"]);
+  const member = daoMemberGetAll_(ctx).find(function(row) {
+    const status = normalizeId_(row.status);
+    return (status === "" || status === "有効" || status === "在籍" || status === "TRUE") &&
+      normalizeId_(row.billing_group_id);
   });
   const fee = getFees(ctx).find(function(row) {
     return isActiveMasterRow_(row) &&
@@ -357,8 +361,10 @@ function runner_billing_story_003_teacherPartialCash() {
   const teacher = getTeachers(ctx).find(function(row) {
     return isActiveMasterRow_(row) && isTrueValue_(row["出席受付可"]);
   });
-  const member = getMembers(ctx).find(function(row) {
-    return isActiveMasterRow_(row) && normalizeId_(row["請求グループID"]);
+  const member = daoMemberGetAll_(ctx).find(function(row) {
+    const status = normalizeId_(row.status);
+    return (status === "" || status === "有効" || status === "在籍" || status === "TRUE") &&
+      normalizeId_(row.billing_group_id);
   });
   const fee = getFees(ctx).find(function(row) {
     return isActiveMasterRow_(row) &&
@@ -606,8 +612,10 @@ function runner_billing_story_004_perUseComplexMonth(options) {
   const teacher = getTeachers(ctx).find(function(row) {
     return isActiveMasterRow_(row) && isTrueValue_(row["出席受付可"]);
   });
-  const member = getMembers(ctx).find(function(row) {
-    return isActiveMasterRow_(row) && normalizeId_(row["請求グループID"]);
+  const member = daoMemberGetAll_(ctx).find(function(row) {
+    const status = normalizeId_(row.status);
+    return (status === "" || status === "有効" || status === "在籍" || status === "TRUE") &&
+      normalizeId_(row.billing_group_id);
   });
   const fee = getFees(ctx).find(function(row) {
     return isActiveMasterRow_(row) &&
