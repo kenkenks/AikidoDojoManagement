@@ -15,9 +15,17 @@ function sameKeys(value, expected) {
   return actual.length === wanted.length && actual.every((key, i) => key === wanted[i]);
 }
 
+function hasOnlyKnownAfterFields(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const actual = Object.keys(value);
+  if (actual.length === 0) return false;
+  const allowed = new Set(AFTER_FIELDS);
+  return actual.every((key) => allowed.has(key));
+}
+
 function classifyMemberFirestoreSchema(fields) {
-  if (sameKeys(fields, AFTER_FIELDS)) return 'AFTER_COMPATIBLE';
   if (sameKeys(fields, LEGACY_OBSERVED_FIELDS)) return 'LEGACY_OBSERVED';
+  if (hasOnlyKnownAfterFields(fields)) return 'AFTER_COMPATIBLE';
   return 'MISMATCH';
 }
 

@@ -19,12 +19,27 @@ test('observed TEST_MEMBER_001 legacy shape is classified explicitly', () => {
   }), 'LEGACY_OBSERVED');
 });
 
-test('exact migrated 21-field shape is AFTER_COMPATIBLE', () => {
+test('exact migrated 21-field shape remains AFTER_COMPATIBLE', () => {
   assert.equal(classifyMemberFirestoreSchema(afterDocument()), 'AFTER_COMPATIBLE');
 });
 
-test('unknown, partial, or extended shapes fail closed as MISMATCH', () => {
-  assert.equal(classifyMemberFirestoreSchema({ member_id: 'M001', status: '有効' }), 'MISMATCH');
+test('sparse documents containing only current Member fields are AFTER_COMPATIBLE', () => {
+  assert.equal(classifyMemberFirestoreSchema({
+    member_name: '架空の開発会員',
+    status: '有効'
+  }), 'AFTER_COMPATIBLE');
+  assert.equal(classifyMemberFirestoreSchema({
+    member_id: 'M001',
+    status: '有効'
+  }), 'AFTER_COMPATIBLE');
+  assert.equal(classifyMemberFirestoreSchema({
+    eligible_training_count: 0
+  }), 'AFTER_COMPATIBLE');
+});
+
+test('unknown fields and legacy/current mixtures fail closed as MISMATCH', () => {
+  assert.equal(classifyMemberFirestoreSchema({}), 'MISMATCH');
   assert.equal(classifyMemberFirestoreSchema({ ...afterDocument(), unexpected: true }), 'MISMATCH');
   assert.equal(classifyMemberFirestoreSchema({ member_id: 'M001', name: 'x', status: '有効', extra: 'x' }), 'MISMATCH');
+  assert.equal(classifyMemberFirestoreSchema({ name: 'x', member_name: 'y', status: '有効' }), 'MISMATCH');
 });
