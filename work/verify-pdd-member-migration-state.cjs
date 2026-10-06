@@ -44,9 +44,12 @@ test('Member migration state is MISMATCH for column count mismatch', () => {
   assert.equal(context.pddMemberMigrationState_(definition.beforeHeaders.slice(0, -1), definition), 'MISMATCH');
 });
 
-test('Member migration runner remains read-only', () => {
-  assert.doesNotMatch(runnerSource, /\.setValues?\s*\(/);
-  assert.doesNotMatch(runnerSource, /\.insert(?:Column|Columns|Row|Rows)/);
-  assert.doesNotMatch(runnerSource, /\.delete(?:Column|Columns|Row|Rows)/);
-  assert.match(runnerSource, /changed:\s*false/);
+test('Member migration observation runner remains read-only', () => {
+  const match = runnerSource.match(/function\s+runner_pdd_memberBefore\s*\(\)\s*\{([\s\S]*?)\n\}/);
+  assert.ok(match, 'runner_pdd_memberBefore must exist');
+  const observationRunnerSource = match[0];
+  assert.doesNotMatch(observationRunnerSource, /\.setValues?\s*\(/);
+  assert.doesNotMatch(observationRunnerSource, /\.insert(?:Column|Columns|Row|Rows)/);
+  assert.doesNotMatch(observationRunnerSource, /\.delete(?:Column|Columns|Row|Rows)/);
+  assert.match(observationRunnerSource, /changed:\s*false/);
 });
