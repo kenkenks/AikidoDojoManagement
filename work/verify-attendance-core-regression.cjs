@@ -6,7 +6,7 @@ const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const coreSource=['gas/04_Attendance.js','gas/04_AttendanceCore.js','gas/DAO_Business_Attendance.js']
   .map(file=>fs.readFileSync(path.join(root,file),'utf8')).join('\n');
-const dependencyNames=['ensureSheetContext','Utilities','Session','sup_now','sup_today','sup_targetMonth','getMembers','getTeachers','getLocations','getBillingBlocks','getTrainingSlots','daoContext_','daoCore_','cancelAttendanceRows','appendAttendanceRows','paymentStatusView_projectAttendances_'];
+const dependencyNames=['ensureSheetContext','Utilities','Session','sup_now','sup_today','sup_targetMonth','getMembers','daoMemberGetAll_','getTeachers','getLocations','getBillingBlocks','getTrainingSlots','daoContext_','daoCore_','cancelAttendanceRows','appendAttendanceRows','paymentStatusView_projectAttendances_'];
 const createCore=new Function(...dependencyNames,coreSource+'\nreturn attendanceCore_registerBatch_;');
 
 function baseFacts(){
@@ -37,6 +37,7 @@ function runCore(options,facts){
     sup_today:()=> '2099-07-09',
     sup_targetMonth:()=> '2099-07',
     getMembers:()=>facts.members,
+    daoMemberGetAll_:()=>facts.members.map(row=>({member_id:row.member_id,member_name:row['氏名'],status:row['状態']})),
     getTeachers:()=>facts.teachers,
     getLocations:()=>facts.locations,
     getBillingBlocks:()=>facts.billingBlocks,

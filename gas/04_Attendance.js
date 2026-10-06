@@ -173,9 +173,11 @@ function getMemberAttendanceState(params, ctx) {
   if (!memberId || !locationId || !billingBlockId) {
     return { ok: false, message: "会員・道場・課金枠を指定してください。" };
   }
-  const member = getMembers(ctx).find(row =>
-    normalizeId_(row["member_id"]) === memberId && isActiveMasterRow_(row)
-  );
+  const member = daoMemberGetAll_(ctx).find(function(member) {
+    const status = normalizeId_(member.status);
+    return normalizeId_(member.member_id) === memberId &&
+      (status === "" || status === "有効" || status === "在籍" || status === "TRUE");
+  });
   if (!member) return { ok: false, message: "有効な会員が見つかりません。" };
 
   validateAttendanceScope_(locationId, billingBlockId, ctx);
@@ -188,7 +190,7 @@ function getMemberAttendanceState(params, ctx) {
   return {
     ok: true,
     member_id: memberId,
-    member_name: progress.ok ? progress.member_name : String(member["氏名"] || ""),
+    member_name: progress.ok ? progress.member_name : String(member.member_name || ""),
     current_rank: progress.ok ? progress.current_rank : "",
     rank_sort_order: progress.ok ? progress.rank_sort_order : 999999,
     next_rank: progress.ok ? progress.next_rank : "",
@@ -211,8 +213,8 @@ function getMemberAttendanceState(params, ctx) {
 // 04_月次選択があればそれを正とし、未選択時だけ会員区分から候補を返す。
 function attendance_getBillingSelectionState_(member, ctx) {
   ctx = ensureSheetContext(ctx);
-  const memberId = normalizeId_(member["member_id"]);
-  const billingGroupId = normalizeId_(member["billing_group_id"]);
+  const memberId = normalizeId_(member.member_id);
+  const billingGroupId = normalizeId_(member.billing_group_id);
   const targetMonth = sup_targetMonth(ctx);
   const existing = billingGroupId
     ? billingCoreGetMonthlySelection_(billingGroupId, targetMonth, ctx)
@@ -245,7 +247,7 @@ function attendance_getBillingSelectionState_(member, ctx) {
     };
   }
 
-  const memberType = String(member["区分"] || "").trim();
+  const memberType = String(member.member_type || "").trim();
   const planIds = getPlanSelectionRules(ctx)
     .filter(function(row) {
       return String(row["member_type"] || "").trim() === memberType;
@@ -274,8 +276,10 @@ function getAttendanceSavedState(params, ctx) {
   if (!memberId || !locationId || !billingBlockId) {
     return { ok: false, message: "会員・道場・課金枠を指定してください。" };
   }
-  const member = getMembers(ctx).find(function(row) {
-    return normalizeId_(row["member_id"]) === memberId && isActiveMasterRow_(row);
+  const member = daoMemberGetAll_(ctx).find(function(member) {
+    const status = normalizeId_(member.status);
+    return normalizeId_(member.member_id) === memberId &&
+      (status === "" || status === "有効" || status === "在籍" || status === "TRUE");
   });
   if (!member) return { ok: false, message: "有効な会員が見つかりません。" };
   const rows = getActiveAttendanceRowsForScope(
@@ -284,7 +288,7 @@ function getAttendanceSavedState(params, ctx) {
   return {
     ok: true,
     member_id: memberId,
-    current_rank: String(member["current_rank"] || "").trim(),
+    current_rank: String(member.current_rank || "").trim(),
     selected_slot_ids: Array.from(new Set(rows.map(function(row) {
       return normalizeId_(row["slot_id"]);
     }).filter(Boolean)))
@@ -325,8 +329,10 @@ function registerAttendanceBatchLocked_(data, ctx) {
     if (slotIds.length === 0) continue;
 
     const memberId = normalizeId_(item.member_id);
-    const member = getMembers(ctx).find(function(row) {
-      return normalizeId_(row["member_id"]) === memberId && isActiveMasterRow_(row);
+    const member = daoMemberGetAll_(ctx).find(function(member) {
+      const status = normalizeId_(member.status);
+      return normalizeId_(member.member_id) === memberId &&
+        (status === "" || status === "有効" || status === "在籍" || status === "TRUE");
     });
     if (!member) return { ok: false, message: "有効な会員が見つかりません: " + memberId };
 
