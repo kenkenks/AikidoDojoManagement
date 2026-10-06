@@ -6,17 +6,18 @@ OAuth client secret の実ファイル名、client ID、秘密情報パスは Gi
 
 ## 基本原則
 
-GAS へのデプロイ境界は `.build/<target>` とする。
+GAS へのデプロイ境界は Target Profile が生成する `.build/<target>` とする。
+通常の Build / Push はリポジトリルートから Target Profile 経由で行い、
+`clasp run` は生成済み `.clasp.json` がある `.build/dev-gas/gas` から実行する。
 
 ```text
-source
-  ↓
-target build
+repository root
+  ├─ npm run target:build -- dev-gas
+  ├─ npm run target:push  -- dev-gas
   ↓
 .build/dev-gas/gas
-  ↓
-clasp push / clasp run
-  ↓
+  └─ clasp run <runner> --user dojo-dev --json
+       ↓
 GAS development environment
 ```
 
@@ -37,11 +38,17 @@ npm run target:build -- dev-gas
 Get-Item .build\dev-gas\gas\28_PddMemberMigrationRunner.js
 ```
 
-## clasp 対象確認
+## GAS 開発環境へ push
+
+通常の Push はリポジトリルートから Target Profile 経由で行う。
 
 ```powershell
-clasp status
+npm run target:push -- dev-gas
 ```
+
+Target Profile が scriptId と Build 成果物を管理するため、通常運用では
+`.build/dev-gas/gas` へ移動して直接 `clasp push` しない。
+
 
 ## dojo-dev OAuth 認証
 
@@ -57,14 +64,6 @@ clasp login --user dojo-dev `
 
 ブラウザで Google OAuth 認証を完了する。
 
-## GAS 開発環境へ push
-
-```powershell
-cd .build\dev-gas\gas
-clasp status
-clasp push --user dojo-dev
-```
-
 ## GAS 関数をリモート実行
 
 `.build/dev-gas/gas` から実行する。
@@ -79,7 +78,38 @@ Member Before Definition 取得で確認済み:
 clasp run runner_pdd_memberBefore --user dojo-dev --json
 ```
 
-2026-10-04 に `01_会員マスタ` の実ヘッダー取得まで正常実行を確認。
+2026-10-06 に `01_会員マスタ` で `runner_pdd_memberBefore`、
+`runner_pdd_memberMigrateHeaders` の実行を確認。
+`clasp run` をリポジトリルートから実行すると `reading from storage. Error code NOT_FOUND`
+となるケースがあり、`.build/dev-gas/gas` からの実行で正常動作した。
+
+## 変更を伴う Runner の安全シーケンス
+
+Migration など実データを変更する Runner は、Build と Push を分離して確認ゲートを置く。
+
+```text
+Build
+  ↓
+Build 成果物を確認
+  ↓
+Push
+  ↓
+read-only Runner で実状態確認
+  ↓
+write Runner
+  ↓
+read-only Runner で事後確認
+  ↓
+write Runner 再実行で冪等性確認（必要な場合）
+```
+
+Member Migration では 2026-10-06 に以下を実証済み。
+
+- `BEFORE → AFTER`: `changed=true`
+- データ行: `data_rows_unchanged=true`
+- `AFTER → AFTER`: `changed=false`
+- 観測 Runner: read-only
+
 
 ## Firestore access token
 
@@ -125,7 +155,19 @@ Please make sure you have permission to run the script function.
 
 source の `gas/` で Runner が `Untracked files` になる場合がある。
 Runnerを直接追跡対象へ変更する前に、`dev-gas` を Build して
-`.build/dev-gas/gas` 側から push する既存経路を使用する。
+Target Profile の `target:push` 経路を使用する。
+
+### 直接 `clasp push` する場合
+
+通常運用では `npm run target:push -- dev-gas` を使用する。
+`.build/dev-gas/gas` からの直接 `clasp push --user dojo-dev` は、
+Target Profile 経路の切り分けなど診断が必要な場合に限定する。
+
+```powershell
+cd .build\dev-gas\gas
+clasp status
+clasp push --user dojo-dev
+```
 
 ## 基本シーケンス
 
@@ -133,11 +175,11 @@ Runnerを直接追跡対象へ変更する前に、`dev-gas` を Build して
 # repository root
 npm run target:build -- dev-gas
 
-# deployment boundary
-cd .build\dev-gas\gas
+# Build 成果物を必要に応じて確認後、repository root から push
+npm run target:push -- dev-gas
 
-clasp status
-clasp push --user dojo-dev
+# remote Runner は generated .clasp.json がある Build 成果物側から実行
+cd .build\dev-gas\gas
 clasp run <function-name> --user dojo-dev --json
 ```
 
