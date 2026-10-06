@@ -3,6 +3,7 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { createFirestoreCore } = require('../cloud/member-read/DAO_Core_Firestore.cjs');
+const { classifyMemberFirestoreSchema } = require('./classify-member-firestore-schema.cjs');
 
 const root = path.resolve(__dirname, '..');
 const profile = JSON.parse(fs.readFileSync(path.join(root, 'targets', 'dev-firebase.json'), 'utf8'));
@@ -36,6 +37,7 @@ async function main() {
     collection: 'members',
     memberId,
     found: fields !== null,
+    schemaState: fields === null ? null : classifyMemberFirestoreSchema(fields),
     fieldNames: fields === null ? [] : Object.keys(fields),
     fields
   }, null, 2) + '\n');
