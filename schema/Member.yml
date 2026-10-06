@@ -1,0 +1,74 @@
+entity: member
+version: "0.1"
+
+fields:
+  - name: member_id
+    type: string
+    group: Identity
+    primary_key: true
+  - name: member_name
+    type: string
+    group: Name
+  - name: member_name_kana
+    type: string
+    group: Name
+  - name: member_type
+    type: string
+    group: State
+  - name: status
+    type: string
+    group: State
+  - name: billing_group_id
+    type: string
+    group: Relation
+  - name: joined_date
+    type: string
+    group: Track
+  - name: withdrawn_date
+    type: string
+    group: Track
+  - name: suspension_start_month
+    type: string
+    group: Track
+  - name: suspension_end_month
+    type: string
+    group: Track
+  - name: birth_date
+    type: string
+    group: Profile
+  - name: insurance_type
+    type: string
+    group: Profile
+  - name: email
+    type: string
+    group: Profile
+  - name: phone
+    type: string
+    group: Profile
+  - name: remarks
+    type: string
+    group: Profile
+  - name: current_rank
+    type: string
+    group: State
+  - name: rank_source
+    type: string
+    group: Track
+  - name: rank_updated_at
+    type: string
+    group: Track
+  - name: rank_start_date
+    type: string
+    group: Track
+  - name: carried_training_count
+    type: string
+    group: State
+  - name: eligible_training_count
+    type: string
+    group: State
+
+sources:
+  gas:
+    sheet: "01_会員マスタ"
+  firestore:
+    collection: members
