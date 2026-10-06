@@ -60,14 +60,15 @@ function paymentStatusTeacher_get(data, ctx) {
 
 function paymentStatusTeacher_makeMonthlyRows_(targetMonth, payments, ctx) {
   const membersByGroup = {};
-  getMembers(ctx).forEach(function(member) {
-    if (!isActiveMasterRow_(member)) return;
-    const groupId = normalizeId_(member["billing_group_id"]);
+  daoMemberGetAll_(ctx).forEach(function(member) {
+    const status = normalizeId_(member.status);
+    if (!(status === "" || status === "有効" || status === "在籍" || status === "TRUE")) return;
+    const groupId = normalizeId_(member.billing_group_id);
     if (!groupId) return;
     if (!membersByGroup[groupId]) membersByGroup[groupId] = [];
     membersByGroup[groupId].push({
-      member_id: normalizeId_(member["member_id"]),
-      member_name: String(member["氏名"] || "")
+      member_id: normalizeId_(member.member_id),
+      member_name: String(member.member_name || "")
     });
   });
 

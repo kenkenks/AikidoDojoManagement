@@ -47,22 +47,22 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   const t0 = Date.now();
   perfLog("START paymentStatusView_collectContext", t0);
 
-  const members = getMembers(ctx);
+  const members = daoMemberGetAll_(ctx);
   const invoices = getInvoices(ctx);
   const payments = getPayments(ctx);
   const attendances = getAttendances(ctx);
   const cashRequests = getPaymentEvidences(ctx);
 
   const member = members.find(m =>
-    String(m["member_id"]).trim() === String(memberId).trim()
+    String(m.member_id).trim() === String(memberId).trim()
   );
 
   if (!member) {
     return { ok: false, message: "会員が見つかりません。" };
   }
 
-  const memberName = member["氏名"];
-  const billingGroupId = member["billing_group_id"];
+  const memberName = member.member_name;
+  const billingGroupId = member.billing_group_id;
   const normalizedTargetMonth = normalizeMonth(targetMonth);
 
   const lessonCount =
