@@ -1,9 +1,27 @@
-// Member migration definition runner.
-// First step is intentionally read-only: capture the physical header definition
-// of 01_会員マスタ without creating, rewriting, or normalizing anything.
+// Member migration state runner.
+// Read-only: inspect 01_会員マスタ and classify its physical headers against
+// the generated Member migration definition. No sheet mutation belongs here.
+function pddMemberHeadersEqual_(actual, expected) {
+  if (!Array.isArray(actual) || !Array.isArray(expected) || actual.length !== expected.length) return false;
+  for (var i = 0; i < actual.length; i++) {
+    if (actual[i] !== expected[i]) return false;
+  }
+  return true;
+}
+
+function pddMemberMigrationState_(headers, definition) {
+  if (!definition || definition.entity !== 'member' || definition.source !== 'gas') {
+    throw new Error('PDD_MEMBER_MIGRATION_DEFINITION_INVALID');
+  }
+  if (pddMemberHeadersEqual_(headers, definition.beforeHeaders)) return 'BEFORE';
+  if (pddMemberHeadersEqual_(headers, definition.afterHeaders)) return 'AFTER';
+  return 'MISMATCH';
+}
+
 function runner_pdd_memberBefore() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheetName = '01_会員マスタ';
+  var definition = dojoPddDescribeMemberMigration_();
+  var sheetName = definition.sheet;
   var sheet = ss.getSheetByName(sheetName);
   if (!sheet) throw new Error('PDD_MEMBER_BEFORE_MISSING: ' + sheetName);
 
@@ -31,11 +49,15 @@ function runner_pdd_memberBefore() {
     throw new Error('PDD_MEMBER_BEFORE_DUPLICATE_HEADER: ' + sheetName + ' [' + duplicateHeaders.join(',') + ']');
   }
 
+  var state = pddMemberMigrationState_(headers, definition);
   var result = {
     entity: 'member',
     source: 'gas',
     sheet: sheetName,
     headers: headers,
+    state: state,
+    migration_ready: state === 'BEFORE',
+    already_migrated: state === 'AFTER',
     changed: false
   };
   console.log(JSON.stringify(result));
