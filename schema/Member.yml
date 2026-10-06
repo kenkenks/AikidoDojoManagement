@@ -61,10 +61,10 @@ fields:
     type: string
     group: Track
   - name: carried_training_count
-    type: string
+    type: number
     group: State
   - name: eligible_training_count
-    type: string
+    type: number
     group: State
 
 sources:
