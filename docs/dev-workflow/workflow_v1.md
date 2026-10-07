@@ -20,6 +20,11 @@ Google Drive共有フォルダ上の日付workspace内の基準ソースとす�
 ZIP、展開済みフォルダ、ユーザーのローカルGit repoは、同じCurrent Baselineを指すものとして管理する。
 次のPatchは、必ず直前のPASS済み状態を反映したCurrent Baselineから作成する。
 
+PASS後にcommit / pushした場合は、次のPatchを作る前にそのHEADを共有Driveの
+Current Baselineへ反映する。直前Patchをローカルへ適用済みだが未commitの状態で
+追補Patchが必要になった場合は、古いcommit済みBaselineを現在状態とみなさず、
+必要な対象ファイルだけを現在のローカル状態から共有workspaceへ同期して差分を作る。
+
 ## 3. Shared Google Drive Workspace
 
 道場システムのGoogle Drive共有フォルダを、開発時の補助記憶領域および成果物の受け渡し領域として使用する。

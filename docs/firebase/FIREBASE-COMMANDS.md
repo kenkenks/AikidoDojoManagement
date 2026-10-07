@@ -156,3 +156,98 @@ Ctrl+R 4. API正常確認 5. `Disable cache` OFF 6. F5 7.
 通常キャッシュ条件でも再確認
 
 dev HostingではHTML `no-cache`、JS `no-store` を採用している。
+
+## 12. Firestore Member Migration（development proof document）
+
+Member Migration の実環境確認は、`dojo-management-dev / members / TEST_MEMBER_001`
+だけを対象に、次の順序で行う。
+
+### 12.1 Access token
+
+``` powershell
+$env:FIRESTORE_DEV_ACCESS_TOKEN = gcloud auth print-access-token
+```
+
+`FIRESTORE_HTTP_401` の場合は、まず access token を再取得してから再実行する。
+
+### 12.2 現在値の read-only 確認
+
+``` powershell
+node work/read-member-firestore-real.cjs TEST_MEMBER_001
+```
+
+書込みは行わない。Migration 前は `LEGACY_OBSERVED`、Migration 後は
+`AFTER_COMPATIBLE` であることを確認する。
+
+### 12.3 read-only dry-run
+
+``` powershell
+node work/dry-run-member-firestore-migration-real.cjs TEST_MEMBER_001
+```
+
+Migration 前の期待値:
+
+``` text
+action      = MIGRATE
+schemaState = LEGACY_OBSERVED
+documentId  = TEST_MEMBER_001
+```
+
+この段階では `replaceByKey` を呼ばず、Firestore を変更しない。
+
+### 12.4 real migration + post-check
+
+dry-run の結果を確認してから、1回だけ実行する。
+
+``` powershell
+node work/apply-member-firestore-migration-real.cjs TEST_MEMBER_001
+```
+
+初回の期待値:
+
+``` text
+ok          = true
+action      = MIGRATE
+schemaState = LEGACY_OBSERVED
+afterState  = AFTER_COMPATIBLE
+```
+
+この入口は `dev-firebase / dojo-management-dev / members / TEST_MEMBER_001`
+に限定されている。実行内部は `read → plan → document identity check →
+replaceByKey → re-read → AFTER_COMPATIBLE post-check` の順で行う。
+
+### 12.5 idempotency
+
+初回の real migration と post-check が成功した後、同じコマンドをもう一度実行する。
+
+``` powershell
+node work/apply-member-firestore-migration-real.cjs TEST_MEMBER_001
+```
+
+2回目の期待値:
+
+``` text
+ok          = true
+action      = NO_OP
+schemaState = AFTER_COMPATIBLE
+```
+
+`NO_OP` の場合は `replaceByKey` に到達せず、追加writeを行わない。
+
+### 12.6 Safety sequence
+
+``` text
+access token
+    ↓
+read-only current-state check
+    ↓
+read-only dry-run
+    ↓
+real migration
+    ↓
+post-check
+    ↓
+idempotency rerun (NO_OP)
+```
+
+実データ変更を伴う確認では、この順序を崩さない。
