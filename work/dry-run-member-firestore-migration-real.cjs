@@ -1,0 +1,95 @@
+'use strict';
+
+const fs = require('node:fs');
+const path = require('node:path');
+const { createFirestoreCore } = require('../cloud/member-read/DAO_Core_Firestore.cjs');
+const { planMemberFirestoreMigration } = require('./plan-member-firestore-migration.cjs');
+
+const root = path.resolve(__dirname, '..');
+const profile = JSON.parse(fs.readFileSync(path.join(root, 'targets', 'dev-firebase.json'), 'utf8'));
+
+async function getAccessToken() {
+  const explicit = process.env.FIRESTORE_DEV_ACCESS_TOKEN;
+  if (typeof explicit === 'string' && explicit.trim()) return explicit.trim();
+
+  try {
+    const admin = require('firebase-admin');
+    if (!admin.apps.length) admin.initializeApp({ credential: admin.credential.applicationDefault() });
+    const token = await admin.app().options.credential.getAccessToken();
+    if (typeof token?.access_token === 'string' && token.access_token.trim()) return token.access_token.trim();
+  } catch (error) {
+    if (error?.code !== 'MODULE_NOT_FOUND') throw new Error(`FIRESTORE_ADC_FAILED: ${error?.message || error}`);
+  }
+
+  throw new Error('FIRESTORE_AUTH_REQUIRED: set FIRESTORE_DEV_ACCESS_TOKEN or configure firebase-admin Application Default Credentials');
+}
+
+function buildDryRunResult(memberId, fields) {
+  if (fields === null) {
+    return {
+      operation: 'read-only-dry-run',
+      memberId,
+      found: false,
+      action: 'REJECT',
+      reason: 'DOCUMENT_NOT_FOUND'
+    };
+  }
+
+  const plan = planMemberFirestoreMigration(fields);
+  if (plan.action !== 'MIGRATE') {
+    return {
+      operation: 'read-only-dry-run',
+      memberId,
+      found: true,
+      ...plan
+    };
+  }
+
+  if (plan.documentId !== memberId) {
+    return {
+      operation: 'read-only-dry-run',
+      memberId,
+      found: true,
+      action: 'REJECT',
+      schemaState: plan.schemaState,
+      reason: 'DOCUMENT_ID_MISMATCH',
+      plannedDocumentId: plan.documentId
+    };
+  }
+
+  return {
+    operation: 'read-only-dry-run',
+    memberId,
+    found: true,
+    action: 'MIGRATE',
+    schemaState: plan.schemaState,
+    documentId: plan.documentId,
+    fields: plan.fields
+  };
+}
+
+async function main() {
+  const [memberId = 'TEST_MEMBER_001', ...extra] = process.argv.slice(2);
+  if (extra.length) throw new Error('Usage: node work/dry-run-member-firestore-migration-real.cjs [member_id]');
+
+  const core = createFirestoreCore(profile, { getAccessToken });
+  const fields = await core.readById({ collection: 'members' }, memberId);
+  const result = buildDryRunResult(memberId, fields);
+
+  process.stdout.write(JSON.stringify({
+    ...result,
+    projectId: profile.projectId,
+    collection: 'members'
+  }, null, 2) + '\n');
+
+  if (result.action === 'REJECT') process.exitCode = 2;
+}
+
+if (require.main === module) {
+  main().catch(error => {
+    console.error(error?.stack || error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { buildDryRunResult };
