@@ -40,9 +40,10 @@ test('real bridge replaces existing document so stale fields cannot survive', as
   assert.deepEqual(calls,['read','replace','read']);
 });
 
-test('real bridge rejects non-dev target and unsupported numeric core write', () => {
+test('real bridge rejects non-dev target and unsupported core values', () => {
   assert.throws(() => assertDevFirebaseTarget({...profile,projectId:'wrong'}), /DEV_TARGET_REQUIRED/);
-  assert.throws(() => assertCoreWritableFields({fields:{count:1}}), /CORE_STRING_ONLY/);
+  assert.doesNotThrow(() => assertCoreWritableFields({fields:{count:1, active:true}}));
+  assert.throws(() => assertCoreWritableFields({fields:{count:Infinity}}), /UNSUPPORTED_VALUE/);
 });
 
 test('existing document is not replaced without explicit approval', async () => {

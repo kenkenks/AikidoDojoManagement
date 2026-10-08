@@ -35,7 +35,10 @@ async function getAccessToken() {
 
 function assertCoreWritableFields(document) {
   for (const value of Object.values(document.fields)) {
-    if (typeof value !== 'string') throw new Error('REAL_MEMBER_GAS_WRITE_CORE_STRING_ONLY');
+    if (typeof value === 'string' || typeof value === 'boolean') continue;
+    if (typeof value === 'number' && Number.isFinite(value) &&
+        (!Number.isInteger(value) || Number.isSafeInteger(value))) continue;
+    throw new Error('REAL_MEMBER_GAS_WRITE_UNSUPPORTED_VALUE');
   }
 }
 

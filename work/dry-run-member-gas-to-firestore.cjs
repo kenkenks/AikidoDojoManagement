@@ -70,19 +70,24 @@ function bridgeGasOptionalEmptyNumbers(member, schema) {
   return bridged;
 }
 
+async function buildRenderedMember(options = {}) {
+  const member = options.member || readRealMemberViaClasp();
+  const definition = options.definition || await loadPortableMemberDefinition();
+  const schema = renderFirestoreSchema(definition);
+  const bridgedMember = bridgeGasOptionalEmptyNumbers(member, schema);
+  const documents = renderFirestoreDocuments(schema, [bridgedMember]);
+  const verification = verifyFirestoreDocuments(schema, documents);
+  return { schema, documents, verification, fieldCount: Object.keys(member).length };
+}
+
 async function run(options = {}) {
+  // Preserve the diagnostic's field counts even if rendering fails.
   const member = options.member || readRealMemberViaClasp();
   const definition = options.definition || await loadPortableMemberDefinition();
   const schema = renderFirestoreSchema(definition);
   const fieldCount = Object.keys(member).length;
-
   try {
-    // GAS Sheets represents an empty cell as "". For an optional logical
-    // number, bridge that physical empty value to the Renderer's existing
-    // sparse-value representation. Do not coerce it to zero.
-    const bridgedMember = bridgeGasOptionalEmptyNumbers(member, schema);
-    const documents = renderFirestoreDocuments(schema, [bridgedMember]);
-    const verification = verifyFirestoreDocuments(schema, documents);
+    const { documents, verification } = await buildRenderedMember({ member, definition });
     return {
       ok: verification.ok,
       diagnostic: 'MEMBER_GAS_TO_FIRESTORE_DRY_RUN',

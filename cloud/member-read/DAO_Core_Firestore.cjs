@@ -19,8 +19,17 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     const id = normalizeStorageId(documentId);
     const collection = normalizeStorageId(source.collection);
     const fields = Object.fromEntries(Object.entries(values).map(([key,value]) => {
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key) || typeof value !== 'string') throw new Error('UNSUPPORTED_WRITE_VALUE');
-      return [key,{stringValue:value}];
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) throw new Error('UNSUPPORTED_WRITE_VALUE');
+      if (typeof value === 'string') return [key,{stringValue:value}];
+      if (typeof value === 'boolean') return [key,{booleanValue:value}];
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        if (Number.isInteger(value)) {
+          if (!Number.isSafeInteger(value)) throw new Error('UNSUPPORTED_WRITE_VALUE');
+          return [key,{integerValue:String(value)}];
+        }
+        return [key,{doubleValue:value}];
+      }
+      throw new Error('UNSUPPORTED_WRITE_VALUE');
     }));
     if (!Object.keys(fields).length) throw new Error('EMPTY_WRITE');
     const token = config.mode === 'emulator' ? 'owner' : await getAccessToken?.();
