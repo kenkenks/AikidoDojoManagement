@@ -119,4 +119,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { run, sanitizedError, bridgeGasOptionalEmptyNumbers };
+module.exports = { run, sanitizedError, bridgeGasOptionalEmptyNumbers, buildRenderedMember };
