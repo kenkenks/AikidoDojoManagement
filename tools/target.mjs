@@ -42,7 +42,7 @@ function buildFirebase() {
   const artifactDir = join(repoRoot, ".build", "portable-timetravel-firestore");
   const firebaseOutRoot = join(repoRoot, ".build", targetName);
   const firebaseWebOutDir = join(firebaseOutRoot, "web", "qr");
-  const deployRoot = join(repoRoot, ".build", targetName, "cloud-run", "dojo-time-travel-admin");
+  const deployRoot = join(repoRoot, ".build", targetName, "cloud-run", "dojo-api");
   rmSync(firebaseOutRoot, { recursive: true, force: true });
 
   for (const file of walk(resolve(repoRoot, profile.webSourceDir || "web/qr"))) {
@@ -69,6 +69,15 @@ function buildFirebase() {
   for (const name of ["admin-server.cjs", "admin-api.cjs", "target.cjs"]) {
     copy(join(repoRoot, "cloud", "time-travel", name), join(deployRoot, "cloud", "time-travel", name));
   }
+  for (const name of ["admin-api.cjs", "server.cjs"]) {
+    copy(join(repoRoot, "cloud", "api", name), join(deployRoot, "cloud", "api", name));
+  }
+  for (const name of ["DAO_Core_Firestore.cjs", "DAO_Core_Values.cjs"]) {
+    copy(join(repoRoot, "cloud", "member-read", name), join(deployRoot, "cloud", "member-read", name));
+  }
+  for (const name of ["DAO_Business.js", "DAO_Definitions.js", "DAO_Definition_Setting.generated.js", "StorageId.js", "Flow.js"]) {
+    copy(join(repoRoot, "shared", name), join(deployRoot, "shared", name));
+  }
   copy(profilePath, join(deployRoot, "targets", `${targetName}.json`));
   copy(
     join(artifactDir, "DojoTimeTravelFirestore.cjs"),
@@ -76,7 +85,7 @@ function buildFirebase() {
   );
 
   const rootPackage = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
-  rootPackage.scripts = { start: "node cloud/time-travel/admin-server.cjs" };
+  rootPackage.scripts = { start: "node cloud/api/server.cjs" };
   writeFileSync(join(deployRoot, "package.json"), JSON.stringify(rootPackage, null, 2) + "\n", "utf8");
   copy(join(repoRoot, "package-lock.json"), join(deployRoot, "package-lock.json"));
 
@@ -88,9 +97,9 @@ function buildFirebase() {
 }
 
 function pushFirebase() {
-  // Deploy the existing TimeTrip units; do not create a second Firebase deployment path.
+  // Deploy the shared API as a separate service; keep the existing TimeTrip service intact.
   const firebaseOutRoot = join(repoRoot, ".build", targetName);
-  const deployRoot = join(firebaseOutRoot, "cloud-run", "dojo-time-travel-admin");
+  const deployRoot = join(firebaseOutRoot, "cloud-run", "dojo-api");
   const webRoot = join(firebaseOutRoot, "web");
   if (!existsSync(join(deployRoot, "package.json")) || !existsSync(join(webRoot, "firebase.json"))) {
     throw new Error("Firebase deploy artifacts are missing. Run target:build first.");
@@ -98,7 +107,7 @@ function pushFirebase() {
 
   // Cloud Run first, then Hosting: a new Web client must not precede its API.
   runFirebaseDeploy("gcloud", [
-    "run", "deploy", "dojo-time-travel-admin",
+    "run", "deploy", "dojo-api",
     "--source", normalize(relative(repoRoot, deployRoot)),
     "--project", profile.projectId, "--region", "asia-northeast1",
     "--allow-unauthenticated", "--min", "0", "--max", "1",

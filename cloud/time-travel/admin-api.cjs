@@ -5,7 +5,7 @@ function createAdminTimeTravelApi({ verifyIdToken, getTimeTravel, saveTimeTravel
   if (typeof getTimeTravel !== 'function') throw new Error('getTimeTravel is required');
   if (typeof saveTimeTravel !== 'function') throw new Error('saveTimeTravel is required');
 
-  return async function handle({ method, url, authorization, body }) {
+  return async function handle({ method, url, authorization, body, authenticatedUser }) {
     const reply = (status, responseBody) => ({
       status,
       headers: {
@@ -16,12 +16,12 @@ function createAdminTimeTravelApi({ verifyIdToken, getTimeTravel, saveTimeTravel
     });
 
     const match = /^Bearer ([^\s]+)$/i.exec(authorization || '');
-    if (!match) return reply(401, { error: 'UNAUTHENTICATED' });
+    if (!authenticatedUser && !match) return reply(401, { error: 'UNAUTHENTICATED' });
 
-    let user;
-  
-    try { 
-      user = await verifyIdToken(match[1], true); 
+    let user = authenticatedUser;
+
+    try {
+      if (!user) user = await verifyIdToken(match[1], true);
     } catch(error) {
       console.error('Firebase verifyIdToken failed:', {
         code: error?.code,

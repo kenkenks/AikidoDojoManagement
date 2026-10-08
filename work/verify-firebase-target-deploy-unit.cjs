@@ -7,7 +7,7 @@ const { spawnSync } = require('node:child_process');
 const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
-const deployRoot = path.join(root, '.build', 'dev-firebase', 'cloud-run', 'dojo-time-travel-admin');
+const deployRoot = path.join(root, '.build', 'dev-firebase', 'cloud-run', 'dojo-api');
 
 test('dev-firebase target build creates self-contained Cloud Run deploy unit', () => {
   const result = spawnSync(process.execPath, ['tools/target.mjs', 'build', 'dev-firebase'], {
@@ -18,6 +18,15 @@ test('dev-firebase target build creates self-contained Cloud Run deploy unit', (
   assert.equal(result.status, 0, result.stderr || result.stdout);
 
   for (const rel of [
+    'cloud/api/server.cjs',
+    'cloud/api/admin-api.cjs',
+    'cloud/member-read/DAO_Core_Firestore.cjs',
+    'cloud/member-read/DAO_Core_Values.cjs',
+    'shared/DAO_Business.js',
+    'shared/DAO_Definitions.js',
+    'shared/DAO_Definition_Setting.generated.js',
+    'shared/StorageId.js',
+    'shared/Flow.js',
     'cloud/time-travel/admin-server.cjs',
     'cloud/time-travel/admin-api.cjs',
     'cloud/time-travel/target.cjs',
@@ -30,7 +39,7 @@ test('dev-firebase target build creates self-contained Cloud Run deploy unit', (
   }
 
   const pkg = JSON.parse(fs.readFileSync(path.join(deployRoot, 'package.json'), 'utf8'));
-  assert.deepEqual(pkg.scripts, { start: 'node cloud/time-travel/admin-server.cjs' });
+  assert.deepEqual(pkg.scripts, { start: 'node cloud/api/server.cjs' });
   assert.equal(pkg.scripts['gcp-build'], undefined);
 
   const names = fs.readdirSync(deployRoot);
@@ -49,7 +58,7 @@ test('dev-firebase target push reuses TimeTrip deploy units (dry-run only)', () 
     env: { ...process.env, DOJO_DEPLOY_DRY_RUN: '1' }
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /\[DRY RUN\] gcloud run deploy dojo-time-travel-admin/);
+  assert.match(result.stdout, /\[DRY RUN\] gcloud run deploy dojo-api/);
   assert.match(result.stdout, /\[DRY RUN\] firebase deploy --only hosting/);
   assert.ok(result.stdout.indexOf('[DRY RUN] gcloud') < result.stdout.indexOf('[DRY RUN] firebase'));
 });
