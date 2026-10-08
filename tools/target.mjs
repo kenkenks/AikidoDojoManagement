@@ -17,8 +17,8 @@ const profile = JSON.parse(readFileSync(profilePath, "utf8"));
 validateProfile(profile);
 
 if (profile.runtime === "firebase") {
-  if (command !== "build") throw new Error(`Unsupported command for firebase target: ${command}`);
   buildFirebase();
+  if (command === "push") pushFirebase();
   process.exit(0);
 }
 
@@ -85,6 +85,37 @@ function buildFirebase() {
   console.log(`Firebase Web artifact: ${normalize(relative(repoRoot, firebaseWebOutDir))}`);
   console.log(`Cloud Run deploy unit: ${normalize(relative(repoRoot, deployRoot))}`);
   console.log(`Firebase project: ${profile.projectId}`);
+}
+
+function pushFirebase() {
+  // Deploy the existing TimeTrip units; do not create a second Firebase deployment path.
+  const firebaseOutRoot = join(repoRoot, ".build", targetName);
+  const deployRoot = join(firebaseOutRoot, "cloud-run", "dojo-time-travel-admin");
+  const webRoot = join(firebaseOutRoot, "web");
+  if (!existsSync(join(deployRoot, "package.json")) || !existsSync(join(webRoot, "firebase.json"))) {
+    throw new Error("Firebase deploy artifacts are missing. Run target:build first.");
+  }
+
+  // Cloud Run first, then Hosting: a new Web client must not precede its API.
+  runFirebaseDeploy("gcloud", [
+    "run", "deploy", "dojo-time-travel-admin",
+    "--source", normalize(relative(repoRoot, deployRoot)),
+    "--project", profile.projectId, "--region", "asia-northeast1",
+    "--allow-unauthenticated", "--min", "0", "--max", "1",
+    "--cpu", "1", "--memory", "512Mi", "--concurrency", "8"
+  ], repoRoot);
+  runFirebaseDeploy("firebase", ["deploy", "--only", "hosting", "--project", profile.projectId], webRoot);
+}
+
+function runFirebaseDeploy(executable, args, cwd) {
+  if (process.env.DOJO_DEPLOY_DRY_RUN === "1") {
+    console.log(`[DRY RUN] ${executable} ${args.join(" ")} (cwd: ${normalize(relative(repoRoot, cwd)) || "."})`);
+    return;
+  }
+  const command = process.platform === "win32" ? `${executable}.cmd` : executable;
+  const result = spawnSync(command, args, { cwd, stdio: "inherit", windowsHide: true });
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error(`${executable} deployment failed: exit ${result.status}`);
 }
 
 function validateProfile(value) {
