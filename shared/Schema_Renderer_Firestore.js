@@ -107,4 +107,28 @@ function verifyFirestoreDocuments(renderedSchema, documents) {
   };
 }
 
-module.exports = { renderFirestoreSchema, renderFirestoreDocuments, verifyFirestoreDocuments };
+// Firestore document (ID + physical fields) を論理 DTO に戻す。
+// 物理名の対応は PDD 由来の renderedSchema のみを参照する。
+function restoreFirestoreRecord(renderedSchema, document) {
+  if (!renderedSchema || !Array.isArray(renderedSchema.fields)) throw new Error('INVALID_RENDERED_SCHEMA');
+  if (!document || typeof document.id !== 'string' || !document.id) throw new Error('DOCUMENT_ID_REQUIRED');
+  if (!document.fields || typeof document.fields !== 'object' || Array.isArray(document.fields)) throw new Error('DOCUMENT_FIELDS_REQUIRED');
+  const record = {};
+  const knownPhysicalFields = new Set();
+  for (const field of renderedSchema.fields) {
+    if (!field.documentId) knownPhysicalFields.add(field.physicalName);
+    const value = field.documentId ? document.id : document.fields[field.physicalName];
+    if (value === undefined || value === null) {
+      if (field.required) throw new Error(`REQUIRED_FIELD_MISSING: ${field.logicalName}`);
+      continue;
+    }
+    if (!matchesType(value, field.type)) throw new Error(`TYPE_MISMATCH:${field.logicalName}:${field.type}`);
+    record[field.logicalName] = value;
+  }
+  for (const name of Object.keys(document.fields)) {
+    if (!knownPhysicalFields.has(name)) throw new Error(`UNMAPPED_PHYSICAL_FIELD: ${name}`);
+  }
+  return record;
+}
+
+module.exports = { renderFirestoreSchema, renderFirestoreDocuments, verifyFirestoreDocuments, restoreFirestoreRecord };
