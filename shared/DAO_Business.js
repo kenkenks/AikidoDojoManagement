@@ -55,6 +55,24 @@ function createDao(core, backend, registry = definitions) {
     append: (name,id,values) => write('append',name,id,values),
     updateByKey: (name,id,values) => write('updateByKey',name,id,values),
     upsertByKey: (name,id,values) => write('upsertByKey',name,id,values),
+    readByIds(name, recordIds) { return runSteps((function* () {
+      if (backend !== 'firestore') throw new Error('READ_BY_IDS_FIRESTORE_ONLY');
+      if (!Array.isArray(recordIds)) throw new Error('INVALID_DOCUMENT_IDS');
+      if (recordIds.length === 0) return [];
+      const resolved = recordIds.map(id => resolve(name, id));
+      const {definition, source} = resolved[0];
+      const rows = yield core.readByIds(source, resolved.map(item => item.id));
+      if (!Array.isArray(rows) || rows.length !== resolved.length) throw new Error('INVALID_READ_BY_IDS_RESULT');
+      return rows.map((row, index) => {
+        if (row === null) return null;
+        const id = resolved[index].id;
+        const mapped = Object.fromEntries(Object.entries(source.fields).map(([field, storedField]) => {
+          const value = storedField === source.keyField && row[storedField] === undefined ? id : row[storedField];
+          return [field, Object.hasOwn(source.transforms || {}, field) ? source.transforms[field](value) : value];
+        }));
+        return definition.validate ? definition.validate(mapped, id) : mapped;
+      });
+    })()); },
     readById(name, recordId) { return runSteps((function* () {
     const {definition, source, id} = resolve(name, recordId);
     const row = yield core.readById(source, id);

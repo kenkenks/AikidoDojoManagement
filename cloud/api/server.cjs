@@ -59,7 +59,8 @@ const handle = createAdminApi({
   verifyIdToken: (token, revoked) => getAuth(firebaseApp).verifyIdToken(token, revoked),
   getTimeTravel: () => application.getTimeTravel(),
   saveTimeTravel: input => application.saveTimeTravel(input),
-  readMember: id => memberDao.readById('members', id)
+  readMember: id => memberDao.readById('members', id),
+  readMembers: ids => memberDao.readByIds('members', ids)
 });
 
 async function readJsonBody(req) {

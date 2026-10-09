@@ -55,30 +55,57 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     updateByKey: (source,id,values) => write(source,id,values,true),
     upsertByKey: (source,id,values) => write(source,id,values,null),
     replaceByKey: (source,id,values) => write(source,id,values,true,true),
-    async readById(source, documentId) {
-    const id = normalizeStorageId(documentId);
-    const collection = normalizeStorageId(source.collection);
-    const headers = {};
-    if (config.mode === 'emulator') headers.Authorization = 'Bearer owner'; // Emulator専用管理者。公開API用ではない。
-    else {
-      const token = await getAccessToken?.();
+    async readByIds(source, documentIds) {
+      if (!Array.isArray(documentIds)) throw new Error('INVALID_DOCUMENT_IDS');
+      const ids = documentIds.map(normalizeStorageId);
+      if (ids.length === 0) return [];
+      const collection = normalizeStorageId(source.collection);
+      const prefix = `projects/${config.projectId}/databases/(default)/documents/${collection}/`;
+      const uniqueIds = [...new Set(ids)];
+      const requested = new Set(uniqueIds.map(id => prefix + id));
+      const token = config.mode === 'emulator' ? 'owner' : await getAccessToken?.();
       if (typeof token !== 'string' || !token.trim()) throw new Error('ACCESS_TOKEN_REQUIRED');
-      headers.Authorization = 'Bearer ' + token.trim();
+      const response = await fetchImpl(`${base}:batchGet`, {
+        method: 'POST',
+        headers: {Authorization: 'Bearer ' + token.trim(), 'Content-Type': 'application/json'},
+        body: JSON.stringify({documents: [...requested]}),
+        redirect: 'error', signal: AbortSignal.timeout(10000)
+      });
+      if (!response.ok) throw new Error('FIRESTORE_HTTP_' + response.status);
+      // Firestore batchGet streams newline-delimited JSON; response order is unspecified.
+
+      const body = await response.text();
+      const trimmed = body.trim();
+
+      let rows = [];
+
+      if (trimmed) {
+        if (trimmed.startsWith('[')) {
+          rows = JSON.parse(trimmed);
+          if (!Array.isArray(rows)) {
+            throw new Error('INVALID_BATCH_GET_RESPONSE');
+          }
+        } else {
+          rows = trimmed
+            .split(/\r?\n/)
+            .map(line => JSON.parse(line));
+        }
+      }
+
+      const found = new Map();
+      for (const row of rows) {
+        const path = row.found?.name || row.missing;
+        if (typeof path !== 'string' || !requested.has(path) || found.has(path) ||
+            Boolean(row.found) === Boolean(row.missing)) throw new Error('INVALID_BATCH_GET_RESPONSE');
+        found.set(path, row.found ? decodeFields(row.found.fields || {}) : null);
+      }
+      if (found.size !== requested.size) throw new Error('INCOMPLETE_BATCH_GET_RESPONSE');
+      return ids.map(id => found.get(prefix + id));
+    },
+    async readById(source, documentId) {
+      return (await this.readByIds(source, [documentId]))[0];
     }
-    const response = await fetchImpl(`${base}/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`, {
-      method: 'GET', headers, redirect: 'error', signal: AbortSignal.timeout(10000)
-    });
-    if (response.status === 404) {
-      const error = await response.json();
-      if (error?.error?.status === 'NOT_FOUND') return null;
-      throw new Error('FIRESTORE_HTTP_404');
-    }
-    if (!response.ok) throw new Error('FIRESTORE_HTTP_' + response.status);
-    const document = await response.json();
-    const expected = `projects/${config.projectId}/databases/(default)/documents/${collection}/${id}`;
-    if (document.name !== expected) throw new Error('INVALID_DOCUMENT_PATH');
-    return decodeFields(document.fields || {});
-  } };
+  };
 }
 module.exports = { createFirestoreCore, firestoreEndpoint };
 
