@@ -7,7 +7,7 @@ const { spawnSync } = require('node:child_process');
 const test = require('node:test');
 
 const root = path.resolve(__dirname, '..');
-const deployRoot = path.join(root, '.build', 'dev-firebase', 'cloud-run', 'dojo-api');
+const deployRoot = path.join(root, '.build', 'dev-firebase', 'cloud-run', 'dojo-time-travel-admin');
 
 test('dev-firebase target build creates self-contained Cloud Run deploy unit', () => {
   const result = spawnSync(process.execPath, ['tools/target.mjs', 'build', 'dev-firebase'], {
@@ -50,7 +50,7 @@ test('dev-firebase target build creates self-contained Cloud Run deploy unit', (
 });
 
 
-test('dev-firebase target push reuses TimeTrip deploy units (dry-run only)', () => {
+test('dev-firebase target push targets existing unified Dojo service (dry-run only)', () => {
   const result = spawnSync(process.execPath, ['tools/target.mjs', 'push', 'dev-firebase'], {
     cwd: root,
     encoding: 'utf8',
@@ -58,7 +58,7 @@ test('dev-firebase target push reuses TimeTrip deploy units (dry-run only)', () 
     env: { ...process.env, DOJO_DEPLOY_DRY_RUN: '1' }
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /\[DRY RUN\] gcloud run deploy dojo-api/);
+  assert.match(result.stdout, /\[DRY RUN\] gcloud run deploy dojo-time-travel-admin/);
   assert.match(result.stdout, /\[DRY RUN\] firebase deploy --only hosting/);
   assert.ok(result.stdout.indexOf('[DRY RUN] gcloud') < result.stdout.indexOf('[DRY RUN] firebase'));
 });

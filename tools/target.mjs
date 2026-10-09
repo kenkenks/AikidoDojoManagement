@@ -42,7 +42,7 @@ function buildFirebase() {
   const artifactDir = join(repoRoot, ".build", "portable-timetravel-firestore");
   const firebaseOutRoot = join(repoRoot, ".build", targetName);
   const firebaseWebOutDir = join(firebaseOutRoot, "web", "qr");
-  const deployRoot = join(repoRoot, ".build", targetName, "cloud-run", "dojo-api");
+  const deployRoot = join(repoRoot, ".build", targetName, "cloud-run", "dojo-time-travel-admin");
   rmSync(firebaseOutRoot, { recursive: true, force: true });
 
   for (const file of walk(resolve(repoRoot, profile.webSourceDir || "web/qr"))) {
@@ -97,17 +97,20 @@ function buildFirebase() {
 }
 
 function pushFirebase() {
-  // Deploy the shared API as a separate service; keep the existing TimeTrip service intact.
+  // Upgrade the existing TimeTrip Cloud Run service to the unified Dojo API.
   const firebaseOutRoot = join(repoRoot, ".build", targetName);
-  const deployRoot = join(firebaseOutRoot, "cloud-run", "dojo-api");
+  const deployRoot = join(firebaseOutRoot, "cloud-run", "dojo-time-travel-admin");
   const webRoot = join(firebaseOutRoot, "web");
   if (!existsSync(join(deployRoot, "package.json")) || !existsSync(join(webRoot, "firebase.json"))) {
     throw new Error("Firebase deploy artifacts are missing. Run target:build first.");
   }
 
-  // Cloud Run first, then Hosting: a new Web client must not precede its API.
+  // Cloud Run first, then Hosting. Actual deployment requires separate approval.
+  if (process.env.DOJO_DEPLOY_DRY_RUN !== "1") {
+    throw new Error("Direct target:push is disabled for Firebase. Use tools/cloud-run-release.mjs stage/promote/rollback.");
+  }
   runFirebaseDeploy("gcloud", [
-    "run", "deploy", "dojo-api",
+    "run", "deploy", "dojo-time-travel-admin",
     "--source", normalize(relative(repoRoot, deployRoot)),
     "--project", profile.projectId, "--region", "asia-northeast1",
     "--allow-unauthenticated", "--min", "0", "--max", "1",
