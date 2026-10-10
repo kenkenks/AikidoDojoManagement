@@ -1,0 +1,48 @@
+entity: teacher
+version: "0.1"
+fields:
+  - name: teacher_id
+    type: string
+    group: Identity
+    primary_key: true
+    required: true
+  - name: member_id
+    type: string
+    group: Relation
+  - name: 表示名
+    type: string
+    group: Name
+  - name: 氏名
+    type: string
+    group: Name
+  - name: 役職
+    type: string
+    group: Profile
+  - name: 組織役割
+    type: string
+    group: Profile
+  - name: 適用開始日
+    type: string
+    group: Unclassified
+  - name: 適用終了日
+    type: string
+    group: Unclassified
+  - name: 出席受付可
+    type: boolean
+    normalize: boolean
+    group: Unclassified
+  - name: 会費回収可
+    type: boolean
+    normalize: boolean
+    group: Unclassified
+  - name: 状態
+    type: string
+    group: State
+  - name: 備考
+    type: string
+    group: Unclassified
+sources:
+  gas:
+    sheet: "11_先生マスタ"
+  firestore:
+    collection: teachers

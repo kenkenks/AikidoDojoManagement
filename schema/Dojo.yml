@@ -1,0 +1,25 @@
+entity: dojo
+version: "0.1"
+fields:
+  - name: location_id
+    type: string
+    group: Identity
+    primary_key: true
+    required: true
+  - name: 表示名
+    type: string
+    group: Name
+  - name: 道場名
+    type: string
+    group: Name
+  - name: 状態
+    type: string
+    group: State
+  - name: 備考
+    type: string
+    group: Unclassified
+sources:
+  gas:
+    sheet: "10_道場マスタ"
+  firestore:
+    collection: dojos

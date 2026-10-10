@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "common": {
+    "表示名": "display_name",
+    "氏名": "full_name",
+    "状態": "status",
+    "備考": "notes",
+    "適用開始日": "effective_start_date",
+    "適用終了日": "effective_end_date"
+  },
+  "tables": {
+    "Dojo": {
+      "道場名": "dojo_name"
+    },
+    "Teacher": {
+      "役職": "position",
+      "組織役割": "organization_role",
+      "出席受付可": "can_accept_attendance",
+      "会費回収可": "can_collect_membership_fee"
+    }
+  }
+}

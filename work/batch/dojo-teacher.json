@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "stopOnError": true,
+  "jobs": [
+    { "command": "data.copy", "args": { "source": "gas", "destination": "firestore", "table": "Dojo" } },
+    { "command": "data.copy", "args": { "source": "gas", "destination": "firestore", "table": "Teacher" } }
+  ]
+}
