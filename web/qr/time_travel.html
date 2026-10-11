@@ -20,6 +20,7 @@
     button.primary { color:#fff; background:#b65f00; border-color:#944e00; font-weight:700; }
     button:disabled { opacity:.55; }
     #status { white-space:pre-line; line-height:1.55; font-size:16px; }
+    .diagnostic-log { white-space:pre-wrap; overflow-wrap:anywhere; background:#171b23; color:#e7edf6; padding:12px; border-radius:8px; max-height:350px; overflow:auto; font:12px/1.6 Consolas,monospace; }
     .small { color:#666; font-size:13px; line-height:1.5; }
   </style>
 </head>
@@ -51,6 +52,15 @@
 
   <section class="card"><div id="status">読み込み中です。</div></section>
 
+  <section class="card">
+    <h2>ベースチェック（読み取り専用）</h2>
+    <div class="small">本体画面の未検証項目はPASSにしません。ログには認証トークンを記録しません。</div>
+    <button id="runBaseCheck" type="button" onclick="runBaseCheck()">診断実行</button>
+    <button type="button" onclick="copyBaseCheckLog()">診断ログをコピー</button>
+    <div id="baseCheckSummary" role="status">未実行</div>
+    <pre id="baseCheckLog" class="diagnostic-log" aria-live="polite">診断を実行してください。</pre>
+  </section>
+
   <section id="teacherHomeLink" class="card" hidden>
     <a href="teacher_home.html?teacher_id=T001">
       🥋 先生ホーム（T001・動作確認用）
@@ -69,6 +79,69 @@
   const dojoApiClient = IS_FIREBASE ? window.DOJO_API_CLIENT.create({ getCurrentUser:firebaseAuthClient.getCurrentUser }) : null;
 
   let callbackSeq = 0;
+  let baseCheckLines = [];
+  function baseLog(level, name, detail) {
+    const line = new Date().toLocaleTimeString("ja-JP", { hour12:false }) + " " + level + " " + name + (detail ? " | " + detail : "");
+    baseCheckLines.push(line);
+    document.getElementById("baseCheckLog").textContent = baseCheckLines.join("\n");
+  }
+  async function runBaseCheck() {
+    const button = document.getElementById("runBaseCheck");
+    button.disabled = true;
+    baseCheckLines = [];
+    const counts = { PASS:0, WARN:0, FAIL:0, NOT_TESTED:0 };
+    function result(level, name, detail) { counts[level]++; baseLog(level, name, detail); }
+    try {
+      result(RUNTIME_CONFIG && RUNTIME_CONFIG.apiBaseUrl ? "PASS" : "FAIL", "runtime_config", String(RUNTIME_CONFIG && RUNTIME_CONFIG.runtime));
+      if (!IS_FIREBASE) {
+        result("NOT_TESTED", "Firebase Auth / API / Firestore", "GAS target");
+      } else {
+        await firebaseAuthClient.ready;
+        const user = firebaseAuthClient.getCurrentUser();
+        if (!user) {
+          result("FAIL", "Firebase Auth", "ログインが必要です");
+          result("NOT_TESTED", "Cloud Run / Firestore", "認証未完了");
+        } else {
+          result("PASS", "Firebase Auth", "signed in (user details omitted)");
+          try {
+            const response = await dojoApiClient.request(firebaseApiUrl("/api/admin/time-travel"), { method:"GET" });
+            if (!response.ok) {
+              result("FAIL", "Cloud Run / TimeTrip API", "HTTP " + response.status);
+              result("NOT_TESTED", "Firestore read", "API request failed");
+            } else {
+              const data = await response.json();
+              result(data && data.ok === true ? "PASS" : "FAIL", "Cloud Run / TimeTrip API", "HTTP " + response.status);
+              result(data && data.ok === true ? "PASS" : "NOT_TESTED", "Firestore read", "TimeTrip setting read; other collections not tested");
+            }
+          } catch (error) {
+            result("FAIL", "Cloud Run / TimeTrip API", error && error.message || String(error));
+            result("NOT_TESTED", "Firestore read", "API request failed");
+          }
+        }
+      }
+      try {
+        const response = await fetch("base_check_manifest.json", { cache:"no-store" });
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const manifest = await response.json();
+        result("PASS", "build manifest", manifest.target + " / " + manifest.screens.length + " screens inventoried");
+        for (const screen of manifest.screens) {
+          result(screen.status === "WARN" ? "WARN" : "NOT_TESTED", screen.name,
+            screen.detail + "; apiClient=" + screen.apiClient + "; firebaseAuth=" + screen.firebaseAuth);
+        }
+      } catch (error) {
+        result("WARN", "build manifest", "未配置または取得不可: " + (error && error.message || String(error)));
+      }
+    } catch (error) { result("FAIL", "base checker", error && error.message || String(error)); }
+    finally {
+      document.getElementById("baseCheckSummary").textContent = Object.keys(counts).map(k => k + ": " + counts[k]).join(" / ");
+      button.disabled = false;
+    }
+  }
+  function copyBaseCheckLog() {
+    const log = document.getElementById("baseCheckSummary").textContent + "\n" + baseCheckLines.join("\n");
+    navigator.clipboard.writeText(log).catch(function(error) { baseLog("WARN", "clipboard", error.message); });
+  }
+
 
   document.getElementById("systemNow").addEventListener("change", syncTargetMonthFromDate);
   if (IS_FIREBASE) {

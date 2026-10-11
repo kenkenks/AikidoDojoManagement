@@ -50,6 +50,7 @@ function buildFirebase() {
     copy(file, join(firebaseWebOutDir, rel));
   }
   writeFileSync(join(firebaseWebOutDir, "runtime_config.js"), renderFirebaseRuntimeConfig(), "utf8");
+  writeFileSync(join(firebaseWebOutDir, "base_check_manifest.json"), JSON.stringify(createBaseCheckManifest(firebaseWebOutDir), null, 2) + "\n", "utf8");
   writeFileSync(
     join(firebaseOutRoot, "web", "firebase.json"),
     JSON.stringify({
@@ -298,3 +299,19 @@ function globToRegExp(glob) {
 }
 
 function normalize(path) { return path.replaceAll("\\", "/"); }
+
+// Diagnostic inventory only: do not label an unexecuted screen as PASS.
+function createBaseCheckManifest(webDir) {
+  const screens = [];
+  for (const file of walk(webDir)) {
+    if (!file.endsWith(".html")) continue;
+    const html = readFileSync(file, "utf8");
+    const name = normalize(relative(webDir, file));
+    const legacyJsonp = /\bjsonp\s*\(|\bpostForm\s*\(|\baction\s*:\s*["'](?:teacher_|system_context|post_receipt)/.test(html);
+    const apiClient = /dojo_api_client\.js/.test(html);
+    const firebaseAuth = /firebase_auth\.js/.test(html);
+    screens.push({ name, status: legacyJsonp ? "WARN" : "NOT_TESTED", legacyJsonp, apiClient, firebaseAuth,
+      detail: legacyJsonp ? "GAS-style communication found in source; runtime reachability not verified" : "Static inventory only; runtime not tested" });
+  }
+  return { version: 1, target: targetName, generatedAt: new Date().toISOString(), screens };
+}
