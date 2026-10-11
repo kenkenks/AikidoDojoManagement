@@ -42,3 +42,16 @@ test('Member batch route validates auth, input, order and missing records', asyn
     {members:[{member_id:'M1'},null,{member_id:'M1'}]});
   assert.deepEqual(calls,[['M1','M2','M1']]);
 });
+
+test('Capabilities endpoint requires admin and reports supported routes', async () => {
+  const {api} = fixture();
+  const req = (authorization, method='GET') => api({url:'/api/admin/capabilities',authorization,method});
+  assert.equal((await req('')).status, 401);
+  assert.equal((await req('Bearer user')).status, 403);
+  assert.equal((await req('Bearer admin','POST')).status, 405);
+  const result = await req('Bearer admin');
+  assert.equal(result.status, 200);
+  assert.equal(result.body.contract, 'dojo-admin-api-v1');
+  assert.ok(result.body.capabilities.includes('member.readById'));
+  assert.ok(result.body.capabilities.includes('member.readByIds'));
+});

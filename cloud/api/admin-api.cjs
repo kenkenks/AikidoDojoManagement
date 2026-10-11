@@ -13,13 +13,22 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, readMemb
     const url = request.url || '';
     const member = /^\/api\/admin\/members\/([^/?#]+)$/.exec(url);
     const members = url === '/api/admin/members';
-    if (!member && !members && url !== '/api/admin/time-travel') return reply(404, { error: 'NOT_FOUND' });
+    const capabilities = url === '/api/admin/capabilities';
+    if (!member && !members && !capabilities && url !== '/api/admin/time-travel') return reply(404, { error: 'NOT_FOUND' });
     const match = /^Bearer ([^\s]+)$/i.exec(request.authorization || '');
     if (!match) return reply(401, { error: 'UNAUTHENTICATED' });
     let user;
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid || user.admin !== true) return reply(403, { error: 'FORBIDDEN' });
+    if (capabilities) {
+      if (request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
+      return reply(200, {
+        contract: 'dojo-admin-api-v1',
+        revision: process.env.K_REVISION || null,
+        capabilities: ['time-travel.read', 'member.readById', 'member.readByIds']
+      });
+    }
     if (!member && !members) return timeTravel({ ...request, authenticatedUser: user });
     if (members) {
       if (request.method !== 'POST') return reply(405, { error: 'METHOD_NOT_ALLOWED' });

@@ -98,25 +98,14 @@ function buildFirebase() {
 }
 
 function pushFirebase() {
-  // Upgrade the existing TimeTrip Cloud Run service to the unified Dojo API.
-  const firebaseOutRoot = join(repoRoot, ".build", targetName);
-  const deployRoot = join(firebaseOutRoot, "cloud-run", "dojo-time-travel-admin");
-  const webRoot = join(firebaseOutRoot, "web");
-  if (!existsSync(join(deployRoot, "package.json")) || !existsSync(join(webRoot, "firebase.json"))) {
-    throw new Error("Firebase deploy artifacts are missing. Run target:build first.");
+  // Firebase target: publish Hosting only. Cloud Run is released separately
+  // through tools/cloud-run-release.mjs stage/promote/rollback.
+  const webRoot = join(repoRoot, ".build", targetName, "web");
+  if (!existsSync(join(webRoot, "firebase.json")) ||
+      !existsSync(join(webRoot, "qr", "runtime_config.js"))) {
+    throw new Error("Firebase Hosting artifacts are missing. Run target:build first.");
   }
-
-  // Cloud Run first, then Hosting. Actual deployment requires separate approval.
-  if (process.env.DOJO_DEPLOY_DRY_RUN !== "1") {
-    throw new Error("Direct target:push is disabled for Firebase. Use tools/cloud-run-release.mjs stage/promote/rollback.");
-  }
-  runFirebaseDeploy("gcloud", [
-    "run", "deploy", "dojo-time-travel-admin",
-    "--source", normalize(relative(repoRoot, deployRoot)),
-    "--project", profile.projectId, "--region", "asia-northeast1",
-    "--allow-unauthenticated", "--min", "0", "--max", "1",
-    "--cpu", "1", "--memory", "512Mi", "--concurrency", "8"
-  ], repoRoot);
+  console.log(`[TARGET PUSH] ${targetName}: Firebase Hosting only (Cloud Run unchanged)`);
   runFirebaseDeploy("firebase", ["deploy", "--only", "hosting", "--project", profile.projectId], webRoot);
 }
 
@@ -125,8 +114,15 @@ function runFirebaseDeploy(executable, args, cwd) {
     console.log(`[DRY RUN] ${executable} ${args.join(" ")} (cwd: ${normalize(relative(repoRoot, cwd)) || "."})`);
     return;
   }
-  const command = process.platform === "win32" ? `${executable}.cmd` : executable;
-  const result = spawnSync(command, args, { cwd, stdio: "inherit", windowsHide: true });
+  // Node.js 24 on Windows cannot spawn .cmd files directly (EINVAL).
+  // Invoke the CLI wrapper through cmd.exe; keep non-Windows behavior unchanged.
+  const command = process.platform === "win32" ? (process.env.ComSpec || "cmd.exe") : executable;
+  // Let cmd.exe resolve firebase.cmd from PATH. Avoid wrapping the entire
+  // command in extra quotes: cmd /s /c would treat them as a literal command.
+  const commandArgs = process.platform === "win32"
+    ? ["/d", "/c", `${executable}.cmd`, ...args]
+    : args;
+  const result = spawnSync(command, commandArgs, { cwd, stdio: "inherit", windowsHide: true });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error(`${executable} deployment failed: exit ${result.status}`);
 }

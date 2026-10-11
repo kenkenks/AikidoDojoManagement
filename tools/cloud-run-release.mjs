@@ -43,8 +43,17 @@ if (action === 'verify') {
   run(['run', 'services', 'describe', SERVICE, ...base, '--format=json']);
 } else if (action === 'stage') {
   const deployRoot = join(root, '.build', 'dev-firebase', 'cloud-run', SERVICE);
-  if (execute && !existsSync(join(deployRoot, 'package.json'))) {
-    throw new Error('Deploy unit missing: run npm run target:build -- dev-firebase first');
+  // Build from current source immediately before staging. Never deploy stale .build output.
+  if (execute) {
+    const build = spawnSync(process.execPath, ['tools/target.mjs', 'build', 'dev-firebase'],
+      { cwd: root, stdio: 'inherit', windowsHide: true });
+    if (build.error) throw build.error;
+    if (build.status !== 0) throw new Error(`Firebase target build failed: exit ${build.status}`);
+    if (!existsSync(join(deployRoot, 'package.json'))) {
+      throw new Error('Cloud Run deploy unit missing after build');
+    }
+  } else {
+    console.log('[DRY RUN] node tools/target.mjs build dev-firebase');
   }
   // No --allow-unauthenticated: preserve existing service IAM policy.
   // No Hosting deployment. Existing traffic stays on the current revision.
