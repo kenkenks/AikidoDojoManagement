@@ -50,6 +50,13 @@
   </section>
 
   <section class="card"><div id="status">読み込み中です。</div></section>
+
+  <section id="teacherHomeLink" class="card" hidden>
+    <a href="teacher_home.html?teacher_id=T001">
+      🥋 先生ホーム（T001・動作確認用）
+    </a>
+
+</section>
 </main>
 <script src="runtime_config.js"></script>
 <script src="firebase_auth.js"></script>
@@ -92,8 +99,14 @@
 
   function updateAuthUi(user) {
     if (!IS_FIREBASE) return;
+
     document.getElementById("authCard").hidden = !!user;
-    document.getElementById("authStatus").textContent = user ? "" : "Googleアカウントでログインしてください。";
+
+    // Firebaseログイン後のみ先生ホームへのリンクを表示
+    document.getElementById("teacherHomeLink").hidden = !user;
+
+    document.getElementById("authStatus").textContent =
+      user ? "" : "Googleアカウントでログインしてください。";
   }
 
   function loadSetting(message) {
