@@ -1,0 +1,35 @@
+entity: examination_standard
+version: "0.1"
+fields:
+  - name: copy_standard_id
+    type: string
+    group: Identity
+    primary_key: true
+    required: true
+  - name: 現在級段位
+    type: string
+    group: Unclassified
+  - name: 次回審査級段位
+    type: string
+    group: Unclassified
+  - name: 必要稽古数
+    type: number
+    group: Unclassified
+  - name: 必要経過年数
+    type: string
+    group: Unclassified
+  - name: 進捗表示対象
+    type: boolean
+    group: Unclassified
+    normalize: boolean
+  - name: 状態
+    type: string
+    group: Unclassified
+  - name: 備考
+    type: string
+    group: Unclassified
+sources:
+  gas:
+    sheet: "15_審査基準マスタ"
+  firestore:
+    collection: examination_standards

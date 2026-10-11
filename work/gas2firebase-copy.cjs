@@ -13,7 +13,8 @@ const { applyNames, loadGlossary } = require('./copy-field-names.cjs');
 const ROOT = path.resolve(__dirname, '..');
 const PROFILE = JSON.parse(fs.readFileSync(path.join(ROOT, 'targets', 'dev-firebase.json'), 'utf8'));
 const GAS_BUILD = path.join(ROOT, '.build', 'dev-gas', 'gas');
-const COMMANDS = Object.freeze({ Member: 'runner_gas2firebase_copy_member_source', Setting: 'runner_gas2firebase_copy_setting_source', Dojo: 'runner_gas2firebase_copy_dojo_source', Teacher: 'runner_gas2firebase_copy_teacher_source' });
+const COMMANDS = Object.freeze({ Member: 'runner_gas2firebase_copy_member_source', Setting: 'runner_gas2firebase_copy_setting_source', Dojo: 'runner_gas2firebase_copy_dojo_source', Teacher: 'runner_gas2firebase_copy_teacher_source', Fee: 'runner_gas2firebase_copy_fee_source', PlanSelectionRule: 'runner_gas2firebase_copy_planselectionrule_source', TrainingSlot: 'runner_gas2firebase_copy_trainingslot_source', BillingBlock: 'runner_gas2firebase_copy_billingblock_source', Rank: 'runner_gas2firebase_copy_rank_source', ExaminationStandard: 'runner_gas2firebase_copy_examinationstandard_source' });
+const MASTER_TABLES = new Set(['Dojo', 'Teacher', 'Fee', 'PlanSelectionRule', 'TrainingSlot', 'BillingBlock', 'Rank', 'ExaminationStandard']);
 const progress = message => process.stderr.write(`[GAS2FirebaseCopy] ${message}\n`);
 function differences(expected, actual) {
   const result = [];
@@ -59,9 +60,9 @@ async function tableSchema(table) {
   const schemaPath = path.join(ROOT, 'schema', `${table}.yml`);
   const yaml = fs.readFileSync(schemaPath, 'utf8');
   const definition = parsePortableDefinition(yaml);
-  const mapped = ['Dojo', 'Teacher'].includes(table) ? applyNames(definition, loadGlossary(), table) : definition;
+  const mapped = MASTER_TABLES.has(table) ? applyNames(definition, loadGlossary(), table) : definition;
   const schema = renderFirestoreSchema(transformPortableDefinition(mapped));
-  if (['Dojo', 'Teacher'].includes(table)) {
+  if (MASTER_TABLES.has(table)) {
     progress(`Schema: ${schemaPath}`);
     progress(`Schema fields: ${JSON.stringify(schema.fields.map(field => `${field.logicalName} -> ${field.physicalName}`))}`);
   }
@@ -84,7 +85,7 @@ async function copy(options = {}) {
   if (options.progress) options.progress('FETCHED', { count: records.length });
   if (!Array.isArray(records)) throw new Error('COPY_RECORDS_INVALID');
   // For new masters, never silently discard unmodelled GAS columns.
-  if (['Dojo', 'Teacher'].includes(table)) {
+  if (MASTER_TABLES.has(table)) {
     const known = new Set(schema.fields.map(field => field.logicalName));
     const unexpected = [...new Set(records.flatMap(row => Object.keys(row).filter(key => !known.has(key))))];
     if (unexpected.length) throw new Error(`COPY_SOURCE_FIELDS_UNMAPPED:${table}:${JSON.stringify(unexpected)}`);
@@ -92,8 +93,8 @@ async function copy(options = {}) {
   // Normalization is opt-in per field in the portable schema; no global coercion.
   let normalizedRecords = records;
   let normalization = {};
-  if (table === 'Teacher') {
-    const yaml = fs.readFileSync(path.join(ROOT, 'schema', 'Teacher.yml'), 'utf8');
+  if (MASTER_TABLES.has(table)) {
+    const yaml = fs.readFileSync(path.join(ROOT, 'schema', `${table}.yml`), 'utf8');
     const { parsePortableDefinition } = await import('../tools/portable-data-definition-core.mjs');
     const definition = parsePortableDefinition(yaml);
     const fields = definition.fields.filter(f => f.normalize === 'boolean').map(f => f.name);
@@ -196,7 +197,7 @@ function parseArgs(args) {
 
 if (require.main === module) {
   const args = parseArgs(process.argv.slice(2));
-  if (args.help) process.stdout.write('Usage: node work/gas2firebase-copy.cjs --table Member|Setting|Dojo|Teacher [--keys KEY1,KEY2 (required for Setting)] --source gas --destination firestore [--preflight | --verify-existing | --execute --confirm dojo-management-dev [--limit 1]]\nDefault: dry-run (zero writes); --preflight checks IDs; --verify-existing compares existing documents (zero writes).\n');
+  if (args.help) process.stdout.write('Usage: node work/gas2firebase-copy.cjs --table Member|Setting|Dojo|Teacher|Fee|PlanSelectionRule|TrainingSlot|BillingBlock|Rank|ExaminationStandard [--keys KEY1,KEY2 (required for Setting)] --source gas --destination firestore [--preflight | --verify-existing | --execute --confirm dojo-management-dev [--limit 1]]\nDefault: dry-run (zero writes); --preflight checks IDs; --verify-existing compares existing documents (zero writes).\n');
   else copy({ ...args, progress: (stage, data) => {
     if (stage === 'START') progress(`START ${data.table} ${data.source} -> ${data.destination} ${data.execute ? 'EXECUTE' : args.preflight ? 'PREFLIGHT' : args.verifyExisting ? 'VERIFY-EXISTING' : 'DRY-RUN'}`);
     else if (stage === 'FETCHED') progress(`Fetched ${data.count} records`);

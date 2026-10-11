@@ -1,0 +1,31 @@
+entity: rank
+version: "0.1"
+fields:
+  - name: rank_id
+    type: string
+    group: Identity
+    primary_key: true
+    required: true
+  - name: 表示名
+    type: string
+    group: Unclassified
+  - name: 公式帳票名
+    type: string
+    group: Unclassified
+  - name: 資格体系
+    type: string
+    group: Unclassified
+  - name: 表示順
+    type: number
+    group: Unclassified
+  - name: 状態
+    type: string
+    group: Unclassified
+  - name: 備考
+    type: string
+    group: Unclassified
+sources:
+  gas:
+    sheet: "14_級段位マスタ"
+  firestore:
+    collection: ranks

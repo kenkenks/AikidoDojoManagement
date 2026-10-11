@@ -1,0 +1,54 @@
+{
+  "version": 1,
+  "stopOnError": true,
+  "jobs": [
+    {
+      "command": "data.copy",
+      "args": {
+        "source": "gas",
+        "destination": "firestore",
+        "table": "Fee"
+      }
+    },
+    {
+      "command": "data.copy",
+      "args": {
+        "source": "gas",
+        "destination": "firestore",
+        "table": "PlanSelectionRule"
+      }
+    },
+    {
+      "command": "data.copy",
+      "args": {
+        "source": "gas",
+        "destination": "firestore",
+        "table": "TrainingSlot"
+      }
+    },
+    {
+      "command": "data.copy",
+      "args": {
+        "source": "gas",
+        "destination": "firestore",
+        "table": "BillingBlock"
+      }
+    },
+    {
+      "command": "data.copy",
+      "args": {
+        "source": "gas",
+        "destination": "firestore",
+        "table": "Rank"
+      }
+    },
+    {
+      "command": "data.copy",
+      "args": {
+        "source": "gas",
+        "destination": "firestore",
+        "table": "ExaminationStandard"
+      }
+    }
+  ]
+}

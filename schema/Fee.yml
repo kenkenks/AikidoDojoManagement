@@ -1,0 +1,34 @@
+entity: fee
+version: "0.1"
+fields:
+  - name: plan_id
+    type: string
+    group: Identity
+    primary_key: true
+    required: true
+  - name: 表示名
+    type: string
+    group: Unclassified
+  - name: 区分
+    type: string
+    group: Unclassified
+  - name: 会費タイプ
+    type: string
+    group: Unclassified
+  - name: 回数単価
+    type: number
+    group: Unclassified
+  - name: 上限金額
+    type: number
+    group: Unclassified
+  - name: 状態
+    type: string
+    group: Unclassified
+  - name: 説明
+    type: string
+    group: Unclassified
+sources:
+  gas:
+    sheet: "03_料金マスタ"
+  firestore:
+    collection: fees

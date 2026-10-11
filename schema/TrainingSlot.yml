@@ -1,0 +1,54 @@
+entity: training_slot
+version: "0.1"
+fields:
+  - name: slot_id
+    type: string
+    group: Identity
+    primary_key: true
+    required: true
+  - name: location_id
+    type: string
+    group: Unclassified
+  - name: 表示名
+    type: string
+    group: Unclassified
+  - name: 曜日
+    type: string
+    group: Unclassified
+  - name: 開始時刻
+    type: string
+    group: Unclassified
+    normalize: local_time_hhmm
+  - name: 終了時刻
+    type: string
+    group: Unclassified
+    normalize: local_time_hhmm
+  - name: 稽古時間分
+    type: number
+    group: Unclassified
+  - name: billing_block_id
+    type: string
+    group: Unclassified
+  - name: children_allowed
+    type: boolean
+    group: Unclassified
+    normalize: boolean
+  - name: general_allowed
+    type: boolean
+    group: Unclassified
+    normalize: boolean
+  - name: trial_allowed
+    type: boolean
+    group: Unclassified
+    normalize: boolean
+  - name: 状態
+    type: string
+    group: Unclassified
+  - name: 備考
+    type: string
+    group: Unclassified
+sources:
+  gas:
+    sheet: "12_稽古枠マスタ"
+  firestore:
+    collection: training_slots

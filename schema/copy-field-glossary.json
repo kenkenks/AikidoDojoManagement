@@ -17,6 +17,50 @@
       "組織役割": "organization_role",
       "出席受付可": "can_accept_attendance",
       "会費回収可": "can_collect_membership_fee"
+    },
+    "Fee": {
+      "表示名": "display_name",
+      "区分": "category",
+      "会費タイプ": "membership_fee_type",
+      "回数単価": "unit_price",
+      "上限金額": "maximum_amount",
+      "状態": "status",
+      "説明": "description"
+    },
+    "PlanSelectionRule": {},
+    "TrainingSlot": {
+      "表示名": "display_name",
+      "曜日": "day_of_week",
+      "開始時刻": "start_time",
+      "終了時刻": "end_time",
+      "稽古時間分": "duration_minutes",
+      "状態": "status",
+      "備考": "notes"
+    },
+    "BillingBlock": {
+      "表示名": "display_name",
+      "曜日": "day_of_week",
+      "1課金あたり枠数": "slots_per_charge",
+      "最大稽古枠数": "maximum_training_slots",
+      "状態": "status",
+      "備考": "notes"
+    },
+    "Rank": {
+      "表示名": "display_name",
+      "公式帳票名": "official_document_name",
+      "資格体系": "qualification_system",
+      "表示順": "display_order",
+      "状態": "status",
+      "備考": "notes"
+    },
+    "ExaminationStandard": {
+      "現在級段位": "current_rank",
+      "次回審査級段位": "next_rank",
+      "必要稽古数": "required_training_count",
+      "必要経過年数": "required_elapsed_years",
+      "進捗表示対象": "show_progress",
+      "状態": "status",
+      "備考": "notes"
     }
   }
 }

@@ -1,0 +1,19 @@
+entity: plan_selection_rule
+version: "0.1"
+fields:
+  - name: copy_rule_id
+    type: string
+    group: Identity
+    primary_key: true
+    required: true
+  - name: member_type
+    type: string
+    group: Unclassified
+  - name: selectable_plan_id
+    type: string
+    group: Unclassified
+sources:
+  gas:
+    sheet: "03_料金プラン選択ルール"
+  firestore:
+    collection: plan_selection_rules

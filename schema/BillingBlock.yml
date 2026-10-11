@@ -1,0 +1,34 @@
+entity: billing_block
+version: "0.1"
+fields:
+  - name: billing_block_id
+    type: string
+    group: Identity
+    primary_key: true
+    required: true
+  - name: location_id
+    type: string
+    group: Unclassified
+  - name: 表示名
+    type: string
+    group: Unclassified
+  - name: 曜日
+    type: string
+    group: Unclassified
+  - name: 1課金あたり枠数
+    type: number
+    group: Unclassified
+  - name: 最大稽古枠数
+    type: number
+    group: Unclassified
+  - name: 状態
+    type: string
+    group: Unclassified
+  - name: 備考
+    type: string
+    group: Unclassified
+sources:
+  gas:
+    sheet: "13_課金枠マスタ"
+  firestore:
+    collection: billing_blocks
