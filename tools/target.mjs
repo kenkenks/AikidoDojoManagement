@@ -76,6 +76,7 @@ function buildFirebase() {
   for (const name of ["DAO_Core_Firestore.cjs", "DAO_Core_Values.cjs"]) {
     copy(join(repoRoot, "cloud", "member-read", name), join(deployRoot, "cloud", "member-read", name));
   }
+  copy(join(repoRoot, "shared", "WebConnectCore.js"), join(deployRoot, "shared", "WebConnectCore.js"));
   for (const name of ["DAO_Business.js", "DAO_Definitions.js", "DAO_Definition_Setting.generated.js", "StorageId.js", "Flow.js"]) {
     copy(join(repoRoot, "shared", name), join(deployRoot, "shared", name));
   }
@@ -166,6 +167,8 @@ function build() {
     copiedGas.push(rel);
   }
 
+  // Shared WebConnect contract is also loaded as a GAS global.
+  copy(join(repoRoot, "shared", "WebConnectCore.js"), join(gasOutDir, "WebConnectCore.js"));
   const excludedWeb = [];
   for (const file of walk(webSourceDir)) {
     const rel = normalize(relative(webSourceDir, file));

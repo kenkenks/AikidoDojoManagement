@@ -106,7 +106,7 @@
         } else {
           result("PASS", "Firebase Auth", "signed in (user details omitted)");
           try {
-            const response = await dojoApiClient.request(firebaseApiUrl("/api/admin/time-travel"), { method:"GET" });
+            const response = await dojoApiClient.request(firebaseApiUrl("/api/system/admin/time-travel"), { method:"GET" });
             if (!response.ok) {
               result("FAIL", "Cloud Run / TimeTrip API", "HTTP " + response.status);
               result("NOT_TESTED", "Firestore read", "API request failed");
@@ -278,7 +278,7 @@
   function loadSettingData() {
     if (!IS_FIREBASE) return jsonp(GAS_URL, { action:"time_travel_admin" });
     return firebaseAuthClient.ready.then(function() {
-      return dojoApiClient.request(firebaseApiUrl("/api/admin/time-travel"));
+      return dojoApiClient.request(firebaseApiUrl("/api/system/admin/time-travel"));
     }).then(function(response) {
       if (!response.ok) throw new Error("設定取得APIでエラーが発生しました。HTTP " + response.status);
       return response.json();
@@ -318,7 +318,7 @@
         target_month:payload.target_month || ""
       };
       firebaseAuthClient.ready.then(function() {
-        return dojoApiClient.request(firebaseApiUrl("/api/admin/time-travel"), {
+        return dojoApiClient.request(firebaseApiUrl("/api/system/admin/time-travel"), {
           method:"POST",
           headers:{ "Content-Type":"application/json" },
           body:JSON.stringify(firebasePayload)

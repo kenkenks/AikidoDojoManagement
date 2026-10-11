@@ -1,5 +1,6 @@
 'use strict';
 const { createAdminTimeTravelApi } = require('../time-travel/admin-api.cjs');
+const WebConnectCore = require('../../shared/WebConnectCore.js');
 
 function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, readMember, readMembers }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
@@ -14,7 +15,8 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, readMemb
     const member = /^\/api\/admin\/members\/([^/?#]+)$/.exec(url);
     const members = url === '/api/admin/members';
     const capabilities = url === '/api/admin/capabilities';
-    if (!member && !members && !capabilities && url !== '/api/admin/time-travel') return reply(404, { error: 'NOT_FOUND' });
+    const systemTimeTravel = url === '/api/system/admin/time-travel';
+    if (!member && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     const match = /^Bearer ([^\s]+)$/i.exec(request.authorization || '');
     if (!match) return reply(401, { error: 'UNAUTHENTICATED' });
     let user;
@@ -29,7 +31,20 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, readMemb
         capabilities: ['time-travel.read', 'member.readById', 'member.readByIds']
       });
     }
-    if (!member && !members) return timeTravel({ ...request, authenticatedUser: user });
+    if (!member && !members) {
+      if (systemTimeTravel) {
+        const contract = WebConnectCore.route({
+          method: request.method,
+          action: request.method === 'GET' ? 'time_travel_admin' : 'time_travel_set',
+          data: request.body
+        });
+        if (!contract) return reply(405, { error: 'METHOD_NOT_ALLOWED' });
+        return timeTravel({ ...request, url: '/api/admin/time-travel',
+          body: contract.operation === 'timeTravel.save' ? contract.input : null,
+          authenticatedUser: user });
+      }
+      return timeTravel({ ...request, authenticatedUser: user });
+    }
     if (members) {
       if (request.method !== 'POST') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
       const ids = request.body?.ids;

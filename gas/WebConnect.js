@@ -157,7 +157,9 @@ function doGet(e) {
 
   // DEV/TEST用の孤立Webページから現在のTime Travel設定を参照する。
   if (params.action === "time_travel_admin") {
+    const contract = WebConnectCore.route({ method: "GET", action: params.action });
     const result = safelyExecute_(function() {
+      if (!contract || contract.operation !== "timeTravel.read") throw new Error("Unsupported WebConnect operation");
       return sup_timeTravel_getAdminSetting();
     });
     return createJsonOrJsonpOutput_(result, params.callback);
@@ -461,11 +463,9 @@ function doPost(e) {
 
     // DEV/TEST用Time Travel設定。保存・検証ロジックは既存関数へ一本化する。
     if (data.mode === "time_travel_set") {
-      return sup_timeTravel_saveAdminSetting({
-        enabled: data.enabled,
-        now: data.now || "",
-        target_month: data.target_month || ""
-      });
+      const contract = WebConnectCore.route({ method: "POST", action: data.mode, data: data });
+      if (!contract || contract.operation !== "timeTravel.save") throw new Error("Unsupported WebConnect operation");
+      return sup_timeTravel_saveAdminSetting(contract.input);
     }
 
     if (data.mode === "payment_evidence_post_selected") {
