@@ -20,7 +20,7 @@ globalThis.normalizeId_ = value => String(value || "").trim();
 globalThis.normalizeMonth = value => String(value || "").trim();
 globalThis.isActiveMasterRow_ = row => row["状態"] !== "取消" && row["状態"] !== "無効";
 globalThis.sup_targetMonth = () => "2026-07";
-globalThis.getMembers = () => [{ member_id:"M001", "請求グループID":"G001", "状態":"有効" }];
+globalThis.getMembers = () => [{ member_id:"M001", billing_group_id:"G001", "状態":"有効" }];
 globalThis.getFees = () => [{ plan_id:"EXAM-KYU2", "会費タイプ":"審査費", "表示名":"2級審査費", "回数単価":5000, "状態":"有効" }];
 globalThis.getInvoices = () => invoices;
 globalThis.billingCoreMakeInvoiceObject_ = (month, groupId, memberId, planId, type, name, quantity, price) => ({
