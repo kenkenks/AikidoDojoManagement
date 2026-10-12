@@ -5,8 +5,9 @@ const { createAdminApi } = require('../cloud/api/admin-api.cjs');
 function fixture() {
   const calls = [];
   const api = createAdminApi({
-    verifyIdToken: async token => token === 'admin' ? {uid:'A',admin:true} : {uid:'B',admin:false},
+    verifyIdToken: async token => token === 'admin' ? {uid:'A',admin:true} : token === 'user' ? {uid:'B',admin:false,member:true} : null,
     getTimeTravel: async () => ({enabled:false}),
+    getSystemContext: async () => ({ok:true, system_now:'2099-01-02 03:04:05', target_month:'2099-01', time_travel_enabled:true, timezone:'Asia/Tokyo', enabled:true, now:'SECRET'}),
     saveTimeTravel: async body => ({saved:body}),
     readMember: async id => { calls.push(id); return id === 'M1' ? {member_id:id} : null; },
     readMembers: async ids => { calls.push([...ids]); return ids.map(id => id === 'M1' ? {member_id:id} : null); }
@@ -54,4 +55,27 @@ test('Capabilities endpoint requires admin and reports supported routes', async 
   assert.equal(result.body.contract, 'dojo-admin-api-v1');
   assert.ok(result.body.capabilities.includes('member.readById'));
   assert.ok(result.body.capabilities.includes('member.readByIds'));
+});
+
+
+test('Public system context: read-only, minimal response, no authentication', async () => {
+  const {api} = fixture();
+  const request = (authorization, method='GET') => api({url:'/api/system/context',authorization,method});
+  const expected = {ok:true,system_now:'2099-01-02 03:04:05',target_month:'2099-01',time_travel_enabled:true,timezone:'Asia/Tokyo'};
+  assert.equal((await request('')).status,200);
+  assert.deepEqual((await request('')).body,expected);
+  assert.deepEqual((await request('Bearer invalid')).body,expected);
+  assert.equal((await request('','POST')).status,405);
+  assert.equal((await api({url:'/api/admin/time-travel',method:'GET'})).status,401);
+  assert.equal((await api({url:'/api/admin/time-travel',authorization:'Bearer user',method:'GET'})).status,403);
+});
+
+test('Public system context errors do not leak storage details or verify identities', async () => {
+  const api = createAdminApi({
+    verifyIdToken:async () => {throw Error('MUST_NOT_VERIFY');},
+    getTimeTravel:async () => ({}),saveTimeTravel:async () => ({}),
+    getSystemContext:async () => {throw new Error('SECRET_FIRESTORE_FAILURE');},
+    readMember:async () => null,readMembers:async () => []
+  });
+  assert.deepEqual((await api({url:'/api/system/context',method:'GET'})).body,{error:'SYSTEM_CONTEXT_UNAVAILABLE'});
 });

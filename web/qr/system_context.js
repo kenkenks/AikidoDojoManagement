@@ -8,6 +8,44 @@
     throw new Error(message);
   }
 
+  function publishContext(data) {
+    if (!data || data.ok !== true) {
+      window.dispatchEvent(new CustomEvent("dojo-system-context-error", {
+        detail: { message: "システム時刻の応答が不正です。" }
+      }));
+      return;
+    }
+    window.DOJO_SYSTEM_CONTEXT = data;
+    const banner = document.createElement("div");
+    banner.className = "system-context " + (data.time_travel_enabled ? "time-travel" : "real-time");
+    banner.textContent = (data.time_travel_enabled ? "⚠ テスト時刻" : "システム時刻") +
+      "：" + data.system_now + " ／ 対象月：" + data.target_month;
+    document.body.insertBefore(banner, document.body.firstChild);
+    window.dispatchEvent(new CustomEvent("dojo-system-context", { detail:data }));
+  }
+
+  if (runtimeConfig.runtime === "firebase") {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(function() { controller.abort(); }, 20000);
+    const url = String(runtimeConfig.apiBaseUrl).replace(/\/+$/, "") + "/api/system/context";
+    fetch(url, { method: "GET", cache: "no-store", signal: controller.signal })
+      .then(function(response) {
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        return response.json();
+      })
+      .then(publishContext)
+      .catch(function(error) {
+        window.dispatchEvent(new CustomEvent("dojo-system-context-error", {
+          detail: { message: error.name === "AbortError"
+            ? "システム時刻の取得がタイムアウトしました。"
+            : "システム時刻の取得に失敗しました。" }
+        }));
+      })
+      .finally(function() { window.clearTimeout(timeout); });
+    return;
+  }
+  if (runtimeConfig.runtime !== "gas") throw new Error("Unsupported runtime: " + runtimeConfig.runtime);
+
   const GAS_URL = runtimeConfig.apiBaseUrl;
   const callbackName = "systemContextCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
   const script = document.createElement("script");
@@ -26,14 +64,7 @@
   script.src = GAS_URL + "?" + query.toString();
   window[callbackName] = function(data) {
     cleanup();
-    if (!data || data.ok !== true) return;
-    window.DOJO_SYSTEM_CONTEXT = data;
-    const banner = document.createElement("div");
-    banner.className = "system-context " + (data.time_travel_enabled ? "time-travel" : "real-time");
-    banner.textContent = (data.time_travel_enabled ? "⚠ テスト時刻" : "システム時刻") +
-      "：" + data.system_now + " ／ 対象月：" + data.target_month;
-    document.body.insertBefore(banner, document.body.firstChild);
-    window.dispatchEvent(new CustomEvent("dojo-system-context", { detail:data }));
+    publishContext(data);
   };
   // iPhone Safariでは、JSONPコールバックが後から成功する場合でも
   // script.onerrorが先に発生することがあるため、ここでは終了しない。

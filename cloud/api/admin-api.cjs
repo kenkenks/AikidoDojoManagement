@@ -2,8 +2,9 @@
 const { createAdminTimeTravelApi } = require('../time-travel/admin-api.cjs');
 const WebConnectCore = require('../../shared/WebConnectCore.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, readMember, readMembers }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
+  if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
   if (typeof readMembers !== 'function') throw new Error('readMembers is required');
   const timeTravel = createAdminTimeTravelApi({ verifyIdToken, getTimeTravel, saveTimeTravel });
@@ -12,23 +13,56 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, readMemb
   }, body });
   return async function handle(request) {
     const url = request.url || '';
+    const systemContext = url === '/api/system/context';
+    const attendance = url.split('?')[0] === '/api/admin/attendance/saved-state';
     const member = /^\/api\/admin\/members\/([^/?#]+)$/.exec(url);
     const members = url === '/api/admin/members';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel';
-    if (!member && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!systemContext && !attendance && !member && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    // Public operational clock: no login required; no admin configuration or member data.
+    if (systemContext) {
+      if (request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
+      try {
+        const value = await getSystemContext();
+        if (!value || value.ok !== true || typeof value.system_now !== 'string' ||
+            !/^\d{4}-\d{2}$/.test(value.target_month || '') || typeof value.time_travel_enabled !== 'boolean') {
+          return reply(503, { error: 'SYSTEM_CONTEXT_UNAVAILABLE' });
+        }
+        return reply(200, { ok: true, system_now: value.system_now,
+          target_month: value.target_month, time_travel_enabled: value.time_travel_enabled,
+          timezone: value.timezone || 'Asia/Tokyo' });
+      } catch { return reply(503, { error: 'SYSTEM_CONTEXT_UNAVAILABLE' }); }
+    }
     const match = /^Bearer ([^\s]+)$/i.exec(request.authorization || '');
     if (!match) return reply(401, { error: 'UNAUTHENTICATED' });
     let user;
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
-    if (!user || !user.uid || user.admin !== true) return reply(403, { error: 'FORBIDDEN' });
+    if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
+    if (user.admin !== true) return reply(403, { error: 'FORBIDDEN' });
+    if (attendance) {
+      if (request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
+      const parsed = new URL(url, 'http://localhost');
+      const keys = ['member_id', 'location_id', 'billing_block_id', 'attendance_date'];
+      if (keys.some(key => parsed.searchParams.getAll(key).length !== 1)) {
+        return reply(400, { error: 'INVALID_ATTENDANCE_PARAMS' });
+      }
+      if (typeof readAttendanceSavedState !== 'function') return reply(503, { error: 'ATTENDANCE_READ_UNAVAILABLE' });
+      const params = Object.fromEntries(keys.map(key => [key, parsed.searchParams.get(key)]));
+      try {
+        const result = await readAttendanceSavedState(params);
+        return reply(result.ok ? 200 : 400, result);
+      } catch {
+        return reply(503, { error: 'ATTENDANCE_READ_UNAVAILABLE' });
+      }
+    }
     if (capabilities) {
       if (request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
       return reply(200, {
         contract: 'dojo-admin-api-v1',
         revision: process.env.K_REVISION || null,
-        capabilities: ['time-travel.read', 'member.readById', 'member.readByIds']
+        capabilities: ['time-travel.read', 'member.readById', 'member.readByIds', 'attendance.savedState.read']
       });
     }
     if (!member && !members) {
