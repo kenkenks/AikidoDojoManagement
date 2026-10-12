@@ -15,11 +15,22 @@ function createDispatch(handle) {
       'systemContext.read': ['GET', '/api/system/context'],
       'timeTravel.read': ['GET', '/api/system/admin/time-travel'],
       'timeTravel.save': ['POST', '/api/system/admin/time-travel'],
-      'attendance.savedState': ['GET', '/api/admin/attendance/saved-state']
+      'attendance.savedState': ['GET', '/api/admin/attendance/saved-state'],
+      'member.readById': ['GET', '/api/admin/members'],
+      'member.readByIds': ['POST', '/api/admin/members']
     };
     const target = routes[contract.operation];
     if (!target) return reply(501, { error: 'OPERATION_NOT_CONNECTED' });
     let url = target[1];
+    if (contract.operation === 'member.readById') {
+      const id = contract.input?.member_id;
+      if (typeof id !== 'string' || !id || id === '.' || id === '..' || /[\/\\\x00-\x1f]/.test(id)) return reply(400, { error: 'INVALID_MEMBER_ID' });
+      url += '/' + encodeURIComponent(id);
+    }
+    if (contract.operation === 'member.readByIds') {
+      const ids = contract.input?.ids;
+      if (!Array.isArray(ids) || ids.length > 100 || ids.some(id => typeof id !== 'string' || !id || id === '.' || id === '..' || /[\/\\\x00-\x1f]/.test(id))) return reply(400, { error: 'INVALID_MEMBER_IDS' });
+    }
     if (contract.operation === 'attendance.savedState') {
       const params = new URLSearchParams();
       for (const key of ['member_id', 'location_id', 'billing_block_id', 'attendance_date']) {
