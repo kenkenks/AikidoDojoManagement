@@ -26,6 +26,6 @@ test('admin write delegates input', async () => {
   assert.deepEqual(r.body.input, { enabled: false, now: '', target_month: '' });
 });
 test('unconnected actions fail closed', async () => {
-  assert.equal((await dispatch({ action: 'attendance_saved_state' })).status, 404);
+  assert.equal((await dispatch({ action: 'attendance_saved_state' })).status, 400);
   assert.equal((await dispatch({ action: 'unknown' })).status, 404);
 });
