@@ -14,11 +14,21 @@ function createDispatch(handle) {
     const routes = {
       'systemContext.read': ['GET', '/api/system/context'],
       'timeTravel.read': ['GET', '/api/system/admin/time-travel'],
-      'timeTravel.save': ['POST', '/api/system/admin/time-travel']
+      'timeTravel.save': ['POST', '/api/system/admin/time-travel'],
+      'attendance.savedState': ['GET', '/api/admin/attendance/saved-state']
     };
     const target = routes[contract.operation];
     if (!target) return reply(501, { error: 'OPERATION_NOT_CONNECTED' });
-    return handle({ method: target[0], url: target[1],
+    let url = target[1];
+    if (contract.operation === 'attendance.savedState') {
+      const params = new URLSearchParams();
+      for (const key of ['member_id', 'location_id', 'billing_block_id', 'attendance_date']) {
+        if (typeof contract.input?.[key] !== 'string') return reply(400, { error: 'INVALID_ATTENDANCE_PARAMS' });
+        params.set(key, contract.input[key]);
+      }
+      url += '?' + params.toString();
+    }
+    return handle({ method: target[0], url,
       authorization: context && context.authorization,
       body: target[0] === 'POST' ? contract.input : null });
   };

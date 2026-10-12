@@ -5,6 +5,7 @@ var WebConnectCore = (function () {
     action = String(action || '');
     if (action === 'system_context') return { operation: 'systemContext.read', input: null };
     if (action === 'time_travel_admin') return { operation: 'timeTravel.read', input: null };
+    if (action === 'attendance_saved_state') return { operation: 'attendance.savedState', input: input || {} };
     if (action === 'time_travel_set') {
       var data = input || {};
       return { operation: 'timeTravel.save', input: {

@@ -143,7 +143,7 @@ createServer(async (req, res) => {
       const action = req.method === 'GET' ? parsed.searchParams.get('action') : body && body.action;
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state']);
       const writeActions = new Set(['time_travel_set']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {
