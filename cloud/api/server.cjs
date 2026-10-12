@@ -12,7 +12,7 @@ const { createServer } = require('node:http');
 const { createDao } = require('../../shared/DAO_Business.js');
 const { createFirestoreCore } = require('../member-read/DAO_Core_Firestore.cjs');
 const { createAdminApi } = require('./admin-api.cjs');
-const { dispatch } = require('./webConnect.cjs');
+const { createDispatch } = require('./webConnect.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createTimeTravelTarget } = require('../time-travel/target.cjs');
 
@@ -72,6 +72,8 @@ const handle = createAdminApi({
   readAttendanceSavedState
 });
 
+const dispatch = createDispatch(handle);
+
 async function readJsonBody(req) {
   const chunks = [];
   let size = 0;
@@ -130,21 +132,30 @@ createServer(async (req, res) => {
       }
     }
 
-    // ARCHITECTURE ANCHOR: HTTP is infrastructure, not dojo business.
-    // Keep transport parsing here; dispatch accepts a transport-neutral action.
-    // The current business dispatcher is intentionally not implemented yet.
-    if (new URL(req.url, 'http://localhost').pathname === '/api/webconnect') {
-      const response = await dispatch({
-        action: body && body.action,
-        input: body && body.input,
-        context: null
-      });
-      res.writeHead(501, {
-        ...corsHeaders,
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-store'
-      });
-      res.end(JSON.stringify(response));
+    // Shared WebConnect transport entry; authentication is enforced by existing handlers.
+    const parsed = new URL(req.url, 'http://localhost');
+    if (parsed.pathname === '/api/webconnect') {
+      if (req.method !== 'GET' && req.method !== 'POST') {
+        res.writeHead(405, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'METHOD_NOT_ALLOWED' }));
+        return;
+      }
+      const action = req.method === 'GET' ? parsed.searchParams.get('action') : body && body.action;
+      const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
+      // The transport method cannot be used to invoke a different operation's method.
+      const readActions = new Set(['system_context', 'time_travel_admin']);
+      const writeActions = new Set(['time_travel_set']);
+      if ((req.method === 'GET' && writeActions.has(action)) ||
+          (req.method === 'POST' && readActions.has(action))) {
+        res.writeHead(405, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ error: 'METHOD_NOT_ALLOWED' }));
+        return;
+      }
+      const result = await dispatch({ action, input, context: {
+        authorization: req.headers.authorization
+      } });
+      res.writeHead(result.status, { ...result.headers, ...corsHeaders });
+      res.end(JSON.stringify(result.body));
       return;
     }
 

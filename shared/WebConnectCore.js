@@ -1,5 +1,18 @@
 // WebConnect API contract shared by GAS and Cloud Run. No runtime-specific APIs.
 var WebConnectCore = (function () {
+  // Transport-independent action resolution. HTTP method validation stays in adapters.
+  function resolve(action, input) {
+    action = String(action || '');
+    if (action === 'system_context') return { operation: 'systemContext.read', input: null };
+    if (action === 'time_travel_admin') return { operation: 'timeTravel.read', input: null };
+    if (action === 'time_travel_set') {
+      var data = input || {};
+      return { operation: 'timeTravel.save', input: {
+        enabled: data.enabled, now: data.now || '', target_month: data.target_month || ''
+      } };
+    }
+    return null;
+  }
   function route(request) {
     var method = String(request && request.method || 'GET').toUpperCase();
     var action = String(request && request.action || '');
@@ -39,6 +52,6 @@ var WebConnectCore = (function () {
     }
     return null;
   }
-  return { route: route };
+  return { route: route, resolve: resolve };
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = WebConnectCore;
