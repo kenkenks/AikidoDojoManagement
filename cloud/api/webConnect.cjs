@@ -19,6 +19,12 @@ function createDispatch(handle) {
       'member.readById': ['GET', '/api/admin/members'],
       'member.readByIds': ['POST', '/api/admin/members']
     };
+    // Member operations use the existing authenticated handler directly, without
+    // constructing an HTTP URL inside business dispatch.
+    if (contract.operation === 'member.readById' || contract.operation === 'member.readByIds') {
+      return handle({ operation: contract.operation, input: contract.input,
+        authorization: context && context.authorization });
+    }
     const target = routes[contract.operation];
     if (!target) return reply(501, { error: 'OPERATION_NOT_CONNECTED' });
     let url = target[1];

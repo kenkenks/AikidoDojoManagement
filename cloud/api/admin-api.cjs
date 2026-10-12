@@ -13,13 +13,17 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
   }, body });
   return async function handle(request) {
     const url = request.url || '';
+    // Transport-neutral operations share the same authentication and DAO path.
+    const operation = request.operation || null;
+    const operationInput = request.input || null;
     const systemContext = url === '/api/system/context';
     const attendance = url.split('?')[0] === '/api/admin/attendance/saved-state';
     const member = /^\/api\/admin\/members\/([^/?#]+)$/.exec(url);
-    const members = url === '/api/admin/members';
+    const members = url === '/api/admin/members' || operation === 'member.readByIds';
+    const memberOperation = operation === 'member.readById';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel';
-    if (!systemContext && !attendance && !member && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!systemContext && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -65,7 +69,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
         capabilities: ['time-travel.read', 'member.readById', 'member.readByIds', 'attendance.savedState.read']
       });
     }
-    if (!member && !members) {
+    if (!member && !memberOperation && !members) {
       if (systemTimeTravel) {
         const contract = WebConnectCore.route({
           method: request.method,
@@ -80,8 +84,8 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
       return timeTravel({ ...request, authenticatedUser: user });
     }
     if (members) {
-      if (request.method !== 'POST') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
-      const ids = request.body?.ids;
+      if (!operation && request.method !== 'POST') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
+      const ids = operation ? operationInput?.ids : request.body?.ids;
       if (!Array.isArray(ids) || ids.length > 100 || ids.some(id => typeof id !== 'string' || !id || id === '.' || id === '..' || /[\/\\\x00-\x1f]/.test(id))) {
         return reply(400, { error: 'INVALID_MEMBER_IDS' });
       }
@@ -91,9 +95,9 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
         return reply(503, { error: 'MEMBER_READ_UNAVAILABLE' });
       }
     }
-    if (request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
+    if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
     let id;
-    try { id = decodeURIComponent(member[1]); }
+    try { id = memberOperation ? operationInput?.member_id : decodeURIComponent(member[1]); }
     catch { return reply(400, { error: 'INVALID_MEMBER_ID' }); }
     if (!id || id === '.' || id === '..' || /[\/\\\x00-\x1f]/.test(id)) return reply(400, { error: 'INVALID_MEMBER_ID' });
     try {
