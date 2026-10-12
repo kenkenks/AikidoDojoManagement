@@ -1,11 +1,11 @@
-﻿'use strict';
+'use strict';
 
 function createAdminTimeTravelApi({ verifyIdToken, getTimeTravel, saveTimeTravel }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getTimeTravel !== 'function') throw new Error('getTimeTravel is required');
   if (typeof saveTimeTravel !== 'function') throw new Error('saveTimeTravel is required');
 
-  return async function handle({ method, url, authorization, body, authenticatedUser }) {
+  return async function handle({ method, url, authorization, body, authenticatedUser, operation, input }) {
     const reply = (status, responseBody) => ({
       status,
       headers: {
@@ -32,14 +32,15 @@ function createAdminTimeTravelApi({ verifyIdToken, getTimeTravel, saveTimeTravel
   
     if (!user || !user.uid || user.admin !== true) return reply(403, { error: 'FORBIDDEN' });
 
-    if ((url || '') !== '/api/admin/time-travel') return reply(404, { error: 'NOT_FOUND' });
+    if (!['timeTravel.read', 'timeTravel.save'].includes(operation) && (url || '') !== '/api/admin/time-travel') return reply(404, { error: 'NOT_FOUND' });
 
-    if (method === 'GET') {
+    if (operation === 'timeTravel.read' || (!operation && method === 'GET')) {
       try { return reply(200, await getTimeTravel()); }
       catch { return reply(503, { error: 'TIME_TRAVEL_READ_UNAVAILABLE' }); }
     }
 
-    if (method === 'POST') {
+    if (operation === 'timeTravel.save' || (!operation && method === 'POST')) {
+      if (operation) body = input;
       if (!body || typeof body !== 'object' || Array.isArray(body)) {
         return reply(400, { error: 'INVALID_BODY' });
       }

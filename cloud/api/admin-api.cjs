@@ -16,17 +16,17 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     // Transport-neutral operations share the same authentication and DAO path.
     const operation = request.operation || null;
     const operationInput = request.input || null;
-    const systemContext = url === '/api/system/context';
-    const attendance = url.split('?')[0] === '/api/admin/attendance/saved-state';
+    const systemContext = url === '/api/system/context' || operation === 'systemContext.read';
+    const attendance = url.split('?')[0] === '/api/admin/attendance/saved-state' || operation === 'attendance.savedState';
     const member = /^\/api\/admin\/members\/([^/?#]+)$/.exec(url);
     const members = url === '/api/admin/members' || operation === 'member.readByIds';
     const memberOperation = operation === 'member.readById';
     const capabilities = url === '/api/admin/capabilities';
-    const systemTimeTravel = url === '/api/system/admin/time-travel';
+    const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
     if (!systemContext && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
-      if (request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
+      if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
       try {
         const value = await getSystemContext();
         if (!value || value.ok !== true || typeof value.system_now !== 'string' ||
@@ -46,14 +46,14 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
     if (user.admin !== true) return reply(403, { error: 'FORBIDDEN' });
     if (attendance) {
-      if (request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
+      if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
       const parsed = new URL(url, 'http://localhost');
       const keys = ['member_id', 'location_id', 'billing_block_id', 'attendance_date'];
-      if (keys.some(key => parsed.searchParams.getAll(key).length !== 1)) {
+      if (operation ? keys.some(key => typeof operationInput?.[key] !== 'string') : keys.some(key => parsed.searchParams.getAll(key).length !== 1)) {
         return reply(400, { error: 'INVALID_ATTENDANCE_PARAMS' });
       }
       if (typeof readAttendanceSavedState !== 'function') return reply(503, { error: 'ATTENDANCE_READ_UNAVAILABLE' });
-      const params = Object.fromEntries(keys.map(key => [key, parsed.searchParams.get(key)]));
+      const params = operation ? Object.fromEntries(keys.map(key => [key, operationInput[key]])) : Object.fromEntries(keys.map(key => [key, parsed.searchParams.get(key)]));
       try {
         const result = await readAttendanceSavedState(params);
         return reply(result.ok ? 200 : 400, result);
@@ -71,6 +71,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     }
     if (!member && !memberOperation && !members) {
       if (systemTimeTravel) {
+        if (operation) return timeTravel({ ...request, authenticatedUser: user });
         const contract = WebConnectCore.route({
           method: request.method,
           action: request.method === 'GET' ? 'time_travel_admin' : 'time_travel_set',
