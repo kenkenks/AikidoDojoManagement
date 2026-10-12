@@ -12,6 +12,8 @@ const { createServer } = require('node:http');
 const { createDao } = require('../../shared/DAO_Business.js');
 const { createFirestoreCore } = require('../member-read/DAO_Core_Firestore.cjs');
 const { createAdminApi } = require('./admin-api.cjs');
+const { dispatch } = require('./webConnect.cjs');
+const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createTimeTravelTarget } = require('../time-travel/target.cjs');
 
 const root = path.resolve(__dirname, '..', '..');
@@ -55,12 +57,19 @@ const memberCore = createFirestoreCore(profile, {
 });
 const memberDao = createDao(memberCore, 'firestore');
 
+const readAttendanceSavedState = createAttendanceSavedState({
+  memberDao,
+  attendanceDao: { queryEqual: (source, filters) => memberCore.queryEqual(source, filters) }
+});
+
 const handle = createAdminApi({
   verifyIdToken: (token, revoked) => getAuth(firebaseApp).verifyIdToken(token, revoked),
   getTimeTravel: () => application.getTimeTravel(),
+  getSystemContext: () => application.getSystemContext(),
   saveTimeTravel: input => application.saveTimeTravel(input),
   readMember: id => memberDao.readById('members', id),
-  readMembers: ids => memberDao.readByIds('members', ids)
+  readMembers: ids => memberDao.readByIds('members', ids),
+  readAttendanceSavedState
 });
 
 async function readJsonBody(req) {
@@ -119,6 +128,24 @@ createServer(async (req, res) => {
         res.end(JSON.stringify({ error: 'INVALID_JSON' }));
         return;
       }
+    }
+
+    // ARCHITECTURE ANCHOR: HTTP is infrastructure, not dojo business.
+    // Keep transport parsing here; dispatch accepts a transport-neutral action.
+    // The current business dispatcher is intentionally not implemented yet.
+    if (new URL(req.url, 'http://localhost').pathname === '/api/webconnect') {
+      const response = await dispatch({
+        action: body && body.action,
+        input: body && body.input,
+        context: null
+      });
+      res.writeHead(501, {
+        ...corsHeaders,
+        'Content-Type': 'application/json; charset=utf-8',
+        'Cache-Control': 'no-store'
+      });
+      res.end(JSON.stringify(response));
+      return;
     }
 
     const result = await handle({

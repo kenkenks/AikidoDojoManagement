@@ -1,0 +1,432 @@
+{
+  "collected_at": "2026-10-10T10:14:29.239Z",
+  "sheets": [
+    {
+      "count": 24,
+      "headers": [
+        "member_id",
+        "member_name",
+        "member_name_kana",
+        "member_type",
+        "status",
+        "billing_group_id",
+        "joined_date",
+        "withdrawn_date",
+        "suspension_start_month",
+        "suspension_end_month",
+        "birth_date",
+        "insurance_type",
+        "email",
+        "phone",
+        "remarks",
+        "current_rank",
+        "rank_source",
+        "rank_updated_at",
+        "rank_start_date",
+        "carried_training_count",
+        "eligible_training_count"
+      ],
+      "types": {
+        "billing_group_id": [
+          "string"
+        ],
+        "birth_date": [
+          "date",
+          "empty"
+        ],
+        "rank_start_date": [
+          "empty"
+        ],
+        "suspension_end_month": [
+          "empty"
+        ],
+        "withdrawn_date": [
+          "empty"
+        ],
+        "suspension_start_month": [
+          "empty"
+        ],
+        "rank_source": [
+          "string",
+          "empty"
+        ],
+        "insurance_type": [
+          "string",
+          "empty"
+        ],
+        "email": [
+          "string",
+          "empty"
+        ],
+        "joined_date": [
+          "date"
+        ],
+        "current_rank": [
+          "string",
+          "empty"
+        ],
+        "eligible_training_count": [
+          "empty"
+        ],
+        "remarks": [
+          "empty"
+        ],
+        "carried_training_count": [
+          "empty"
+        ],
+        "phone": [
+          "string",
+          "empty"
+        ],
+        "member_name": [
+          "string"
+        ],
+        "member_name_kana": [
+          "string",
+          "empty"
+        ],
+        "member_type": [
+          "string"
+        ],
+        "status": [
+          "string"
+        ],
+        "member_id": [
+          "string"
+        ],
+        "rank_updated_at": [
+          "date",
+          "empty"
+        ]
+      },
+      "ok": true,
+      "sheet": "01_会員マスタ"
+    },
+    {
+      "ok": true,
+      "count": 14,
+      "headers": [
+        "plan_id",
+        "表示名",
+        "区分",
+        "会費タイプ",
+        "回数単価",
+        "上限金額",
+        "状態",
+        "説明"
+      ],
+      "sheet": "03_料金マスタ",
+      "types": {
+        "表示名": [
+          "string"
+        ],
+        "説明": [
+          "string",
+          "empty"
+        ],
+        "状態": [
+          "string"
+        ],
+        "回数単価": [
+          "number"
+        ],
+        "会費タイプ": [
+          "string"
+        ],
+        "上限金額": [
+          "number"
+        ],
+        "plan_id": [
+          "string"
+        ],
+        "区分": [
+          "string"
+        ]
+      }
+    },
+    {
+      "count": 13,
+      "headers": [
+        "member_type",
+        "selectable_plan_id"
+      ],
+      "ok": true,
+      "sheet": "03_料金プラン選択ルール",
+      "types": {
+        "selectable_plan_id": [
+          "string"
+        ],
+        "member_type": [
+          "string"
+        ]
+      }
+    },
+    {
+      "ok": true,
+      "count": 2,
+      "sheet": "10_道場マスタ",
+      "headers": [
+        "location_id",
+        "道場名",
+        "表示名",
+        "状態",
+        "備考"
+      ],
+      "types": {
+        "備考": [
+          "string",
+          "empty"
+        ],
+        "状態": [
+          "string"
+        ],
+        "location_id": [
+          "string"
+        ],
+        "道場名": [
+          "string"
+        ],
+        "表示名": [
+          "string"
+        ]
+      }
+    },
+    {
+      "sheet": "11_先生マスタ",
+      "types": {
+        "teacher_id": [
+          "string"
+        ],
+        "役職": [
+          "string"
+        ],
+        "備考": [
+          "empty"
+        ],
+        "member_id": [
+          "string"
+        ],
+        "適用開始日": [
+          "empty"
+        ],
+        "会費回収可": [
+          "empty"
+        ],
+        "氏名": [
+          "string"
+        ],
+        "表示名": [
+          "string"
+        ],
+        "組織役割": [
+          "string"
+        ],
+        "適用終了日": [
+          "empty"
+        ],
+        "出席受付可": [
+          "boolean"
+        ],
+        "状態": [
+          "string"
+        ]
+      },
+      "ok": true,
+      "count": 4,
+      "headers": [
+        "teacher_id",
+        "氏名",
+        "表示名",
+        "役職",
+        "出席受付可",
+        "会費回収可",
+        "状態",
+        "備考",
+        "member_id",
+        "組織役割",
+        "適用開始日",
+        "適用終了日"
+      ]
+    },
+    {
+      "ok": true,
+      "sheet": "12_稽古枠マスタ",
+      "types": {
+        "slot_id": [
+          "string"
+        ],
+        "billing_block_id": [
+          "string"
+        ],
+        "状態": [
+          "string"
+        ],
+        "開始時刻": [
+          "date"
+        ],
+        "location_id": [
+          "string"
+        ],
+        "終了時刻": [
+          "date"
+        ],
+        "trial_allowed": [
+          "boolean"
+        ],
+        "備考": [
+          "string",
+          "empty"
+        ],
+        "general_allowed": [
+          "boolean"
+        ],
+        "表示名": [
+          "string"
+        ],
+        "曜日": [
+          "string"
+        ],
+        "children_allowed": [
+          "boolean"
+        ],
+        "稽古時間分": [
+          "number"
+        ]
+      },
+      "count": 25,
+      "headers": [
+        "slot_id",
+        "location_id",
+        "表示名",
+        "曜日",
+        "開始時刻",
+        "終了時刻",
+        "稽古時間分",
+        "billing_block_id",
+        "children_allowed",
+        "general_allowed",
+        "trial_allowed",
+        "状態",
+        "備考"
+      ]
+    },
+    {
+      "headers": [
+        "billing_block_id",
+        "location_id",
+        "表示名",
+        "曜日",
+        "1課金あたり枠数",
+        "最大稽古枠数",
+        "状態",
+        "備考"
+      ],
+      "count": 13,
+      "types": {
+        "billing_block_id": [
+          "string"
+        ],
+        "最大稽古枠数": [
+          "number"
+        ],
+        "location_id": [
+          "string"
+        ],
+        "備考": [
+          "empty",
+          "string"
+        ],
+        "曜日": [
+          "string"
+        ],
+        "状態": [
+          "string"
+        ],
+        "表示名": [
+          "string"
+        ],
+        "1課金あたり枠数": [
+          "number"
+        ]
+      },
+      "sheet": "13_課金枠マスタ",
+      "ok": true
+    },
+    {
+      "count": 37,
+      "headers": [
+        "rank_id",
+        "表示名",
+        "公式帳票名",
+        "資格体系",
+        "表示順",
+        "状態",
+        "備考"
+      ],
+      "ok": true,
+      "types": {
+        "状態": [
+          "string"
+        ],
+        "rank_id": [
+          "string"
+        ],
+        "表示名": [
+          "string"
+        ],
+        "公式帳票名": [
+          "string"
+        ],
+        "表示順": [
+          "number"
+        ],
+        "資格体系": [
+          "string"
+        ],
+        "備考": [
+          "empty",
+          "string"
+        ]
+      },
+      "sheet": "14_級段位マスタ"
+    },
+    {
+      "sheet": "15_審査基準マスタ",
+      "headers": [
+        "現在級段位",
+        "次回審査級段位",
+        "必要稽古数",
+        "必要経過年数",
+        "進捗表示対象",
+        "状態",
+        "備考"
+      ],
+      "types": {
+        "必要経過年数": [
+          "empty"
+        ],
+        "状態": [
+          "string"
+        ],
+        "次回審査級段位": [
+          "string"
+        ],
+        "進捗表示対象": [
+          "boolean"
+        ],
+        "必要稽古数": [
+          "number",
+          "empty"
+        ],
+        "現在級段位": [
+          "string"
+        ],
+        "備考": [
+          "string"
+        ]
+      },
+      "ok": true,
+      "count": 30
+    }
+  ]
+}

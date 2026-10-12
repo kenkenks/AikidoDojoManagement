@@ -101,14 +101,25 @@
     <p class="note">5種類ともFunctional Prototypeとしてプレビュー・印刷できます。帳票デザインは後工程で調整します。</p>
   </section>
 
+  <section class="card"><h2>診断ログ</h2><pre id="operationLog" style="white-space:pre-wrap;word-break:break-word;margin:0;"></pre></section>
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
   <script>
+    const qrLogStartedAt = performance.now();
+    function qrLog(step, detail) {
+      const line = "[QR " + step + " +" + Math.round(performance.now() - qrLogStartedAt) + "ms] " + (detail || "");
+      const root = document.getElementById("operationLog");
+      if (root) root.textContent = line + "\n" + root.textContent;
+      console.log(line);
+    }
+    qrLog("01", "init start; runtime=" + String((window.DOJO_RUNTIME_CONFIG || {}).runtime || "unknown"));
     const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
+    qrLog("02", "apiBaseUrl configured=" + !!GAS_URL);
     let qrType = "MEMBER_CARD";
     let options = null;
 
     const teacherSession = DojoVirtualSession.get();
+    qrLog("03", "session role=" + (teacherSession ? teacherSession.role : "none") + " teacher_id present=" + !!(teacherSession && teacherSession.teacher_id));
     if (!teacherSession || teacherSession.role !== "TEACHER") {
       document.getElementById("loginIdentity").textContent = "先生ログインが必要です。";
       document.getElementById("loadMessage").className = "note error";
@@ -116,6 +127,7 @@
     } else {
       document.getElementById("loginIdentity").textContent =
         "先生 " + teacherSession.teacher_id + " でログイン中";
+      qrLog("04", "teacher session accepted; load options");
       loadOptions();
     }
 
@@ -139,11 +151,13 @@
     document.getElementById("previewButton").addEventListener("click", openPreview);
 
     function loadOptions() {
+      qrLog("05", "qr_generator_options request start");
       jsonp(GAS_URL, { action:"qr_generator_options" })
         .then(function(result) {
           if (!result || result.ok !== true) {
             throw new Error((result && result.message) || "QR生成用マスタを取得できませんでした。");
           }
+          qrLog("06", "options received: members=" + (result.members || []).length + " monthly=" + (result.monthly_plans || []).length + " onetime=" + (result.onetime_plans || []).length + " locations=" + (result.locations || []).length + " teachers=" + (result.teachers || []).length);
           options = result;
           populateSelect(
             "memberSelect",
@@ -173,8 +187,10 @@
             "件 ／ 都度 " + (result.onetime_plans || []).length + "件 ／ 道場 " +
             (result.locations || []).length + "件 ／ 先生 " + (result.teachers || []).length + "名";
           renderFields();
+          qrLog("07", "options rendered");
         })
         .catch(function(error) {
+          qrLog("E1", "options request failed: " + String(error && error.message || error));
           document.getElementById("loadMessage").className = "note error";
           document.getElementById("loadMessage").textContent = error.message || String(error);
         });
@@ -349,6 +365,7 @@
     }
 
     function openPreview() {
+      qrLog("08", "preview requested: type=" + qrType + " options loaded=" + !!options + " complete=" + isSelectionComplete());
       if (!options || !isSelectionComplete()) return;
 
       let page = "";
@@ -410,6 +427,7 @@
       }
 
       if (!page) return;
+      qrLog("09", "preview navigate: page=" + page + " (parameters omitted)");
       location.href = "sheets/" + page + "?" + query.toString();
     }
 
@@ -453,16 +471,19 @@
         query.set("callback", callbackName);
         query.set("_ts", Date.now());
         let scriptErrorObserved = false;
+        qrLog("NET", "JSONP request: action=" + String(params && params.action || "") + " configured=" + !!url);
         const timer = window.setTimeout(function() {
+          qrLog("E2", "JSONP timeout; scriptErrorObserved=" + scriptErrorObserved);
           cleanup();
           reject(new Error(scriptErrorObserved ? "GASとの通信に失敗しました。" : "GAS接続がタイムアウトしました。"));
         }, 20000);
 
         window[callbackName] = function(data) {
+          qrLog("NET", "JSONP callback: ok=" + !!(data && data.ok));
           cleanup();
           resolve(data);
         };
-        script.onerror = function() { scriptErrorObserved = true; };
+        script.onerror = function() { scriptErrorObserved = true; qrLog("E3", "JSONP script error observed"); };
         function cleanup() {
           window.clearTimeout(timer);
           delete window[callbackName];

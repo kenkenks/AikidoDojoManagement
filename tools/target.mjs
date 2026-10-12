@@ -76,6 +76,9 @@ function buildFirebase() {
   for (const name of ["DAO_Core_Firestore.cjs", "DAO_Core_Values.cjs"]) {
     copy(join(repoRoot, "cloud", "member-read", name), join(deployRoot, "cloud", "member-read", name));
   }
+  // Attendance saved-state is imported by cloud/api/server.cjs at runtime.
+  copy(join(repoRoot, "cloud", "attendance", "saved-state.cjs"),
+    join(deployRoot, "cloud", "attendance", "saved-state.cjs"));
   copy(join(repoRoot, "shared", "WebConnectCore.js"), join(deployRoot, "shared", "WebConnectCore.js"));
   for (const name of ["DAO_Business.js", "DAO_Definitions.js", "DAO_Definition_Setting.generated.js", "StorageId.js", "Flow.js"]) {
     copy(join(repoRoot, "shared", name), join(deployRoot, "shared", name));

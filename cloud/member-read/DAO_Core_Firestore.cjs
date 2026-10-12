@@ -55,6 +55,48 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     updateByKey: (source,id,values) => write(source,id,values,true),
     upsertByKey: (source,id,values) => write(source,id,values,null),
     replaceByKey: (source,id,values) => write(source,id,values,true,true),
+    // Bounded equality query for attendance scopes. No collection-wide reads.
+    async queryEqual(source, filters, { limit = 100 } = {}) {
+      const collection = normalizeStorageId(source.collection);
+      if (!Array.isArray(filters) || filters.length < 1 || filters.length > 5 ||
+          !Number.isInteger(limit) || limit < 1 || limit > 500) throw new Error('INVALID_QUERY');
+      const fields = filters.map(filter => {
+        if (!filter || typeof filter.field !== 'string' ||
+            !/^[\p{L}_][\p{L}\p{N}_]*$/u.test(filter.field) || filter.field.startsWith('__') ||
+            typeof filter.value !== 'string' || !filter.value || filter.value.length > 1500)
+          throw new Error('INVALID_QUERY');
+        return {fieldFilter: {field: {fieldPath: filter.field}, op: 'EQUAL',
+          value: {stringValue: filter.value}}};
+      });
+      if (new Set(filters.map(filter => filter.field)).size !== filters.length) throw new Error('INVALID_QUERY');
+      const token = config.mode === 'emulator' ? 'owner' : await getAccessToken?.();
+      if (typeof token !== 'string' || !token.trim()) throw new Error('ACCESS_TOKEN_REQUIRED');
+      const structuredQuery = {from: [{collectionId: collection}],
+        where: fields.length === 1 ? fields[0] : {compositeFilter: {op: 'AND', filters: fields}},
+        limit};
+      const response = await fetchImpl(`${base}:runQuery`, {
+        method: 'POST', headers: {Authorization: 'Bearer ' + token.trim(),
+          'Content-Type': 'application/json'}, body: JSON.stringify({structuredQuery}),
+        redirect: 'error', signal: AbortSignal.timeout(10000)
+      });
+      if (!response.ok) throw new Error('FIRESTORE_HTTP_' + response.status);
+      const body = await response.text();
+      const rows = body.trim() ? (body.trim().startsWith('[')
+        ? JSON.parse(body) : body.trim().split(/\r?\n/).map(line => JSON.parse(line))) : [];
+      if (!Array.isArray(rows)) throw new Error('INVALID_QUERY_RESPONSE');
+      const prefix = `projects/${config.projectId}/databases/(default)/documents/${collection}/`;
+      const documents = [];
+      for (const row of rows) {
+        if (!row || typeof row !== 'object' || Array.isArray(row)) throw new Error('INVALID_QUERY_RESPONSE');
+        if (!row.document) continue; // Firestore may emit metadata-only rows.
+        if (typeof row.document.name !== 'string' || !row.document.name.startsWith(prefix) ||
+            !row.document.name.slice(prefix.length) || row.document.name.slice(prefix.length).includes('/'))
+          throw new Error('INVALID_QUERY_RESPONSE');
+        documents.push(decodeFields(row.document.fields || {}));
+      }
+      if (documents.length > limit) throw new Error('INVALID_QUERY_RESPONSE');
+      return documents;
+    },
     async readByIds(source, documentIds) {
       if (!Array.isArray(documentIds)) throw new Error('INVALID_DOCUMENT_IDS');
       const ids = documentIds.map(normalizeStorageId);

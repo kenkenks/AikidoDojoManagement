@@ -15,31 +15,47 @@
     </div>
   </section>
   <p class="note"><a href="index.html">入口へ戻る</a></p>
+  <section class="card"><h2>診断ログ</h2><pre id="operationLog" style="white-space:pre-wrap;word-break:break-word;margin:0;"></pre></section>
   <script src="virtual_session.js"></script>
   <script>
+    const memberHomeStartedAt = performance.now();
+    function memberHomeLog(step, detail) {
+      const line = "[MEMBER-HOME " + step + " +" + Math.round(performance.now() - memberHomeStartedAt) + "ms] " + (detail || "");
+      const root = document.getElementById("operationLog");
+      if (root) root.textContent = line + "\n" + root.textContent;
+      console.log(line);
+    }
+    memberHomeLog("01", "init start");
     const queryMemberId = new URLSearchParams(location.search).get("member_id") || "";
     if (queryMemberId) DojoVirtualSession.loginMember(queryMemberId, "PAGE_URL");
+    memberHomeLog("02", "query member_id present=" + !!queryMemberId);
     const memberSession = DojoVirtualSession.get();
+    memberHomeLog("03", "session role=" + (memberSession ? memberSession.role : "none") + " member_id present=" + !!(memberSession && memberSession.member_id));
     const memberId = memberSession && memberSession.role === "MEMBER" ? memberSession.member_id : queryMemberId;
     if (memberId) {
       document.getElementById("loginIdentity").textContent = "会員 " + memberId + " でログイン中";
       document.getElementById("attendanceSummaryLink").href =
         "attendance_summary.html?member_id=" + encodeURIComponent(memberId);
     }
+    memberHomeLog("04", "identity rendered; member_id present=" + !!memberId);
     let systemContextStartedAt = null;
     function renderGasResponseTime(label) {
       const root = document.getElementById("gasResponseTime");
       if (root) root.textContent = "GAS応答：" + label;
     }
-    window.addEventListener("dojo-system-context", function() {
+    window.addEventListener("dojo-system-context", function(event) {
+      const data = event.detail || {};
+      memberHomeLog("05", "system_context ok=" + !!data.ok + " time_travel=" + !!data.time_travel_enabled + " system_now present=" + !!data.system_now);
       const elapsedMs = systemContextStartedAt == null ? null : Date.now() - systemContextStartedAt;
       if (elapsedMs != null) renderGasResponseTime((elapsedMs / 1000).toFixed(2) + "秒");
     });
-    window.addEventListener("dojo-system-context-error", function() {
+    window.addEventListener("dojo-system-context-error", function(event) {
+      memberHomeLog("E1", "system_context error=" + String((event.detail || {}).message || "unknown"));
       const elapsedMs = systemContextStartedAt == null ? null : Date.now() - systemContextStartedAt;
       renderGasResponseTime(elapsedMs == null ? "TIMEOUT" : "TIMEOUT (" + (elapsedMs / 1000).toFixed(2) + "秒)");
     });
     systemContextStartedAt = Date.now();
+    memberHomeLog("06", "system_context request pending; runtime_config next");
 
     function logoutSession() {
       DojoVirtualSession.logout();

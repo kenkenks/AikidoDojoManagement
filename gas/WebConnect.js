@@ -149,6 +149,8 @@ function doGet(e) {
   }
 
   if (params.action === "system_context") {
+    const contract = WebConnectCore.route({ method: "GET", action: params.action });
+    if (!contract || contract.operation !== "systemContext.read") throw new Error("Unsupported WebConnect operation");
     const result = safelyExecute_(function() {
       return sup_timeTravel_getSystemContext(ctx);
     });

@@ -42,7 +42,7 @@
     teacherHomeLog("virtual session read start");
     if (queryTeacherId) DojoVirtualSession.loginTeacher(queryTeacherId, "PAGE_URL");
     const teacherSession = DojoVirtualSession.get();
-    teacherHomeLog("virtual session read complete: " + (teacherSession && teacherSession.role === "TEACHER" ? teacherSession.teacher_id : "not logged in"));
+    teacherHomeLog("virtual session read complete: role=" + (teacherSession ? teacherSession.role : "none") + " teacher_id present=" + !!(teacherSession && teacherSession.teacher_id));
     if (teacherSession && teacherSession.role === "TEACHER") {
       document.getElementById("loginIdentity").textContent = "先生 " + teacherSession.teacher_id + " でログイン中";
     }
@@ -65,7 +65,7 @@
       teacherHomeLog("system_context error: " + (detail.message || "unknown error"));
     });
     systemContextStartedAt = Date.now();
-    teacherHomeLog("system_context JSONP start");
+    teacherHomeLog("system_context JSONP start; runtime_config follows");
 
     function logoutSession() {
       DojoVirtualSession.logout();
