@@ -126,9 +126,8 @@ async function tableSchema(table) {
 async function copy(options = {}) {
   const { source = 'gas', destination = 'firestore', table = 'Member', execute = false, preflight = false, verifyExisting = false, planUpdates = false, applyUpdates = false, applyAllUpdates = false, limit, onlyId } = options;
   if (applyAllUpdates && (table !== 'Member' || onlyId !== undefined)) throw new Error('UPDATE_ALL_MODE_INVALID');
+  if (onlyId !== undefined && (typeof onlyId !== 'string' || !onlyId.trim() || /[\s/,]/u.test(onlyId) || onlyId === '.' || onlyId === '..' || Buffer.byteLength(onlyId, 'utf8') > 1500)) throw new Error('COPY_ONLY_ID_INVALID');
   if (onlyId !== undefined && !(planUpdates || applyUpdates)) throw new Error('COPY_ONLY_ID_MODE_INVALID');
-  if (onlyId !== undefined && !['Member', 'ExaminationStandard'].includes(table)) throw new Error('COPY_ONLY_ID_MODE_INVALID');
-  if (onlyId !== undefined && (typeof onlyId !== 'string' || !(table === 'Member' ? /^M[0-9]+(?:-[0-9]+)?$/ : /^ES[0-9]{3}$/).test(onlyId))) throw new Error('COPY_ONLY_ID_INVALID');
   if (applyUpdates && onlyId === undefined) throw new Error('UPDATE_ONLY_ID_REQUIRED');
   if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) throw new Error('COPY_LIMIT_INVALID');
   if (limit !== undefined && !execute) throw new Error('COPY_LIMIT_REQUIRES_EXECUTE');
@@ -292,7 +291,7 @@ if (require.main === module) {
     process.stderr.write(`${JSON.stringify({ok:false,error:error.message,writes:0})}\n`);
     process.exit(1);
   }
-  if (args.help) process.stdout.write('Usage: node work/gas2firebase-copy.cjs --table Member|Setting|Dojo|Teacher|Fee|PlanSelectionRule|TrainingSlot|BillingBlock|Rank|ExaminationStandard [--keys KEY1,KEY2 (required for Setting)] --source gas --destination firestore [--preflight | --verify-existing | --plan-updates [--only-id M001|ES001] | --apply-updates --only-id M001|ES001 --confirm dojo-management-dev | --apply-all-updates --confirm dojo-management-dev | --execute --confirm dojo-management-dev [--limit 1]]\nDefault: dry-run (zero writes); --preflight checks IDs; --verify-existing compares existing documents (zero writes); --plan-updates reports field names only (zero writes).\n');
+  if (args.help) process.stdout.write('Usage: node work/gas2firebase-copy.cjs --table Member|Setting|Dojo|Teacher|Fee|PlanSelectionRule|TrainingSlot|BillingBlock|Rank|ExaminationStandard [--keys KEY1,KEY2 (required for Setting)] --source gas --destination firestore [--preflight | --verify-existing | --plan-updates [--only-id DOCUMENT_ID] | --apply-updates --only-id DOCUMENT_ID --confirm dojo-management-dev | --apply-all-updates --confirm dojo-management-dev | --execute --confirm dojo-management-dev [--limit 1]]\nDefault: dry-run (zero writes); --preflight checks IDs; --verify-existing compares existing documents (zero writes); --plan-updates reports field names only (zero writes).\n');
   else copy({ ...args, progress: (stage, data) => {
     if (stage === 'START') progress(`START ${data.table} ${data.source} -> ${data.destination} ${data.execute ? 'EXECUTE' : args.preflight ? 'PREFLIGHT' : args.verifyExisting ? 'VERIFY-EXISTING' : args.planUpdates ? 'PLAN-UPDATES' : args.applyUpdates ? 'APPLY-UPDATES' : args.applyAllUpdates ? 'APPLY-ALL-UPDATES' : 'DRY-RUN'}`);
     else if (stage === 'FETCHED') progress(`Fetched ${data.count} records`);

@@ -313,3 +313,29 @@ DEP0190
 - dojo-devが使用するOAuthクライアントを特定する。
 - 認証期限切れを事前に検出する仕組みを検討する。
 - GASとFirestoreの認証確認を照合処理から分離する。
+
+## GAS → Firestore 既存マスタの1件差分更新（2026-10-14）
+
+`work/gas2firebase-copy.cjs` の共通更新機能を使用する。
+`--only-id` は Member 専用ではなく、対応するマスタのドキュメントIDを指定できる。
+Fee / Rank / Teacher で利用実績あり。マスタ専用の修復処理は作らない。
+
+```powershell
+# まず1件の差分を確認（読み取り専用）
+node work/gas2firebase-copy.cjs --table Fee --plan-updates --only-id P001
+
+# 差分とIDを確認したうえで、指定した1件だけ更新
+node work/gas2firebase-copy.cjs --table Fee --apply-updates --only-id P001 --confirm dojo-management-dev
+```
+
+- `--table` と `--only-id` を変えることで Rank / Teacher にも適用する。
+- `--plan-updates`（ID指定なし）でマスタ全体の差分一覧を取得できる（書き込みなし）。
+- `items` の `action: "update"` と `fields` を確認し、必要なIDのみ1件更新を繰り返す。
+- `--execute` は既存ドキュメントをスキップするため、内部IDフィールドの補完には使えない。
+- この運用では `--apply-all-updates` に依存しない。
+- ドキュメントIDそのものの変更ではなく、ドキュメント内部のIDフィールド補完。
+- GASからの再取得とFirestoreへのアクセスには、それぞれ有効な認証が必要。
+
+2026-10-14 の実績：Fee 14件（`plan_id`）、Rank 37件（`rank_id`）、
+Teacher 4件（`teacher_id`）の内部IDフィールド修復をユーザーが確認。
+Teacherの `会費回収可` が4件 unset だった点は、今回のID修復対象外。
