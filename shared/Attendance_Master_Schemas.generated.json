@@ -1,0 +1,208 @@
+{
+  "Dojo": {
+    "entity": "dojo",
+    "version": "0.1",
+    "collection": "dojos",
+    "documentIdField": "location_id",
+    "fields": [
+      {
+        "logicalName": "location_id",
+        "physicalName": "location_id",
+        "type": "string",
+        "required": true,
+        "documentId": true
+      },
+      {
+        "logicalName": "表示名",
+        "physicalName": "display_name",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "道場名",
+        "physicalName": "dojo_name",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "状態",
+        "physicalName": "status",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "備考",
+        "physicalName": "notes",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      }
+    ]
+  },
+  "BillingBlock": {
+    "entity": "billing_block",
+    "version": "0.1",
+    "collection": "billing_blocks",
+    "documentIdField": "billing_block_id",
+    "fields": [
+      {
+        "logicalName": "billing_block_id",
+        "physicalName": "billing_block_id",
+        "type": "string",
+        "required": true,
+        "documentId": true
+      },
+      {
+        "logicalName": "location_id",
+        "physicalName": "location_id",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "表示名",
+        "physicalName": "display_name",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "曜日",
+        "physicalName": "day_of_week",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "1課金あたり枠数",
+        "physicalName": "slots_per_charge",
+        "type": "number",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "最大稽古枠数",
+        "physicalName": "maximum_training_slots",
+        "type": "number",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "状態",
+        "physicalName": "status",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "備考",
+        "physicalName": "notes",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      }
+    ]
+  },
+  "TrainingSlot": {
+    "entity": "training_slot",
+    "version": "0.1",
+    "collection": "training_slots",
+    "documentIdField": "slot_id",
+    "fields": [
+      {
+        "logicalName": "slot_id",
+        "physicalName": "slot_id",
+        "type": "string",
+        "required": true,
+        "documentId": true
+      },
+      {
+        "logicalName": "location_id",
+        "physicalName": "location_id",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "表示名",
+        "physicalName": "display_name",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "曜日",
+        "physicalName": "day_of_week",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "開始時刻",
+        "physicalName": "start_time",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "終了時刻",
+        "physicalName": "end_time",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "稽古時間分",
+        "physicalName": "duration_minutes",
+        "type": "number",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "billing_block_id",
+        "physicalName": "billing_block_id",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "children_allowed",
+        "physicalName": "children_allowed",
+        "type": "boolean",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "general_allowed",
+        "physicalName": "general_allowed",
+        "type": "boolean",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "trial_allowed",
+        "physicalName": "trial_allowed",
+        "type": "boolean",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "状態",
+        "physicalName": "status",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "備考",
+        "physicalName": "notes",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      }
+    ]
+  }
+}

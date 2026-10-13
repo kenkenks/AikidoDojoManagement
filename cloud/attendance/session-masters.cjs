@@ -1,5 +1,7 @@
 'use strict';
 // Read-only, bounded master lookup for SessionInfo. No HTTP or authorization policy here.
+const {restoreFirestoreRecord} = require('../../shared/Schema_Renderer_Firestore.js');
+const SCHEMAS = require('../../shared/Attendance_Master_Schemas.generated.json');
 const SOURCES = Object.freeze({
   dojo: Object.freeze({collection: 'dojos'}),
   billingBlock: Object.freeze({collection: 'billing_blocks'}),
@@ -13,15 +15,23 @@ function createSessionMasterReader({masterDao}) {
         locationId === '.' || locationId === '..' || /[\/\\\x00-\x1f]/.test(locationId)) {
       throw new Error('INVALID_LOCATION_ID');
     }
-    const location = await masterDao.readById(SOURCES.dojo, locationId);
-    if (!location || location.location_id !== locationId) return {location: null, billingBlocks: [], trainingSlots: []};
+    const locationFields = await masterDao.readById(SOURCES.dojo, locationId);
+    if (!locationFields) return {location: null, billingBlocks: [], trainingSlots: []};
+    const location = restoreFirestoreRecord(SCHEMAS.Dojo, {id: locationId, fields: locationFields});
+    if (location.location_id !== locationId) return {location: null, billingBlocks: [], trainingSlots: []};
     const filter = [{field: 'location_id', value: locationId}];
     const [billingBlocks, trainingSlots] = await Promise.all([
       masterDao.queryEqual(SOURCES.billingBlock, filter),
       masterDao.queryEqual(SOURCES.trainingSlot, filter)
     ]);
     if (!Array.isArray(billingBlocks) || !Array.isArray(trainingSlots)) throw new Error('INVALID_SESSION_MASTERS');
-    return {location, billingBlocks, trainingSlots};
+    const restoreRows = (schema, rows) => rows.map(fields => {
+      const id = fields?.[schema.documentIdField];
+      if (typeof id !== 'string' || !id) throw new Error('SESSION_MASTER_PRIMARY_KEY_REQUIRED');
+      return restoreFirestoreRecord(schema, {id, fields});
+    });
+    return {location, billingBlocks: restoreRows(SCHEMAS.BillingBlock, billingBlocks),
+      trainingSlots: restoreRows(SCHEMAS.TrainingSlot, trainingSlots)};
   };
 }
 module.exports = {createSessionMasterReader};

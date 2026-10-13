@@ -80,6 +80,8 @@ function buildFirebase() {
     copy(join(repoRoot, "cloud", "attendance", name), join(deployRoot, "cloud", "attendance", name));
   }
   copy(join(repoRoot, "shared", "WebConnectCore.js"), join(deployRoot, "shared", "WebConnectCore.js"));
+  copy(join(repoRoot, "shared", "Schema_Renderer_Firestore.js"), join(deployRoot, "shared", "Schema_Renderer_Firestore.js"));
+  copy(join(repoRoot, "shared", "Attendance_Master_Schemas.generated.json"), join(deployRoot, "shared", "Attendance_Master_Schemas.generated.json"));
   for (const name of ["DAO_Business.js", "DAO_Definitions.js", "DAO_Definition_Setting.generated.js", "StorageId.js", "Flow.js"]) {
     copy(join(repoRoot, "shared", name), join(deployRoot, "shared", name));
   }

@@ -46,3 +46,21 @@ from the Firestore response document name. Default callers still receive fields 
 The attendance master inspector reports the real document ID for missing embedded
 primary keys. This enables explicit-ID dry-run with `repair-firestore-primary-keys.cjs`.
 No writes are performed by inspection; do not auto-repair or guess IDs.
+
+## Step 8I: Cloud Run SessionInfo read-time DTO boundary
+
+`cloud/attendance/session-masters.cjs` now converts Firestore physical fields into
+GAS logical DTOs using `restoreFirestoreRecord()` and the checked-in
+`shared/Attendance_Master_Schemas.generated.json`. This schema snapshot is
+**derived from** the existing PDD YAML and glossary, not an independent field
+mapping. `work/verify-attendance-master-runtime-step8i.cjs` checks snapshot
+parity with `tableSchema()` and validates SessionInfo end-to-end with physical
+master fixtures. Regenerate the snapshot from `tableSchema()` whenever master
+PDD/glossary changes; parity tests must pass before deployment.
+
+`tools/target.mjs` copies the renderer and schema snapshot into the Cloud Run
+unit. The live DAO remains physical-field-oriented and is not modified; the
+conversion occurs at the SessionInfo master reader boundary. The real
+Firestore data inspection for HONBU/TENROKU passed after 38 embedded-key
+repairs; Cloud Run staging and authenticated candidate API verification remain
+separate, pending steps. No automatic deployment or production promotion.
