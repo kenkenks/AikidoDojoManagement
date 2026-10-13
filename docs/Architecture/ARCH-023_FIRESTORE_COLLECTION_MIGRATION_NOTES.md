@@ -28,3 +28,21 @@ Before a real copy or repair for any collection:
 4. Confirm real data and DAO consumer behavior separately; a schema round-trip test does not prove Firestore data migration or Cloud Run deployment.
 
 Priority for attendance integration: `TrainingSlot` (`training_slots`) and `BillingBlock` (`billing_blocks`). Do not assume their Firestore records are already migrated without inspecting real preflight results.
+
+## Step 8G: read-only attendance master inspection
+
+`work/verify-attendance-firestore-masters.cjs --location-id HONBU` checks real Firestore
+`dojos`, `billing_blocks`, and `training_slots` without writing. It validates
+embedded keys against actual document-ID lookups, restores logical DTOs using
+existing Schema definitions, and checks TrainingSlot -> BillingBlock references.
+It does **not** deploy or modify DAO runtime behavior. Query results are bounded;
+`at_limit` is flagged as incomplete. A missing embedded key in a query result
+cannot be safely repaired without first identifying its actual document ID.
+
+## Step 8H: document-ID diagnostics for missing embedded keys
+
+`queryEqual` can opt into `{includeDocumentId:true}` to return `{id,fields}`
+from the Firestore response document name. Default callers still receive fields only.
+The attendance master inspector reports the real document ID for missing embedded
+primary keys. This enables explicit-ID dry-run with `repair-firestore-primary-keys.cjs`.
+No writes are performed by inspection; do not auto-repair or guess IDs.

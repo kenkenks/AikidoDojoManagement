@@ -56,7 +56,7 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     upsertByKey: (source,id,values) => write(source,id,values,null),
     replaceByKey: (source,id,values) => write(source,id,values,true,true),
     // Bounded equality query for attendance scopes. No collection-wide reads.
-    async queryEqual(source, filters, { limit = 100 } = {}) {
+    async queryEqual(source, filters, { limit = 100, includeDocumentId = false } = {}) {
       const collection = normalizeStorageId(source.collection);
       if (!Array.isArray(filters) || filters.length < 1 || filters.length > 5 ||
           !Number.isInteger(limit) || limit < 1 || limit > 500) throw new Error('INVALID_QUERY');
@@ -92,7 +92,8 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
         if (typeof row.document.name !== 'string' || !row.document.name.startsWith(prefix) ||
             !row.document.name.slice(prefix.length) || row.document.name.slice(prefix.length).includes('/'))
           throw new Error('INVALID_QUERY_RESPONSE');
-        documents.push(decodeFields(row.document.fields || {}));
+        const fields = decodeFields(row.document.fields || {});
+        documents.push(includeDocumentId ? {id:row.document.name.slice(prefix.length),fields} : fields);
       }
       if (documents.length > limit) throw new Error('INVALID_QUERY_RESPONSE');
       return documents;
