@@ -2,7 +2,7 @@
 const { createAdminTimeTravelApi } = require('../time-travel/admin-api.cjs');
 const WebConnectCore = require('../../shared/WebConnectCore.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readAttendanceSessionInfo }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -17,13 +17,14 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const operation = request.operation || null;
     const operationInput = request.input || null;
     const systemContext = url === '/api/system/context' || operation === 'systemContext.read';
+    const attendanceSession = operation === 'attendance.sessionInfo';
     const attendance = url.split('?')[0] === '/api/admin/attendance/saved-state' || operation === 'attendance.savedState';
     const member = /^\/api\/admin\/members\/([^/?#]+)$/.exec(url);
     const members = url === '/api/admin/members' || operation === 'member.readByIds';
     const memberOperation = operation === 'member.readById';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!systemContext && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!systemContext && !attendanceSession && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -45,6 +46,18 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
     if (user.admin !== true) return reply(403, { error: 'FORBIDDEN' });
+    if (attendanceSession) {
+      if (typeof operationInput?.location_id !== 'string' || !operationInput.location_id ||
+          (operationInput.billing_block_id != null && typeof operationInput.billing_block_id !== 'string') ||
+          (operationInput.at != null && typeof operationInput.at !== 'string')) {
+        return reply(400, { error: 'INVALID_SESSION_INFO_PARAMS' });
+      }
+      if (typeof readAttendanceSessionInfo !== 'function') return reply(503, { error: 'SESSION_INFO_UNAVAILABLE' });
+      try {
+        const result = await readAttendanceSessionInfo(operationInput);
+        return reply(result?.ok ? 200 : 400, result);
+      } catch { return reply(503, { error: 'SESSION_INFO_UNAVAILABLE' }); }
+    }
     if (attendance) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
       const parsed = new URL(url, 'http://localhost');

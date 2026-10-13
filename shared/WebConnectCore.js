@@ -7,6 +7,7 @@ var WebConnectCore = (function () {
     if (action === 'time_travel_admin') return { operation: 'timeTravel.read', input: null };
     if (action === 'member_read') return { operation: 'member.readById', input: input || {} };
     if (action === 'members_read') return { operation: 'member.readByIds', input: input || {} };
+    if (action === 'attendance_session_info') return { operation: 'attendance.sessionInfo', input: input || {} };
     if (action === 'attendance_saved_state') return { operation: 'attendance.savedState', input: input || {} };
     if (action === 'time_travel_set') {
       var data = input || {};

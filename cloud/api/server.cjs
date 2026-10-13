@@ -13,6 +13,8 @@ const { createDao } = require('../../shared/DAO_Business.js');
 const { createFirestoreCore } = require('../member-read/DAO_Core_Firestore.cjs');
 const { createAdminApi } = require('./admin-api.cjs');
 const { createDispatch } = require('./webConnect.cjs');
+const { createSessionMasterReader } = require('../attendance/session-masters.cjs');
+const { createSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createTimeTravelTarget } = require('../time-travel/target.cjs');
 
@@ -62,6 +64,15 @@ const readAttendanceSavedState = createAttendanceSavedState({
   attendanceDao: { queryEqual: (source, filters) => memberCore.queryEqual(source, filters) }
 });
 
+const readAttendanceSessionInfo = createSessionInfo({
+  readSessionMasters: createSessionMasterReader({
+    masterDao: {
+      readById: (source, id) => memberCore.readById(source, id),
+      queryEqual: (source, filters) => memberCore.queryEqual(source, filters)
+    }
+  })
+});
+
 const handle = createAdminApi({
   verifyIdToken: (token, revoked) => getAuth(firebaseApp).verifyIdToken(token, revoked),
   getTimeTravel: () => application.getTimeTravel(),
@@ -69,7 +80,8 @@ const handle = createAdminApi({
   saveTimeTravel: input => application.saveTimeTravel(input),
   readMember: id => memberDao.readById('members', id),
   readMembers: ids => memberDao.readByIds('members', ids),
-  readAttendanceSavedState
+  readAttendanceSavedState,
+  readAttendanceSessionInfo
 });
 
 const dispatch = createDispatch(handle);
@@ -143,7 +155,7 @@ createServer(async (req, res) => {
       const action = req.method === 'GET' ? parsed.searchParams.get('action') : body && body.action;
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'member_read']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'member_read']);
       const writeActions = new Set(['time_travel_set', 'members_read']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {
