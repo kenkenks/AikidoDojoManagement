@@ -19,3 +19,11 @@ test('invalid ID rejected',async()=>{
 test('CLI parses exact ID',()=>{
  assert.equal(parseArgs(['--table','Member','--plan-updates','--only-id','M001']).onlyId,'M001');
 });
+
+test('ExaminationStandard ID guard accepts ES001 in plan mode',async()=>{
+  await assert.rejects(copy({table:'ExaminationStandard',planUpdates:true,onlyId:'ES001',records:[],schema}),error=>error.message !== 'COPY_ONLY_ID_INVALID' && error.message !== 'COPY_ONLY_ID_MODE_INVALID');
+});
+test('ExaminationStandard rejects invalid ID and write mode',async()=>{
+  await assert.rejects(copy({table:'ExaminationStandard',planUpdates:true,onlyId:'ES01',records:[],schema}),/COPY_ONLY_ID_INVALID/);
+  await assert.rejects(copy({table:'ExaminationStandard',execute:true,onlyId:'ES001',records:[],schema}),/COPY_ONLY_ID_MODE_INVALID/);
+});
