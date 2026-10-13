@@ -47,8 +47,11 @@ function runner_gas2firebase_copy_planselectionrule_source() {
   const rows = getPlanSelectionRules(createSheetContext());
   if (!Array.isArray(rows)) return { ok: false, error: "COPY_SOURCE_INVALID:PlanSelectionRule" };
   return { ok: true, records: rows.map(function(row) {
-    if (!row.member_type || !row.selectable_plan_id) throw Error("COPY_COMPOSITE_KEY_EMPTY:PlanSelectionRule");
-    return Object.assign({}, row, { copy_rule_id: encodeURIComponent(String(row.member_type)) + "~" + encodeURIComponent(String(row.selectable_plan_id)) });
+    // Do not create unreadable URI-encoded composite document IDs.
+    // A stable ID must be supplied by the source master.
+    const id = String(row.plan_selection_rule_id || "").trim();
+    if (!/^PSR[0-9]+$/.test(id)) throw Error("COPY_SOURCE_ID_REQUIRED:PlanSelectionRule:plan_selection_rule_id");
+    return row;
   }) };
 }
 function runner_gas2firebase_copy_trainingslot_source() {
@@ -78,7 +81,8 @@ function runner_gas2firebase_copy_examinationstandard_source() {
   const rows = getExaminationStandardRows(createSheetContext());
   if (!Array.isArray(rows)) return { ok: false, error: "COPY_SOURCE_INVALID:ExaminationStandard" };
   return { ok: true, records: rows.map(function(row) {
-    if (!row["現在級段位"] || !row["次回審査級段位"]) throw Error("COPY_COMPOSITE_KEY_EMPTY:ExaminationStandard");
-    return Object.assign({}, row, { copy_standard_id: encodeURIComponent(String(row["現在級段位"])) + "~" + encodeURIComponent(String(row["次回審査級段位"])) });
+    const id = String(row.examination_standard_id || "").trim();
+    if (!/^ES[0-9]{3}$/.test(id)) throw Error("COPY_SOURCE_ID_REQUIRED:ExaminationStandard:examination_standard_id");
+    return row;
   }) };
 }

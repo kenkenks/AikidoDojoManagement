@@ -1,7 +1,7 @@
 entity: plan_selection_rule
 version: "0.1"
 fields:
-  - name: copy_rule_id
+  - name: plan_selection_rule_id
     type: string
     group: Identity
     primary_key: true

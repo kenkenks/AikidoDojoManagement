@@ -15,14 +15,6 @@
       "args": {
         "source": "gas",
         "destination": "firestore",
-        "table": "PlanSelectionRule"
-      }
-    },
-    {
-      "command": "data.copy",
-      "args": {
-        "source": "gas",
-        "destination": "firestore",
         "table": "TrainingSlot"
       }
     },
