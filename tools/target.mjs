@@ -70,15 +70,15 @@ function buildFirebase() {
   for (const name of ["admin-server.cjs", "admin-api.cjs", "target.cjs"]) {
     copy(join(repoRoot, "cloud", "time-travel", name), join(deployRoot, "cloud", "time-travel", name));
   }
-  for (const name of ["admin-api.cjs", "server.cjs"]) {
+  for (const name of ["admin-api.cjs", "server.cjs", "webConnect.cjs"]) {
     copy(join(repoRoot, "cloud", "api", name), join(deployRoot, "cloud", "api", name));
   }
   for (const name of ["DAO_Core_Firestore.cjs", "DAO_Core_Values.cjs"]) {
     copy(join(repoRoot, "cloud", "member-read", name), join(deployRoot, "cloud", "member-read", name));
   }
-  // Attendance saved-state is imported by cloud/api/server.cjs at runtime.
-  copy(join(repoRoot, "cloud", "attendance", "saved-state.cjs"),
-    join(deployRoot, "cloud", "attendance", "saved-state.cjs"));
+  for (const name of ["saved-state.cjs", "session-masters.cjs", "session-info.cjs"]) {
+    copy(join(repoRoot, "cloud", "attendance", name), join(deployRoot, "cloud", "attendance", name));
+  }
   copy(join(repoRoot, "shared", "WebConnectCore.js"), join(deployRoot, "shared", "WebConnectCore.js"));
   for (const name of ["DAO_Business.js", "DAO_Definitions.js", "DAO_Definition_Setting.generated.js", "StorageId.js", "Flow.js"]) {
     copy(join(repoRoot, "shared", name), join(deployRoot, "shared", name));
