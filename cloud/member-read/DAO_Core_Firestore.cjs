@@ -15,7 +15,7 @@ function firestoreEndpoint(config) {
 }
 function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {}) {
   const base = firestoreEndpoint(config);
-  async function write(source, documentId, values, exists, replace = false) {
+  async function write(source, documentId, values, exists, replace = false, updateTime) {
     const id = normalizeStorageId(documentId);
     const collection = normalizeStorageId(source.collection);
     const fields = Object.fromEntries(Object.entries(values).map(([key,value]) => {
@@ -35,7 +35,11 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     const token = config.mode === 'emulator' ? 'owner' : await getAccessToken?.();
     if (typeof token !== 'string' || !token.trim()) throw new Error('ACCESS_TOKEN_REQUIRED');
     const query = new URLSearchParams();
-    if (exists !== null) query.set('currentDocument.exists',String(exists));
+    if (exists !== null && !updateTime) query.set('currentDocument.exists',String(exists));
+    if (updateTime) {
+      if (exists !== true || typeof updateTime !== 'string' || !/^\d{4}-\d\d-\d\dT/.test(updateTime)) throw new Error('INVALID_UPDATE_PRECONDITION');
+      query.set('currentDocument.updateTime', updateTime);
+    }
     if (!replace) for (const key of Object.keys(fields)) query.append('updateMask.fieldPaths',key);
     const response = await fetchImpl(`${base}/${encodeURIComponent(collection)}/${encodeURIComponent(id)}?${query}`, {
       method:'PATCH', headers:{Authorization:'Bearer '+token.trim(),'Content-Type':'application/json'},
@@ -52,7 +56,7 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
   }
   return {
     append: (source,id,values) => write(source,id,values,false),
-    updateByKey: (source,id,values) => write(source,id,values,true),
+    updateByKey: (source,id,values,options = {}) => write(source,id,values,true,false,options.updateTime),
     upsertByKey: (source,id,values) => write(source,id,values,null),
     replaceByKey: (source,id,values) => write(source,id,values,true,true),
     // Bounded equality query for attendance scopes. No collection-wide reads.
@@ -144,6 +148,21 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
       }
       if (found.size !== requested.size) throw new Error('INCOMPLETE_BATCH_GET_RESPONSE');
       return ids.map(id => found.get(prefix + id));
+    },
+    async readByIdWithMetadata(source, documentId) {
+      const collection = normalizeStorageId(source.collection);
+      const id = normalizeStorageId(documentId);
+      const token = config.mode === 'emulator' ? 'owner' : await getAccessToken?.();
+      if (typeof token !== 'string' || !token.trim()) throw new Error('ACCESS_TOKEN_REQUIRED');
+      const response = await fetchImpl(`${base}/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`, {
+        method: 'GET', headers: {Authorization: 'Bearer ' + token.trim()},
+        redirect: 'error', signal: AbortSignal.timeout(10000)
+      });
+      if (response.status === 404) return null;
+      if (!response.ok) throw new Error('FIRESTORE_HTTP_' + response.status);
+      const doc = await response.json();
+      if (typeof doc.updateTime !== 'string' || !doc.updateTime) throw new Error('FIRESTORE_UPDATE_TIME_MISSING');
+      return { fields: decodeFields(doc.fields || {}), updateTime: doc.updateTime };
     },
     async readById(source, documentId) {
       return (await this.readByIds(source, [documentId]))[0];

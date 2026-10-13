@@ -26,6 +26,60 @@ function differences(expected, actual) {
   return result;
 }
 
+// Read-only update plan. Do not emit field values (Member contains PII).
+function planExistingUpdates(documents, existing) {
+  if (!Array.isArray(documents) || !Array.isArray(existing) || documents.length !== existing.length || existing.some(v => v === undefined)) throw new Error('UPDATE_PLAN_INPUT_INVALID');
+  const items = [];
+  for (let index = 0; index < documents.length; index++) {
+    const expected = documents[index];
+    const actual = existing[index];
+    if (actual === null) { items.push({ id: expected.id, action: 'missing_document', fields: [] }); continue; }
+    const changes = differences(expected.fields, actual);
+    // A missing expected field must not silently delete a Firestore value.
+    const unsupported = changes.filter(change => !Object.hasOwn(expected.fields, change.field));
+    if (unsupported.length) { items.push({ id: expected.id, action: 'blocked_extra_field', fields: unsupported.map(x => x.field) }); continue; }
+    items.push({ id: expected.id, action: changes.length ? 'update' : 'unchanged', fields: changes.map(x => x.field) });
+  }
+  return { ok: !items.some(x => x.action === 'blocked_extra_field' || x.action === 'missing_document'), mode: 'plan-updates', writes: 0,
+    planned_update: items.filter(x => x.action === 'update').length, planned_unchanged: items.filter(x => x.action === 'unchanged').length,
+    blocked: items.filter(x => x.action === 'blocked_extra_field' || x.action === 'missing_document').length, items };
+}
+
+// Apply only explicitly planned fields; use Firestore updateTime as an atomic
+// compare-and-swap precondition. Never log source values or previous values.
+async function applyExistingUpdates(documents, existing, core, target, { confirm, progress: onProgress } = {}) {
+  if (confirm !== 'dojo-management-dev') throw new Error('UPDATE_CONFIRMATION_REQUIRED');
+  if (typeof core.readByIdWithMetadata !== 'function' || typeof core.updateByKey !== 'function') throw new Error('UPDATE_ATOMIC_CORE_REQUIRED');
+  const plan = planExistingUpdates(documents, existing);
+  if (!plan.ok) throw new Error('UPDATE_PLAN_BLOCKED');
+  const summary = {ok: true, mode: 'apply-updates', total: documents.length, planned_update: plan.planned_update,
+    updated: 0, verified: 0, writes: 0, errors: 0};
+  for (let index = 0; index < documents.length; index++) {
+    const item = plan.items[index];
+    if (item.action === 'unchanged') continue;
+    const expected = documents[index];
+    try {
+      const before = await core.readByIdWithMetadata(target, item.id);
+      if (!before || differences(existing[index], before.fields).length) throw new Error('UPDATE_STALE_PLAN');
+      const values = Object.fromEntries(item.fields.map(field => [field, expected.fields[field]]));
+      await core.updateByKey(target, item.id, values, {updateTime: before.updateTime});
+      summary.writes++;
+      const after = await core.readById(target, item.id);
+      if (differences(expected.fields, after).length) throw new Error('UPDATE_READ_BACK_MISMATCH');
+      summary.updated++;
+      summary.verified++;
+      if (onProgress) onProgress('UPDATE_ITEM', {updated:summary.updated, total:summary.total});
+    } catch (error) {
+      summary.ok = false;
+      summary.errors++;
+      summary.first_error = error.message;
+      summary.failed_id = item.id;
+      break;
+    }
+  }
+  return summary;
+}
+
 function readGasRecords(table, options = {}) {
   if (table === 'Setting' && (!Array.isArray(options.keys) || !options.keys.length)) throw new Error('COPY_SETTING_KEYS_REQUIRED');
   const command = COMMANDS[table];
@@ -70,10 +124,14 @@ async function tableSchema(table) {
 }
 
 async function copy(options = {}) {
-  const { source = 'gas', destination = 'firestore', table = 'Member', execute = false, preflight = false, verifyExisting = false, limit } = options;
+  const { source = 'gas', destination = 'firestore', table = 'Member', execute = false, preflight = false, verifyExisting = false, planUpdates = false, applyUpdates = false, applyAllUpdates = false, limit, onlyId } = options;
+  if (applyAllUpdates && (table !== 'Member' || onlyId !== undefined)) throw new Error('UPDATE_ALL_MODE_INVALID');
+  if (onlyId !== undefined && (typeof onlyId !== 'string' || !/^M[0-9]+(?:-[0-9]+)?$/.test(onlyId))) throw new Error('COPY_ONLY_ID_INVALID');
+  if (onlyId !== undefined && (table !== 'Member' || !(planUpdates || applyUpdates))) throw new Error('COPY_ONLY_ID_MODE_INVALID');
+  if (applyUpdates && onlyId === undefined) throw new Error('UPDATE_ONLY_ID_REQUIRED');
   if (limit !== undefined && (!Number.isSafeInteger(limit) || limit < 1)) throw new Error('COPY_LIMIT_INVALID');
   if (limit !== undefined && !execute) throw new Error('COPY_LIMIT_REQUIRES_EXECUTE');
-  if ([execute, preflight, verifyExisting].filter(Boolean).length > 1) throw new Error('COPY_MODE_CONFLICT');
+  if ([execute, preflight, verifyExisting, planUpdates, applyUpdates, applyAllUpdates].filter(Boolean).length > 1) throw new Error('COPY_MODE_CONFLICT');
   if (source !== 'gas' || destination !== 'firestore') throw new Error('COPY_DIRECTION_UNSUPPORTED');
   if (!Object.hasOwn(COMMANDS, table)) throw new Error('COPY_TABLE_UNSUPPORTED');
   if (table === 'Setting' && (!Array.isArray(options.keys) || !options.keys.length)) throw new Error('COPY_SETTING_KEYS_REQUIRED');
@@ -115,11 +173,11 @@ async function copy(options = {}) {
     ids.add(doc.id);
     assertCoreWritableFields(doc);
   }
-  const summary = { ok: true, mode: execute ? 'execute' : verifyExisting ? 'verify-existing' : preflight ? 'preflight' : 'dry-run', source, destination, table, collection: schema.collection,
+  const summary = { ok: true, mode: applyAllUpdates ? 'apply-all-updates' : applyUpdates ? 'apply-updates' : execute ? 'execute' : verifyExisting ? 'verify-existing' : preflight ? 'preflight' : 'dry-run', source, destination, table, collection: schema.collection,
     total: documents.length, created: 0, skipped: 0, errors: 0, writes: 0, normalization };
   if (options.progress) options.progress('VALIDATED', { count: documents.length });
-  if (!execute && !preflight && !verifyExisting) { if (options.progress) options.progress('COMPLETE', summary); return summary; }
-  if (execute && options.confirm !== 'dojo-management-dev') throw new Error('COPY_EXECUTE_CONFIRMATION_REQUIRED');
+  if (!execute && !preflight && !verifyExisting && !planUpdates && !applyUpdates && !applyAllUpdates) { if (options.progress) options.progress('COMPLETE', summary); return summary; }
+  if ((execute || applyUpdates || applyAllUpdates) && options.confirm !== 'dojo-management-dev') throw new Error('COPY_EXECUTE_CONFIRMATION_REQUIRED');
   // Authentication is resolved only for a real write. Tests may inject an existing DAO core.
   const core = options.core || createFirestoreCore(profile, { getAccessToken: async () => {
     const token = process.env.FIRESTORE_DEV_ACCESS_TOKEN;
@@ -141,6 +199,22 @@ async function copy(options = {}) {
   summary.planned_create = plannedCreate;
   summary.planned_skip = plannedSkip;
   if (options.progress) options.progress('PREFLIGHT_DONE', { plannedCreate, plannedSkip });
+  const selectedIndex = onlyId === undefined ? -1 : documents.findIndex(doc => doc.id === onlyId);
+  if (onlyId !== undefined && selectedIndex < 0) throw new Error('COPY_ONLY_ID_NOT_FOUND');
+  const selectedDocuments = onlyId === undefined ? documents : [documents[selectedIndex]];
+  const selectedExisting = onlyId === undefined ? existing : [existing[selectedIndex]];
+  if (planUpdates) {
+    const plan = planExistingUpdates(selectedDocuments, selectedExisting);
+    const result = { ...summary, ...plan };
+    if (options.progress) options.progress('COMPLETE', result);
+    return result;
+  }
+  if (applyUpdates || applyAllUpdates) {
+    const applied = await applyExistingUpdates(selectedDocuments, selectedExisting, core, target, options);
+    const result = {...summary, ...applied, mode: applyAllUpdates ? 'apply-all-updates' : 'apply-updates'};
+    if (options.progress) options.progress('COMPLETE', result);
+    return result;
+  }
   if (verifyExisting) {
     summary.verified = 0;
     summary.mismatched = 0;
@@ -188,23 +262,44 @@ async function copy(options = {}) {
 }
 
 function parseArgs(args) {
-  if (args.includes('--help')) return { help: true };
-  const value = flag => { const i = args.indexOf(flag); return i < 0 ? undefined : args[i + 1]; };
-  return { source: value('--source') || 'gas', destination: value('--destination') || 'firestore',
-    table: value('--table') || 'Member', execute: args.includes('--execute'), preflight: args.includes('--preflight'), verifyExisting: args.includes('--verify-existing'), confirm: value('--confirm'),
-    limit: args.includes('--limit') ? Number(value('--limit')) : undefined, keys: value('--keys') ? value('--keys').split(',').map(x => x.trim()).filter(Boolean) : undefined };
+  const valueFlags = new Set(['--source', '--destination', '--table', '--confirm', '--only-id', '--limit', '--keys']);
+  const boolFlags = new Set(['--help', '--execute', '--preflight', '--verify-existing', '--plan-updates', '--apply-updates', '--apply-all-updates']);
+  const parsed = {};
+  for (let i = 0; i < args.length; i++) {
+    const flag = args[i];
+    if (!valueFlags.has(flag) && !boolFlags.has(flag)) throw new Error(`COPY_UNKNOWN_OPTION:${flag}`);
+    if (Object.hasOwn(parsed, flag)) throw new Error(`COPY_DUPLICATE_OPTION:${flag}`);
+    if (valueFlags.has(flag)) {
+      const next = args[++i];
+      if (!next || next.startsWith('--')) throw new Error(`COPY_OPTION_VALUE_REQUIRED:${flag}`);
+      parsed[flag] = next;
+    } else parsed[flag] = true;
+  }
+  if (parsed['--help']) return {help: true};
+  return {source: parsed['--source'] || 'gas', destination: parsed['--destination'] || 'firestore',
+    table: parsed['--table'] || 'Member', execute: !!parsed['--execute'], preflight: !!parsed['--preflight'],
+    verifyExisting: !!parsed['--verify-existing'], planUpdates: !!parsed['--plan-updates'],
+    applyUpdates: !!parsed['--apply-updates'], applyAllUpdates: !!parsed['--apply-all-updates'],
+    confirm: parsed['--confirm'], onlyId: parsed['--only-id'],
+    limit: parsed['--limit'] === undefined ? undefined : Number(parsed['--limit']),
+    keys: parsed['--keys'] ? parsed['--keys'].split(',').map(x => x.trim()).filter(Boolean) : undefined};
 }
 
 if (require.main === module) {
-  const args = parseArgs(process.argv.slice(2));
-  if (args.help) process.stdout.write('Usage: node work/gas2firebase-copy.cjs --table Member|Setting|Dojo|Teacher|Fee|PlanSelectionRule|TrainingSlot|BillingBlock|Rank|ExaminationStandard [--keys KEY1,KEY2 (required for Setting)] --source gas --destination firestore [--preflight | --verify-existing | --execute --confirm dojo-management-dev [--limit 1]]\nDefault: dry-run (zero writes); --preflight checks IDs; --verify-existing compares existing documents (zero writes).\n');
+  let args;
+  try { args = parseArgs(process.argv.slice(2)); } catch (error) {
+    process.stderr.write(`${JSON.stringify({ok:false,error:error.message,writes:0})}\n`);
+    process.exit(1);
+  }
+  if (args.help) process.stdout.write('Usage: node work/gas2firebase-copy.cjs --table Member|Setting|Dojo|Teacher|Fee|PlanSelectionRule|TrainingSlot|BillingBlock|Rank|ExaminationStandard [--keys KEY1,KEY2 (required for Setting)] --source gas --destination firestore [--preflight | --verify-existing | --plan-updates [--only-id M001] | --apply-updates --only-id M001 --confirm dojo-management-dev | --apply-all-updates --confirm dojo-management-dev | --execute --confirm dojo-management-dev [--limit 1]]\nDefault: dry-run (zero writes); --preflight checks IDs; --verify-existing compares existing documents (zero writes); --plan-updates reports field names only (zero writes).\n');
   else copy({ ...args, progress: (stage, data) => {
-    if (stage === 'START') progress(`START ${data.table} ${data.source} -> ${data.destination} ${data.execute ? 'EXECUTE' : args.preflight ? 'PREFLIGHT' : args.verifyExisting ? 'VERIFY-EXISTING' : 'DRY-RUN'}`);
+    if (stage === 'START') progress(`START ${data.table} ${data.source} -> ${data.destination} ${data.execute ? 'EXECUTE' : args.preflight ? 'PREFLIGHT' : args.verifyExisting ? 'VERIFY-EXISTING' : args.planUpdates ? 'PLAN-UPDATES' : args.applyUpdates ? 'APPLY-UPDATES' : args.applyAllUpdates ? 'APPLY-ALL-UPDATES' : 'DRY-RUN'}`);
     else if (stage === 'FETCHED') progress(`Fetched ${data.count} records`);
     else if (stage === 'VALIDATED') progress(`Schema validated: ${data.count} records`);
     else if (stage === 'PREFLIGHT') progress(`Firestore preflight: checking ${data.count} IDs (read-only)...`);
     else if (stage === 'PREFLIGHT_DONE') progress(`Firestore preflight: create=${data.plannedCreate}, skip=${data.plannedSkip}`);
     else if (stage === 'ITEM') progress(`Written/checked ${data.processed}/${data.total} (created=${data.created}, skipped=${data.skipped})`);
+    else if (stage === 'UPDATE_ITEM') progress(`Updated/verified ${data.updated}/${data.total}`);
     else if (stage === 'COMPLETE') progress(`COMPLETE: ${data.mode}, total=${data.total}, writes=${data.writes}, errors=${data.errors}`);
   } }).then(result => {
     process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
@@ -214,4 +309,4 @@ if (require.main === module) {
     process.exitCode = 1;
   });
 }
-module.exports = { copy, parseArgs, readGasRecords, tableSchema };
+module.exports = { copy, parseArgs, readGasRecords, tableSchema, planExistingUpdates, applyExistingUpdates };
