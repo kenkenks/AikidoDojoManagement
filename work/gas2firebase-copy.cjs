@@ -106,7 +106,7 @@ async function copy(options = {}) {
     normalization = result.stats;
     progress(`Normalization counts: ${JSON.stringify(normalization)}`);
   }
-  const documents = renderFirestoreDocuments(schema, normalizedRecords.map(row => bridgeGasOptionalEmptyNumbers(row, schema)));
+  const documents = renderFirestoreDocuments(schema, normalizedRecords.map(row => bridgeGasOptionalEmptyNumbers(row, schema)), { includeDocumentIdField: true });
   const verification = verifyFirestoreDocuments(schema, documents);
   if (!verification.ok) throw new Error(`COPY_SCHEMA_VERIFICATION_FAILED:${verification.errors[0]?.error}`);
   const ids = new Set();
@@ -214,4 +214,4 @@ if (require.main === module) {
     process.exitCode = 1;
   });
 }
-module.exports = { copy, parseArgs, readGasRecords };
+module.exports = { copy, parseArgs, readGasRecords, tableSchema };

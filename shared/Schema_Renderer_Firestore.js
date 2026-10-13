@@ -44,7 +44,7 @@ function matchesType(value, type) {
 
 // 論理 record 群を Firestore Core が書き込める document 群へ投影する。
 // document ID field は本文から除外する。
-function renderFirestoreDocuments(renderedSchema, records) {
+function renderFirestoreDocuments(renderedSchema, records, { includeDocumentIdField = false } = {}) {
   if (!renderedSchema || !Array.isArray(renderedSchema.fields)) throw new Error('INVALID_RENDERED_SCHEMA');
   if (!Array.isArray(records)) throw new Error('INVALID_PORTABLE_RECORDS');
 
@@ -59,7 +59,10 @@ function renderFirestoreDocuments(renderedSchema, records) {
         continue;
       }
       if (!matchesType(value, field.type)) throw new Error(`TYPE_MISMATCH:${field.logicalName}:${field.type}`);
-      if (field.documentId) id = value;
+      if (field.documentId) {
+        id = value;
+        if (includeDocumentIdField) fields[field.physicalName] = value;
+      }
       else fields[field.physicalName] = value;
     }
     if (typeof id !== 'string' || !id) throw new Error(`DOCUMENT_ID_REQUIRED: ${index}`);
@@ -88,6 +91,9 @@ function verifyFirestoreDocuments(renderedSchema, documents) {
 
     for (const field of renderedSchema.fields) {
       const value = field.documentId ? id : fields[field.physicalName];
+      if (field.documentId && Object.hasOwn(fields, field.physicalName) && fields[field.physicalName] !== id) {
+        errors.push({ documentId: id, field: field.physicalName, error: 'DOCUMENT_ID_FIELD_MISMATCH' });
+      }
       if (value === undefined || value === null) {
         if (field.required) errors.push({ documentId: id, field: field.physicalName, error: 'REQUIRED_FIELD_MISSING' });
         continue;
@@ -116,7 +122,8 @@ function restoreFirestoreRecord(renderedSchema, document) {
   const record = {};
   const knownPhysicalFields = new Set();
   for (const field of renderedSchema.fields) {
-    if (!field.documentId) knownPhysicalFields.add(field.physicalName);
+    knownPhysicalFields.add(field.physicalName);
+    if (field.documentId && Object.hasOwn(document.fields, field.physicalName) && document.fields[field.physicalName] !== document.id) throw new Error(`DOCUMENT_ID_FIELD_MISMATCH: ${field.physicalName}`);
     const value = field.documentId ? document.id : document.fields[field.physicalName];
     if (value === undefined || value === null) {
       if (field.required) throw new Error(`REQUIRED_FIELD_MISSING: ${field.logicalName}`);

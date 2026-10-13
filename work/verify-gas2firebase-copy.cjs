@@ -67,7 +67,7 @@ test('execute counts successful append before read-back mismatch', async () => {
   assert.equal(result.mismatch.id, 'A');
 });
 test('verify-existing ignores object property ordering', async () => {
-  const core = { async readByIds() { return [{member_name:'Sample'}, null]; } };
+  const core = { async readByIds() { return [{member_name:'Sample',member_id:'A'}, null]; } };
   const result = await copy({ records, schema, core, verifyExisting:true });
   assert.equal(result.verified, 1);
   assert.equal(result.mismatched, 0);
