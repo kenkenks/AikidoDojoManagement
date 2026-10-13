@@ -192,3 +192,124 @@ OAuth が必要なら push / run の前に `dojo-dev` を認証する。
 - access token / refresh token
 - `FIRESTORE_DEV_ACCESS_TOKEN` の値
 - 個人アカウント固有の認証情報
+
+
+## GAS / Firestore 認証管理
+
+### 1. 認証構成
+
+Google Cloudプロジェクト:
+- 名称: AikidoDojoManagement-Dev
+- プロジェクト番号: 400662281724
+- プロジェクトID: aikidodojomanagement-dev
+
+GAS:
+- 上記Google Cloudプロジェクトに関連付け済み
+
+clasp:
+- 認証プロファイル: dojo-dev
+- OAuthクライアント: デスクトップアプリ用
+- 使用するクライアントJSONはローカルで管理する
+- JSONの実体・シークレット・トークンはGitに登録しない
+
+OAuth公開設定:
+- ユーザー種類: 外部
+- 公開ステータス: テスト中（2026-10-13確認）
+- リフレッシュトークンが7日間で失効する可能性あり
+- invalid_grantの原因として疑われるが、未確定
+
+### 2. GAS認証の復旧
+
+症状:
+COPY_CLASP_RUN_FAILED: invalid_grant
+
+原因候補:
+- OAuthリフレッシュトークンの失効
+- OAuth認証情報の無効化
+
+手順:
+
+1. OAuthクライアントJSONの実際の保存先を確認する。
+
+2. PowerShellでパスを設定する。
+
+   $creds = '実際のOAuthクライアントJSONのフルパス'
+
+3. ファイルの存在を確認する。
+
+   Test-Path -LiteralPath $creds
+
+   Trueであること。
+
+4. 再認証する。
+
+   clasp login --user dojo-dev --creds "$creds" --extra-scopes "https://www.googleapis.com/auth/spreadsheets,https://www.googleapis.com/auth/script.container.ui"
+
+5. ブラウザーでGoogle認証を完了する。
+
+注意:
+- $credsはPowerShell変数であり、自動設定されない。
+- 説明用の仮パスをそのまま使用しない。
+- JSONの中身をログやチャットに出力しない。
+
+### 3. Firestore認証の復旧
+
+症状:
+FIRESTORE_HTTP_401
+
+GAS認証とは別に、Firestore REST API用の
+アクセストークンを更新する。
+
+PowerShell:
+
+$env:FIRESTORE_DEV_ACCESS_TOKEN = (gcloud auth print-access-token).Trim()
+
+取得確認:
+
+[bool]$env:FIRESTORE_DEV_ACCESS_TOKEN
+
+注意:
+- clasp loginではFirestoreのアクセストークンは更新されない。
+- gcloud authによってclaspのOAuth認証は更新されない。
+- Trueはトークン文字列の存在確認であり、アクセス成功の保証ではない。
+
+### 4. Member照合
+
+プロジェクトルートから実行:
+
+node work/gas2firebase-copy.cjs --table Member --verify-existing
+
+動作:
+1. clasp経由でGASからMemberを取得
+2. Schema検証
+3. Firestoreの既存データを読み取り
+4. GASとFirestoreを比較
+
+--verify-existingはFirestoreへの書き込みを行わない。
+
+2026-10-13の確認結果:
+- GAS Member取得: 24件
+- Schema検証: 24件成功
+- Firestore事前確認: HTTP 401で停止
+- Firestore書き込み: 0件
+
+Memberデータの一致・不一致は未判定。
+
+### 5. エラーの切り分け
+
+COPY_CLASP_RUN_FAILED: invalid_grant
+→ clasp / GAS OAuth認証を確認
+
+FIRESTORE_HTTP_401
+→ Firestore API用アクセストークンを確認
+
+DEP0190
+→ Node.jsの非推奨API警告
+→ 上記認証エラーとは別問題
+
+### 6. 恒久対策の検討事項
+
+- OAuthの「外部・テスト中」設定を見直す。
+- dojo-devが使用するOAuthクライアントを特定する。
+- 認証期限切れを事前に検出する仕組みを検討する。
+- GASとFirestoreの認証確認を照合処理から分離する。
