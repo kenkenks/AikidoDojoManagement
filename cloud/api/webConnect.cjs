@@ -13,6 +13,11 @@ function createDispatch(handle) {
       'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store'
     }, body });
     if (!contract) return reply(404, { error: 'UNKNOWN_ACTION' });
+    // GET query includes the routing action; memberState accepts only its four domain keys.
+    if (contract.operation === 'attendance.memberState' && contract.input) {
+      const { action: _action, ...domainInput } = contract.input;
+      contract.input = domainInput;
+    }
     // All connected operations use the existing handler without HTTP URL construction.
     if (contract.operation === 'attendance.savedState' &&
         ['member_id', 'location_id', 'billing_block_id', 'attendance_date'].some(

@@ -76,10 +76,18 @@
       const error = document.getElementById("error");
       try {
         if (!locationId) throw new Error("location_id が指定されていません。");
+        // Firebase dev QR only; preserve legacy GitHub Pages behavior.
+        const isFirebaseDevHosting = location.hostname === "dojo-management-dev.web.app" ||
+          location.hostname === "dojo-management-dev.firebaseapp.com";
+        const qrOptions = { image: { size: "900x900", ecc: "M" } };
+        if (isFirebaseDevHosting) {
+          qrOptions.baseUrl = location.origin + "/qr/";
+          qrOptions.routes = { DOJO: "attendance.html" };
+        }
         const qr = DojoQrGenerator.buildQr(
           DojoQrGenerator.QR_TYPES.DOJO,
           { location_id: locationId },
-          { image: { size: "900x900", ecc: "M" } }
+          qrOptions
         );
         document.getElementById("locationId").textContent = locationId;
         document.getElementById("locationName").textContent = locationName || "桜風館";

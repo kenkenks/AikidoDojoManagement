@@ -16,7 +16,7 @@ test("Firebase branch never falls back to GAS and disables writes", () => {
 });
 test("unsupported actions reject without a network request", async () => {
   const client=create();let calls=0;
-  for (const action of ["member_attendance_state", "attendance_rank_options", "post_receipt"]) {
+  for (const action of ["post_receipt", "attendance_batch"]) {
     await assert.rejects(client.request({action,apiClient:{request:()=>{calls++;}},runtimeConfig:{runtime:"firebase"}}),/未接続/);
   }
   assert.equal(calls,0);
@@ -30,4 +30,13 @@ test("saved state uses authenticated dispatcher GET", async () => {
 });
 test("HTTP denial propagates and no alternate endpoint is tried", async () => {
   let calls=0;await assert.rejects(create().request({action:"attendance_saved_state",params:{member_id:"M002"},runtimeConfig:{runtime:"firebase",apiBaseUrl:"https://api.example.com"},authClient:{ready:Promise.resolve(),getCurrentUser:()=>({uid:"u1"})},apiClient:{request:async()=>{calls++;return {ok:false,status:403};}}}),/403/);assert.equal(calls,1);
+});
+
+test("member attendance state uses authenticated GET with required fields", async () => {
+  let received;
+  await create().request({action:"member_attendance_state",params:{member_id:"M001",location_id:"L001",billing_block_id:"B001",attendance_date:"2026-10-14"},runtimeConfig:{runtime:"firebase",apiBaseUrl:"https://api.example.com"},authClient:{ready:Promise.resolve(),getCurrentUser:()=>({uid:"u1"})},apiClient:{request:async(url,init)=>{received={url,init};return {ok:true,json:async()=>({ok:true})};}}});
+  const url = new URL(received.url);
+  assert.equal(url.searchParams.get("action"),"member_attendance_state");
+  assert.equal(url.searchParams.get("billing_block_id"),"B001");
+  assert.equal(received.init.method,"GET");
 });

@@ -75,10 +75,18 @@
 
       try {
         if (!memberId) throw new Error("member_id が指定されていません。");
+        // Development Hosting only: keep the production GitHub Pages QR unchanged.
+        const isFirebaseDevHosting = location.hostname === "dojo-management-dev.web.app" ||
+          location.hostname === "dojo-management-dev.firebaseapp.com";
+        const qrOptions = { image: { size: "480x480", ecc: "M" } };
+        if (isFirebaseDevHosting) {
+          qrOptions.baseUrl = location.origin + "/qr/";
+          qrOptions.routes = { MEMBER_CARD: "attendance.html" };
+        }
         const qr = DojoQrGenerator.buildQr(
           DojoQrGenerator.QR_TYPES.MEMBER_CARD,
           { member_id: memberId },
-          { image: { size: "480x480", ecc: "M" } }
+          qrOptions
         );
         document.getElementById("memberId").textContent = memberId;
         document.getElementById("memberName").textContent = memberName || "（氏名未設定）";

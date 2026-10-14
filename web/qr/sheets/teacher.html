@@ -77,10 +77,18 @@
 
       try {
         if (!teacherId) throw new Error("teacher_id が指定されていません。");
+        // Firebase dev QR only; preserve legacy GitHub Pages behavior.
+        const isFirebaseDevHosting = location.hostname === "dojo-management-dev.web.app" ||
+          location.hostname === "dojo-management-dev.firebaseapp.com";
+        const qrOptions = { image: { size: "480x480", ecc: "M" } };
+        if (isFirebaseDevHosting) {
+          qrOptions.baseUrl = location.origin + "/qr/";
+          qrOptions.routes = { TEACHER: "teacher_attendance.html" };
+        }
         const qr = DojoQrGenerator.buildQr(
           DojoQrGenerator.QR_TYPES.TEACHER,
           { teacher_id: teacherId },
-          { image: { size: "480x480", ecc: "M" } }
+          qrOptions
         );
         document.getElementById("teacherId").textContent = teacherId;
         document.getElementById("teacherName").textContent = teacherName || "（先生名未設定）";

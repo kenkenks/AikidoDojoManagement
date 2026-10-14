@@ -20,6 +20,10 @@ test('dev-firebase target build creates self-contained Cloud Run deploy unit', (
   for (const rel of [
     'cloud/api/server.cjs',
     'cloud/api/admin-api.cjs',
+    'cloud/api/dojo-principal.cjs',
+    'cloud/api/dojo-account-firestore.cjs',
+    'cloud/attendance/rank-options.cjs',
+    'cloud/attendance/member-state-firestore.cjs',
     'cloud/member-read/DAO_Core_Firestore.cjs',
     'cloud/member-read/DAO_Core_Values.cjs',
     'cloud/qr/generator-options.cjs',
@@ -86,4 +90,20 @@ test('unknown push flags fail closed before deploying', () => {
   });
   assert.notEqual(result.status, 0);
   assert.match(result.stderr, /Unknown target option/);
+});
+
+
+test('deploy verifier detects a missing runtime module before deploy', () => {
+  const missing = path.join(deployRoot, 'cloud/api/dojo-principal.cjs');
+  const backup = fs.readFileSync(missing);
+  try {
+    fs.unlinkSync(missing);
+    const result = spawnSync(process.execPath, ['tools/verify-firebase-deploy-unit.cjs', deployRoot], {
+      cwd: root, encoding: 'utf8', windowsHide: true
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /Missing dependency: cloud\/api\/admin-api\.cjs -> \.\/dojo-principal\.cjs/);
+  } finally {
+    fs.writeFileSync(missing, backup);
+  }
 });

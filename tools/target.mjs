@@ -77,16 +77,16 @@ function buildFirebase() {
   for (const name of ["admin-server.cjs", "admin-api.cjs", "target.cjs"]) {
     copy(join(repoRoot, "cloud", "time-travel", name), join(deployRoot, "cloud", "time-travel", name));
   }
-  for (const name of ["admin-api.cjs", "server.cjs", "webConnect.cjs"]) {
-    copy(join(repoRoot, "cloud", "api", name), join(deployRoot, "cloud", "api", name));
+  // Package every runtime module, not a manually maintained subset.
+  for (const dir of ["api", "attendance"]) {
+    for (const name of readdirSync(join(repoRoot, "cloud", dir)).filter(name => name.endsWith(".cjs"))) {
+      copy(join(repoRoot, "cloud", dir, name), join(deployRoot, "cloud", dir, name));
+    }
   }
   for (const name of ["DAO_Core_Firestore.cjs", "DAO_Core_Values.cjs"]) {
     copy(join(repoRoot, "cloud", "member-read", name), join(deployRoot, "cloud", "member-read", name));
   }
   copy(join(repoRoot, "cloud", "qr", "generator-options.cjs"), join(deployRoot, "cloud", "qr", "generator-options.cjs"));
-  for (const name of ["saved-state.cjs", "session-masters.cjs", "session-info.cjs"]) {
-    copy(join(repoRoot, "cloud", "attendance", name), join(deployRoot, "cloud", "attendance", name));
-  }
   copy(join(repoRoot, "shared", "WebConnectCore.js"), join(deployRoot, "shared", "WebConnectCore.js"));
   copy(join(repoRoot, "shared", "Schema_Renderer_Firestore.js"), join(deployRoot, "shared", "Schema_Renderer_Firestore.js"));
   copy(join(repoRoot, "shared", "Attendance_Master_Schemas.generated.json"), join(deployRoot, "shared", "Attendance_Master_Schemas.generated.json"));
@@ -103,6 +103,13 @@ function buildFirebase() {
   rootPackage.scripts = { start: "node cloud/api/server.cjs" };
   writeFileSync(join(deployRoot, "package.json"), JSON.stringify(rootPackage, null, 2) + "\n", "utf8");
   copy(join(repoRoot, "package-lock.json"), join(deployRoot, "package-lock.json"));
+
+  // Fail before deployment if a relative require() points outside the deploy unit.
+  const verify = spawnSync(process.execPath, [join(repoRoot, "tools", "verify-firebase-deploy-unit.cjs"), deployRoot], {
+    cwd: repoRoot, stdio: "inherit", windowsHide: true
+  });
+  if (verify.error) throw verify.error;
+  if (verify.status !== 0) throw new Error(`Cloud Run deploy unit verification failed: exit ${verify.status}`);
 
   console.log(`Target: ${targetName}`);
   console.log("Output: .build/portable-timetravel-firestore");
