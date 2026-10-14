@@ -72,7 +72,24 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
       try {
         const result = await readMemberAttendanceState(operationInput);
         return reply(result?.ok === true ? 200 : 400, result);
-      } catch { return reply(503, { error:'MEMBER_STATE_UNAVAILABLE' }); }
+      } catch (error) {
+        // Keep diagnostics server-side; never expose DAO details to the client.
+        const code = typeof error?.message === 'string' && /^[A-Z][A-Z0-9_]{2,80}$/.test(error.message)
+          ? error.message : 'UNCLASSIFIED_EXCEPTION';
+        if (error?.firestoreQueryCapture) {
+          console.error('[FIRESTORE_QUERY_CAPTURE] ' + JSON.stringify(error.firestoreQueryCapture));
+        }
+        console.error('[MEMBER_STATE_ERROR]', {
+          code, name: error?.name || 'Error',
+          ...(error?.firestoreOperation === 'runQuery' ? {
+            operation: 'runQuery',
+            collection: /^[a-z_]{1,64}$/.test(error.firestoreCollection || '') ? error.firestoreCollection : 'UNKNOWN',
+            firestoreStatus: /^[A-Z_]{3,40}$/.test(error.firestoreStatus || '') ? error.firestoreStatus : 'UNKNOWN',
+            firestoreReason: ['INDEX_REQUIRED','INVALID_QUERY','OTHER'].includes(error.firestoreReason) ? error.firestoreReason : 'OTHER'
+          } : {})
+        });
+        return reply(503, { error:'MEMBER_STATE_UNAVAILABLE' });
+      }
     }
     if (rankOptions) {
       if (operationInput && Object.keys(operationInput).some(key => key !== 'action')) return reply(400, { error: 'INVALID_RANK_OPTIONS_PARAMS' });

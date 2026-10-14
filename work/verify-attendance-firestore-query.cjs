@@ -38,3 +38,46 @@ test('rejects a document outside the queried collection',async()=>{
   const f=fixture([{document:{name:'projects/demo-attendance/databases/(default)/documents/members/M1',fields:{}}}]);
   await assert.rejects(f.core.queryEqual(source,[{field:'member_id',value:'M1'}]),/INVALID_QUERY_RESPONSE/);
 });
+
+test('Firestore 400 query failure exposes only safe categorical diagnostics',async()=>{
+  const core=createFirestoreCore(config,{fetchImpl:async()=>({ok:false,status:400,text:async()=>JSON.stringify({error:{status:'FAILED_PRECONDITION',message:'The query requires an index. Create it here: https://example.invalid/private'}})})});
+  await assert.rejects(core.queryEqual(source,[{field:'member_id',value:'M1'}]),error=>{
+    assert.equal(error.message,'FIRESTORE_HTTP_400');
+    assert.equal(error.firestoreOperation,'runQuery');
+    assert.equal(error.firestoreCollection,'attendances');
+    assert.equal(error.firestoreStatus,'FAILED_PRECONDITION');
+    assert.equal(error.firestoreReason,'INDEX_REQUIRED');
+    assert.doesNotMatch(JSON.stringify(error),/example\.invalid|private|M1/);
+    return true;
+  });
+});
+test('Firestore 400 malformed error body remains classifiable',async()=>{
+  const core=createFirestoreCore(config,{fetchImpl:async()=>({ok:false,status:400,text:async()=>{throw Error('parse error')}})});
+  await assert.rejects(core.queryEqual(source,[{field:'member_id',value:'M1'}]),error=>{
+    assert.equal(error.message,'FIRESTORE_HTTP_400');
+    assert.equal(error.firestoreStatus,'UNKNOWN');
+    assert.equal(error.firestoreReason,'OTHER');
+    return true;
+  });
+});
+
+test('quotes Japanese field names while preserving ASCII paths',async()=>{
+ const f=fixture([]);
+ await f.core.queryEqual(source,[{field:'稽古日',value:'2026-10-11'},{field:'member_id',value:'synthetic'}]);
+ const filters=JSON.parse(f.getRequest().options.body).structuredQuery.where.compositeFilter.filters;
+ assert.equal(filters[0].fieldFilter.field.fieldPath,'`稽古日`');
+ assert.equal(filters[1].fieldFilter.field.fieldPath,'member_id');
+});
+test('array error survives to API without private values in capture or logs',async()=>{
+ const previous=process.env.FIRESTORE_QUERY_CAPTURE;process.env.FIRESTORE_QUERY_CAPTURE='1';
+ const original=console.error; const logs=[];console.error=(...args)=>logs.push(args);
+ try{
+ const core=createFirestoreCore({projectId:'dojo-management-dev',mode:'development',confirmedDevelopmentProject:'dojo-management-dev'},{getAccessToken:async()=>'private-token',fetchImpl:async()=>({ok:false,status:400,text:async()=>JSON.stringify([{error:{status:'INVALID_ARGUMENT',message:'Invalid field path private-person'}}])})});
+ const {createAdminApi}=require('../cloud/api/admin-api.cjs');
+ const handle=createAdminApi({verifyIdToken:async()=>({uid:'test',admin:true}),getTimeTravel:async()=>({}),saveTimeTravel:async()=>({}),getSystemContext:async()=>({}),readMember:async()=>null,readMembers:async()=>[],readMemberAttendanceState:()=>core.queryEqual(source,[{field:'稽古日',value:'private-person'}])});
+ const result=await handle({operation:'attendance.memberState',authorization:'Bearer synthetic',input:{member_id:'synthetic',location_id:'synthetic',billing_block_id:'synthetic',attendance_date:'2026-10-11'}});
+ assert.equal(result.status,503);
+ assert.deepEqual(result.body,{error:'MEMBER_STATE_UNAVAILABLE'});
+ const serialized=JSON.stringify(logs);assert.match(serialized,/FIRESTORE_QUERY_CAPTURE/);assert.match(serialized,/INVALID_ARGUMENT/);assert.match(serialized,/INVALID_QUERY/);assert.doesNotMatch(serialized,/private-person|private-token|requestBody|responseBody/);
+ }finally{console.error=original;if(previous===undefined)delete process.env.FIRESTORE_QUERY_CAPTURE;else process.env.FIRESTORE_QUERY_CAPTURE=previous;}
+});

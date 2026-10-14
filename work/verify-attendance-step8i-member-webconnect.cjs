@@ -14,5 +14,17 @@ function setup(principal, admin=false, broken=false){
 test('linked member reads own state via existing dispatcher',async()=>{const t=setup({member_id:'M1'});assert.equal((await t.send()).status,200);assert.equal(t.calls(),1);});
 test('other member and unlinked identity are rejected before DAO',async()=>{for(const identity of [null,{member_id:'M2'},{teacher_id:'T1'}]){const t=setup(identity);assert.equal((await t.send()).status,403);assert.equal(t.calls(),0);}});
 test('arbitrary parameters and unsupported write remain closed',async()=>{const t=setup({member_id:'M1'});assert.equal((await t.send({...params,target_month:'2020-01'})).status,400);assert.equal((await t.send({...params,attendance_date:null})).status,400);assert.notEqual((await t.send(params,'attendance_batch')).status,200);assert.equal(t.calls(),0);});
-test('DAO failure returns 503, never fabricated state',async()=>{const t=setup({member_id:'M1'},false,true);assert.equal((await t.send()).status,503);});
+test('DAO failure returns 503, logs a safe diagnostic and never exposes it',async()=>{
+ const t=setup({member_id:'M1'},false,true);
+ const original=console.error;const logged=[];
+ console.error=(...args)=>logged.push(args);
+ let result;
+ try {result=await t.send();} finally {console.error=original;}
+ assert.equal(result.status,503);
+ assert.deepEqual(result.body,{error:'MEMBER_STATE_UNAVAILABLE'});
+ assert.equal(logged.length,1);
+ assert.equal(logged[0][0],'[MEMBER_STATE_ERROR]');
+ assert.equal(logged[0][1].code,'DAO_FAILED');
+});
+
 test('admin retains access',async()=>{const t=setup(null,true);assert.equal((await t.send()).status,200);});

@@ -103,7 +103,7 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
             !/^[\p{L}_][\p{L}\p{N}_]*$/u.test(filter.field) || filter.field.startsWith('__') ||
             typeof filter.value !== 'string' || !filter.value || filter.value.length > 1500)
           throw new Error('INVALID_QUERY');
-        return {fieldFilter: {field: {fieldPath: filter.field}, op: 'EQUAL',
+        return {fieldFilter: {field: {fieldPath: /^[A-Za-z_][A-Za-z0-9_]*$/.test(filter.field) ? filter.field : '`' + filter.field + '`'}, op: 'EQUAL',
           value: {stringValue: filter.value}}};
       });
       if (new Set(filters.map(filter => filter.field)).size !== filters.length) throw new Error('INVALID_QUERY');
@@ -112,12 +112,49 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
       const structuredQuery = {from: [{collectionId: collection}],
         where: fields.length === 1 ? fields[0] : {compositeFilter: {op: 'AND', filters: fields}},
         limit};
+      const requestBody = JSON.stringify({structuredQuery});
       const response = await fetchImpl(`${base}:runQuery`, {
         method: 'POST', headers: {Authorization: 'Bearer ' + token.trim(),
-          'Content-Type': 'application/json'}, body: JSON.stringify({structuredQuery}),
+          'Content-Type': 'application/json'}, body: requestBody,
         redirect: 'error', signal: AbortSignal.timeout(10000)
       });
-      if (!response.ok) throw new Error('FIRESTORE_HTTP_' + response.status);
+      if (!response.ok) {
+        // Do not log raw Firestore error bodies, query values, URLs or credentials.
+        // Only a bounded status/category and the known collection are diagnostic.
+        let firestoreStatus = 'UNKNOWN';
+        let reason = 'OTHER';
+        let errorBody = '';
+        try {
+          errorBody = await response.text();
+          const payload = JSON.parse(errorBody);
+          const firestoreError = (Array.isArray(payload) ? payload.find(row => row?.error) : payload)?.error;
+          const status = firestoreError?.status;
+          if (typeof status === 'string' && /^[A-Z_]{3,40}$/.test(status)) firestoreStatus = status;
+          const message = String(firestoreError?.message || '');
+          if (/index/i.test(message)) reason = 'INDEX_REQUIRED';
+          else if (/invalid.*(query|argument|filter|field|path)|unsupported.*(query|filter)|non-alphanumeric/i.test(message)) reason = 'INVALID_QUERY';
+        } catch { /* A malformed error response must not hide the HTTP status. */ }
+        const error = new Error('FIRESTORE_HTTP_' + response.status);
+        error.firestoreOperation = 'runQuery';
+        error.firestoreCollection = collection;
+        error.firestoreStatus = firestoreStatus;
+        error.firestoreReason = reason;
+        // Explicit opt-in, development project only. Capture the exact transmitted
+        // query structure on HTTP 400; never capture values, bodies or auth headers.
+        if (response.status === 400 && config.mode === 'development' &&
+            config.projectId === 'dojo-management-dev' &&
+            process.env.FIRESTORE_QUERY_CAPTURE === '1') {
+          error.firestoreQueryCapture = {
+            projectId: config.projectId,
+            operation: 'runQuery',
+            query: {collection, fields: fields.map(filter => filter.fieldFilter.field.fieldPath),
+              operator: 'EQUAL', limit},
+            responseStatus: response.status,
+            firestoreStatus, reason
+          };
+        }
+        throw error;
+      }
       const body = await response.text();
       const rows = body.trim() ? (body.trim().startsWith('[')
         ? JSON.parse(body) : body.trim().split(/\r?\n/).map(line => JSON.parse(line))) : [];
