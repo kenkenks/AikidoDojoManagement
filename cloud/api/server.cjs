@@ -12,11 +12,14 @@ const { createServer } = require('node:http');
 const { createDao } = require('../../shared/DAO_Business.js');
 const { createFirestoreCore } = require('../member-read/DAO_Core_Firestore.cjs');
 const { createAdminApi } = require('./admin-api.cjs');
+const { createFirestoreDojoPrincipalResolver } = require('./dojo-account-firestore.cjs');
 const { createDispatch } = require('./webConnect.cjs');
 const { createQrGeneratorOptions } = require('../qr/generator-options.cjs');
+const { createAttendanceRankOptions } = require('../attendance/rank-options.cjs');
 const { createSessionMasterReader } = require('../attendance/session-masters.cjs');
 const { createSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
+const { createFirestoreMemberAttendanceState } = require('../attendance/member-state-firestore.cjs');
 const { createTimeTravelTarget } = require('../time-travel/target.cjs');
 
 const root = path.resolve(__dirname, '..', '..');
@@ -65,13 +68,27 @@ const readAttendanceSavedState = createAttendanceSavedState({
   attendanceDao: { queryEqual: (source, filters) => memberCore.queryEqual(source, filters) }
 });
 
-const readAttendanceSessionInfo = createSessionInfo({
-  readSessionMasters: createSessionMasterReader({
+const readSessionMasters = createSessionMasterReader({
     masterDao: {
       readById: (source, id) => memberCore.readById(source, id),
       queryEqual: (source, filters) => memberCore.queryEqual(source, filters)
     }
-  })
+  });
+const readAttendanceSessionInfo = createSessionInfo({readSessionMasters});
+const readMemberAttendanceState = createFirestoreMemberAttendanceState(memberCore, {
+  getTargetMonth: async () => {
+    const context = await application.getSystemContext();
+    if (!context || context.ok !== true || !/^\d{4}-(0[1-9]|1[0-2])$/.test(context.target_month || ''))
+      throw new Error('SYSTEM_CONTEXT_UNAVAILABLE');
+    return context.target_month;
+  },
+  validateScope: async (locationId, blockId) => {
+    const masters = await readSessionMasters(locationId);
+    const active = row => ['', '有効', '在籍', 'TRUE'].includes(String(row?.['状態'] ?? '').trim());
+    if (!masters.location || !active(masters.location) ||
+        !masters.billingBlocks.some(row => row.billing_block_id === blockId && row.location_id === locationId && active(row)))
+      throw new Error('INVALID_MEMBER_STATE_SCOPE');
+  }
 });
 
 const handle = createAdminApi({
@@ -82,6 +99,9 @@ const handle = createAdminApi({
   readMember: id => memberDao.readById('members', id),
   readMembers: ids => memberDao.readByIds('members', ids),
   readAttendanceSavedState,
+  readMemberAttendanceState,
+  readAttendanceRankOptions: createAttendanceRankOptions({ masterDao: { readPage: (...args) => memberCore.readPage(...args) } }),
+  resolveDojoPrincipal: createFirestoreDojoPrincipalResolver(memberCore),
   readAttendanceSessionInfo,
   readQrGeneratorOptions: createQrGeneratorOptions({ masterDao: { readPage: (...args) => memberCore.readPage(...args) } })
 });
@@ -157,7 +177,7 @@ createServer(async (req, res) => {
       const action = req.method === 'GET' ? parsed.searchParams.get('action') : body && body.action;
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'member_read', 'qr_generator_options']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_read', 'qr_generator_options']);
       const writeActions = new Set(['time_travel_set', 'members_read']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {

@@ -1,8 +1,9 @@
 'use strict';
 const { createAdminTimeTravelApi } = require('../time-travel/admin-api.cjs');
 const WebConnectCore = require('../../shared/WebConnectCore.js');
+const { canAccessMember } = require('./dojo-principal.cjs');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readAttendanceSessionInfo, readQrGeneratorOptions }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, resolveDojoPrincipal }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -18,14 +19,16 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const operationInput = request.input || null;
     const systemContext = url === '/api/system/context' || operation === 'systemContext.read';
     const attendanceSession = operation === 'attendance.sessionInfo';
+    const memberState = operation === 'attendance.memberState';
     const qrOptions = operation === 'qrGenerator.options';
+    const rankOptions = operation === 'attendance.rankOptions';
     const attendance = url.split('?')[0] === '/api/admin/attendance/saved-state' || operation === 'attendance.savedState';
     const member = /^\/api\/admin\/members\/([^/?#]+)$/.exec(url);
     const members = url === '/api/admin/members' || operation === 'member.readByIds';
     const memberOperation = operation === 'member.readById';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!systemContext && !qrOptions && !attendanceSession && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!systemContext && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -46,7 +49,37 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
-    if (user.admin !== true) return reply(403, { error: 'FORBIDDEN' });
+    // Only a verified, server-resolved member can read their own saved attendance.
+    // All other operations retain their existing admin-only boundary.
+    if (user.admin !== true) {
+      if ((!attendance && !attendanceSession && !rankOptions && !memberState) || typeof resolveDojoPrincipal !== 'function') return reply(403, { error: 'FORBIDDEN' });
+      const principal = await resolveDojoPrincipal(user);
+      if (attendance || memberState) {
+        const requestedMember = operation ? operationInput?.member_id : new URL(url, 'http://localhost').searchParams.get('member_id');
+        if (!canAccessMember(principal, requestedMember)) return reply(403, { error: 'FORBIDDEN' });
+      } else if (rankOptions) {
+        if (!principal?.member_id) return reply(403, { error: 'FORBIDDEN' });
+      } else if (attendanceSession) {
+        // A linked member may see dojo session labels/slots, never arbitrary time-travel queries.
+        if (!principal?.member_id || operationInput?.at != null) return reply(403, { error: 'FORBIDDEN' });
+      }
+    }
+    if (memberState) {
+      const keys = ['member_id', 'location_id', 'billing_block_id', 'attendance_date'];
+      if (!operation || !operationInput || keys.some(key => typeof operationInput[key] !== 'string' || !operationInput[key].trim()) ||
+          Object.keys(operationInput).some(key => !keys.includes(key))) return reply(400, { error:'INVALID_MEMBER_STATE_PARAMS' });
+      if (typeof readMemberAttendanceState !== 'function') return reply(503, { error:'MEMBER_STATE_UNAVAILABLE' });
+      try {
+        const result = await readMemberAttendanceState(operationInput);
+        return reply(result?.ok === true ? 200 : 400, result);
+      } catch { return reply(503, { error:'MEMBER_STATE_UNAVAILABLE' }); }
+    }
+    if (rankOptions) {
+      if (operationInput && Object.keys(operationInput).some(key => key !== 'action')) return reply(400, { error: 'INVALID_RANK_OPTIONS_PARAMS' });
+      if (typeof readAttendanceRankOptions !== 'function') return reply(503, { error: 'RANK_OPTIONS_UNAVAILABLE' });
+      try { return reply(200, await readAttendanceRankOptions()); }
+      catch { return reply(503, { error: 'RANK_OPTIONS_UNAVAILABLE' }); }
+    }
     if (qrOptions) {
       if (typeof readQrGeneratorOptions !== 'function') return reply(503, { error: 'QR_OPTIONS_UNAVAILABLE' });
       try { return reply(200, await readQrGeneratorOptions()); }

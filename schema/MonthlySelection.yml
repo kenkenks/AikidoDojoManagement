@@ -1,0 +1,41 @@
+# Proposed Firestore contract; not evidence of a deployed collection.
+entity: monthly_selection
+version: "0.1"
+fields:
+  - name: target_month
+    type: string
+    group: Identity
+    required: true
+  - name: member_id
+    type: string
+    group: Identity
+    required: true
+  - name: billing_group_id
+    type: string
+    group: Identity
+    required: true
+  - name: plan_id
+    type: string
+    group: Unclassified
+    required: true
+  - name: 宣言日
+    type: string
+    group: Unclassified
+  - name: 状態
+    type: string
+    group: Unclassified
+  - name: 備考
+    type: string
+    group: Unclassified
+sources:
+  gas:
+    sheet: "04_月次選択"
+  firestore:
+    collection: monthly_selections
+
+# Proposed deterministic document identity; migration and uniqueness enforcement are separate.
+document_identity:
+  fields: [billing_group_id, target_month]
+  algorithm: base64url-billing-group-plus-iso-month-v1
+  implementation: cloud/attendance/monthly-selection-key.cjs
+  write_precondition: create_only_or_transactional_conflict_check

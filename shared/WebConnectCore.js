@@ -8,6 +8,8 @@ var WebConnectCore = (function () {
     if (action === 'member_read') return { operation: 'member.readById', input: input || {} };
     if (action === 'members_read') return { operation: 'member.readByIds', input: input || {} };
     if (action === 'attendance_session_info') return { operation: 'attendance.sessionInfo', input: input || {} };
+    if (action === 'attendance_rank_options') return { operation: 'attendance.rankOptions', input: input || {} };
+    if (action === 'member_attendance_state') return { operation: 'attendance.memberState', input: input || {} };
     if (action === 'attendance_saved_state') return { operation: 'attendance.savedState', input: input || {} };
     if (action === 'time_travel_set') {
       var data = input || {};
