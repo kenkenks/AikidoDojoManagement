@@ -55,6 +55,7 @@
 
   <section class="card login-state">
     <strong id="loginIdentity">先生情報を確認中...</strong>
+    <button id="firebaseLoginButton" type="button" class="hidden">管理者としてGoogleログイン</button>
   </section>
 
   <section class="card">
@@ -104,6 +105,8 @@
   <section class="card"><h2>診断ログ</h2><pre id="operationLog" style="white-space:pre-wrap;word-break:break-word;margin:0;"></pre></section>
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
+  <script src="firebase_auth.js"></script>
+  <script src="dojo_api_client.js"></script>
   <script>
     const qrLogStartedAt = performance.now();
     function qrLog(step, detail) {
@@ -113,14 +116,45 @@
       console.log(line);
     }
     qrLog("01", "init start; runtime=" + String((window.DOJO_RUNTIME_CONFIG || {}).runtime || "unknown"));
-    const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
+    const RUNTIME_CONFIG = window.DOJO_RUNTIME_CONFIG;
+    const IS_FIREBASE = RUNTIME_CONFIG.runtime === "firebase";
+    const GAS_URL = RUNTIME_CONFIG.apiBaseUrl;
+    const firebaseAuthClient = IS_FIREBASE ? window.DOJO_FIREBASE_AUTH.create({ runtimeConfig:RUNTIME_CONFIG }) : null;
+    const dojoApiClient = IS_FIREBASE ? window.DOJO_API_CLIENT.create({ getCurrentUser:firebaseAuthClient.getCurrentUser }) : null;
     qrLog("02", "apiBaseUrl configured=" + !!GAS_URL);
     let qrType = "MEMBER_CARD";
     let options = null;
 
     const teacherSession = DojoVirtualSession.get();
     qrLog("03", "session role=" + (teacherSession ? teacherSession.role : "none") + " teacher_id present=" + !!(teacherSession && teacherSession.teacher_id));
-    if (!teacherSession || teacherSession.role !== "TEACHER") {
+    if (IS_FIREBASE) {
+      // Firebase mode is admin-only until teacher identity is verified server-side.
+      const loginButton = document.getElementById("firebaseLoginButton");
+      loginButton.classList.remove("hidden");
+      loginButton.addEventListener("click", function() {
+        firebaseAuthClient.signInWithGoogle().catch(function(error) {
+          document.getElementById("loadMessage").className = "note error";
+          document.getElementById("loadMessage").textContent = error.message || String(error);
+        });
+      });
+      firebaseAuthClient.ready.then(function() {
+        function updateUser(user) {
+          loginButton.classList.toggle("hidden", !!user);
+          document.getElementById("loginIdentity").textContent = user ? "Googleログイン済み（管理者権限を確認中）" : "QR生成にはFirebase管理者ログインが必要です。";
+          if (user) loadOptions();
+          else {
+            options = null;
+            document.getElementById("previewButton").disabled = true;
+            document.getElementById("loadMessage").textContent = "管理者としてログインしてください。";
+          }
+        }
+        firebaseAuthClient.onUserChanged(updateUser);
+        updateUser(firebaseAuthClient.getCurrentUser());
+      }).catch(function(error) {
+        document.getElementById("loadMessage").className = "note error";
+        document.getElementById("loadMessage").textContent = error.message || String(error);
+      });
+    } else if (!teacherSession || teacherSession.role !== "TEACHER") {
       document.getElementById("loginIdentity").textContent = "先生ログインが必要です。";
       document.getElementById("loadMessage").className = "note error";
       document.getElementById("loadMessage").textContent = "先生ホームから開いてください。";
@@ -152,7 +186,7 @@
 
     function loadOptions() {
       qrLog("05", "qr_generator_options request start");
-      jsonp(GAS_URL, { action:"qr_generator_options" })
+      (IS_FIREBASE ? loadFirebaseOptions() : jsonp(GAS_URL, { action:"qr_generator_options" }))
         .then(function(result) {
           if (!result || result.ok !== true) {
             throw new Error((result && result.message) || "QR生成用マスタを取得できませんでした。");
@@ -461,6 +495,31 @@
       const div = document.createElement("div");
       div.textContent = String(value == null ? "" : value);
       return div.innerHTML;
+    }
+
+    // Explicit opt-in for the staged Cloud Run revision. Never accept a URL from
+    // query parameters: an arbitrary endpoint could receive Firebase ID tokens.
+    function qrOptionsApiBaseUrl() {
+      const useCandidate = new URLSearchParams(window.location.search).get("qr_candidate") === "1";
+      if (!useCandidate) return String(RUNTIME_CONFIG.apiBaseUrl || "").replace(/\/+$/, "");
+      if (!IS_FIREBASE || RUNTIME_CONFIG.target !== "dev-firebase") {
+        throw new Error("QR candidate is restricted to the Firebase development target.");
+      }
+      return "https://candidate---dojo-time-travel-admin-q6ujypei6a-an.a.run.app";
+    }
+
+    async function loadFirebaseOptions() {
+      await firebaseAuthClient.ready;
+      const response = await dojoApiClient.request(
+        qrOptionsApiBaseUrl() + "/api/webconnect?action=qr_generator_options",
+        { method:"GET" }
+      );
+      if (!response.ok) {
+        if (response.status === 403) throw new Error("管理者権限がありません（HTTP 403）。");
+        if (response.status === 401) throw new Error("Firebase認証が必要です（HTTP 401）。");
+        throw new Error("QR生成用マスタの取得に失敗しました（HTTP " + response.status + "）。");
+      }
+      return response.json();
     }
 
     function jsonp(url, params) {
