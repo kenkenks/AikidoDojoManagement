@@ -17,7 +17,7 @@ test('Firebase runtime fetches public clock without token or JSONP',async()=>{
   let url,options;
   const f=fixture('firebase',async(u,o)=>{url=u;options=o;return {ok:true,json:async()=>data};});
   await new Promise(resolve=>setImmediate(resolve));
-  assert.equal(url,'https://example.test/api/system/context');
+  assert.equal(url,'https://example.test/api/webconnect?action=system_context');
   assert.equal(options.method,'GET');
   assert.equal(options.cache,'no-store');
   assert.equal(f.scripts.length,0);

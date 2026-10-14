@@ -27,7 +27,7 @@
   if (runtimeConfig.runtime === "firebase") {
     const controller = new AbortController();
     const timeout = window.setTimeout(function() { controller.abort(); }, 20000);
-    const url = String(runtimeConfig.apiBaseUrl).replace(/\/+$/, "") + "/api/system/context";
+    const url = String(runtimeConfig.apiBaseUrl).replace(/\/+$/, "") + "/api/webconnect?action=system_context";
     fetch(url, { method: "GET", cache: "no-store", signal: controller.signal })
       .then(function(response) {
         if (!response.ok) throw new Error("HTTP " + response.status);

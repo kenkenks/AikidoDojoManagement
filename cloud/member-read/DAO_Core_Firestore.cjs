@@ -59,6 +59,40 @@ function createFirestoreCore(config, { fetchImpl = fetch, getAccessToken } = {})
     updateByKey: (source,id,values,options = {}) => write(source,id,values,true,false,options.updateTime),
     upsertByKey: (source,id,values) => write(source,id,values,null),
     replaceByKey: (source,id,values) => write(source,id,values,true,true),
+    // Explicit, bounded collection pagination for administrative master readers.
+    // Never silently truncate: callers must follow nextPageToken or fail on their own cap.
+    async readPage(source, { pageSize = 100, pageToken = null } = {}) {
+      const collection = normalizeStorageId(source.collection);
+      if (!Number.isInteger(pageSize) || pageSize < 1 || pageSize > 500 ||
+          (pageToken !== null && (typeof pageToken !== 'string' || !pageToken || pageToken.length > 4096))) {
+        throw new Error('INVALID_PAGE_PARAMS');
+      }
+      const token = config.mode === 'emulator' ? 'owner' : await getAccessToken?.();
+      if (typeof token !== 'string' || !token.trim()) throw new Error('ACCESS_TOKEN_REQUIRED');
+      const params = new URLSearchParams({ pageSize: String(pageSize) });
+      if (pageToken !== null) params.set('pageToken', pageToken);
+      const response = await fetchImpl(`${base}/${encodeURIComponent(collection)}?${params}`, {
+        method: 'GET', headers: { Authorization: 'Bearer ' + token.trim() },
+        redirect: 'error', signal: AbortSignal.timeout(10000)
+      });
+      if (!response.ok) throw new Error('FIRESTORE_HTTP_' + response.status);
+      const body = await response.json();
+      if (!body || typeof body !== 'object' || Array.isArray(body) ||
+          (body.documents !== undefined && !Array.isArray(body.documents)) ||
+          (body.nextPageToken !== undefined && (typeof body.nextPageToken !== 'string' || !body.nextPageToken))) {
+        throw new Error('INVALID_PAGE_RESPONSE');
+      }
+      const prefix = `projects/${config.projectId}/databases/(default)/documents/${collection}/`;
+      const documents = (body.documents || []).map(doc => {
+        if (!doc || typeof doc.name !== 'string' || !doc.name.startsWith(prefix) ||
+            !doc.name.slice(prefix.length) || doc.name.slice(prefix.length).includes('/')) {
+          throw new Error('INVALID_PAGE_RESPONSE');
+        }
+        return { id: doc.name.slice(prefix.length), fields: decodeFields(doc.fields || {}) };
+      });
+      if (documents.length > pageSize) throw new Error('INVALID_PAGE_RESPONSE');
+      return { documents, nextPageToken: body.nextPageToken || null };
+    },
     // Bounded equality query for attendance scopes. No collection-wide reads.
     async queryEqual(source, filters, { limit = 100, includeDocumentId = false } = {}) {
       const collection = normalizeStorageId(source.collection);

@@ -20,7 +20,8 @@ const handle = createAdminApi({
   readMember: async id => { calls.push(['member', id]); return { id }; },
   readMembers: async ids => { calls.push(['members', ids]); return ids.map(id => ({ id })); },
   readAttendanceSavedState: async input => { calls.push(['saved', input]); return { ok: true }; },
-  readAttendanceSessionInfo: async input => { calls.push(['session', input]); return { ok: true }; }
+  readAttendanceSessionInfo: async input => { calls.push(['session', input]); return { ok: true }; },
+  readQrGeneratorOptions: async () => { calls.push(['qrOptions']); return { ok: true, members: [], plans: [], locations: [], teachers: [] }; }
 });
 let callback;
 const modules = {
@@ -31,6 +32,7 @@ const modules = {
   '../member-read/DAO_Core_Firestore.cjs': { createFirestoreCore: () => ({}) },
   './admin-api.cjs': { createAdminApi: () => handle },
   './webConnect.cjs': { createDispatch },
+  '../qr/generator-options.cjs': { createQrGeneratorOptions: () => async () => ({ ok: true }) },
   '../attendance/session-masters.cjs': { createSessionMasterReader: () => async () => ({}) },
   '../attendance/session-info.cjs': { createSessionInfo: () => async () => ({}) },
   '../attendance/saved-state.cjs': { createAttendanceSavedState: () => async () => ({}) },
@@ -79,4 +81,16 @@ test('HTTP method mismatch, unknown action and invalid JSON fail closed', async 
   assert.equal((await request('GET', '/api/webconnect?action=unknown', undefined, 'Bearer admin')).status, 404);
   assert.equal((await request('POST', '/api/webconnect', '{bad', 'Bearer admin')).status, 400);
   assert.deepEqual(JSON.parse(JSON.stringify(calls)), []);
+});
+
+test('QR options uses Dispatcher with admin authorization only', async () => {
+  calls = [];
+  assert.equal((await request('GET', '/api/webconnect?action=qr_generator_options')).status, 401);
+  assert.equal((await request('GET', '/api/webconnect?action=qr_generator_options', undefined, 'Bearer teacher')).status, 403);
+  assert.deepEqual(calls, []);
+  const result = await request('GET', '/api/webconnect?action=qr_generator_options', undefined, 'Bearer admin');
+  assert.equal(result.status, 200);
+  assert.equal(result.body.ok, true);
+  assert.deepEqual(calls, [['qrOptions']]);
+  assert.equal((await request('POST', '/api/webconnect', { action: 'qr_generator_options' }, 'Bearer admin')).status, 405);
 });

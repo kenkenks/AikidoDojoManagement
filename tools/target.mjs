@@ -76,6 +76,7 @@ function buildFirebase() {
   for (const name of ["DAO_Core_Firestore.cjs", "DAO_Core_Values.cjs"]) {
     copy(join(repoRoot, "cloud", "member-read", name), join(deployRoot, "cloud", "member-read", name));
   }
+  copy(join(repoRoot, "cloud", "qr", "generator-options.cjs"), join(deployRoot, "cloud", "qr", "generator-options.cjs"));
   for (const name of ["saved-state.cjs", "session-masters.cjs", "session-info.cjs"]) {
     copy(join(repoRoot, "cloud", "attendance", name), join(deployRoot, "cloud", "attendance", name));
   }

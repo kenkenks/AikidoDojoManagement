@@ -22,6 +22,7 @@ test('dev-firebase target build creates self-contained Cloud Run deploy unit', (
     'cloud/api/admin-api.cjs',
     'cloud/member-read/DAO_Core_Firestore.cjs',
     'cloud/member-read/DAO_Core_Values.cjs',
+    'cloud/qr/generator-options.cjs',
     'shared/DAO_Business.js',
     'shared/DAO_Definitions.js',
     'shared/DAO_Definition_Setting.generated.js',
@@ -38,6 +39,9 @@ test('dev-firebase target build creates self-contained Cloud Run deploy unit', (
     assert.equal(fs.existsSync(path.join(deployRoot, rel)), true, `missing deploy artifact: ${rel}`);
   }
 
+  const qrBusiness = require(path.join(deployRoot, 'cloud/qr/generator-options.cjs'));
+  assert.equal(typeof qrBusiness.createQrGeneratorOptions, 'function');
+
   const pkg = JSON.parse(fs.readFileSync(path.join(deployRoot, 'package.json'), 'utf8'));
   assert.deepEqual(pkg.scripts, { start: 'node cloud/api/server.cjs' });
   assert.equal(pkg.scripts['gcp-build'], undefined);
@@ -50,7 +54,7 @@ test('dev-firebase target build creates self-contained Cloud Run deploy unit', (
 });
 
 
-test('dev-firebase target push targets existing unified Dojo service (dry-run only)', () => {
+test('dev-firebase target push targets Firebase Hosting only (dry-run)', () => {
   const result = spawnSync(process.execPath, ['tools/target.mjs', 'push', 'dev-firebase'], {
     cwd: root,
     encoding: 'utf8',
@@ -58,7 +62,7 @@ test('dev-firebase target push targets existing unified Dojo service (dry-run on
     env: { ...process.env, DOJO_DEPLOY_DRY_RUN: '1' }
   });
   assert.equal(result.status, 0, result.stderr || result.stdout);
-  assert.match(result.stdout, /\[DRY RUN\] gcloud run deploy dojo-time-travel-admin/);
-  assert.match(result.stdout, /\[DRY RUN\] firebase deploy --only hosting/);
-  assert.ok(result.stdout.indexOf('[DRY RUN] gcloud') < result.stdout.indexOf('[DRY RUN] firebase'));
+  assert.match(result.stdout, /\[TARGET PUSH\] dev-firebase: Firebase Hosting only \(Cloud Run unchanged\)/);
+  assert.match(result.stdout, /\[DRY RUN\] firebase deploy --only hosting --project dojo-management-dev/);
+  assert.doesNotMatch(result.stdout, /\[DRY RUN\] gcloud run deploy/);
 });

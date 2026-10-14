@@ -13,6 +13,7 @@ const { createDao } = require('../../shared/DAO_Business.js');
 const { createFirestoreCore } = require('../member-read/DAO_Core_Firestore.cjs');
 const { createAdminApi } = require('./admin-api.cjs');
 const { createDispatch } = require('./webConnect.cjs');
+const { createQrGeneratorOptions } = require('../qr/generator-options.cjs');
 const { createSessionMasterReader } = require('../attendance/session-masters.cjs');
 const { createSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
@@ -81,7 +82,8 @@ const handle = createAdminApi({
   readMember: id => memberDao.readById('members', id),
   readMembers: ids => memberDao.readByIds('members', ids),
   readAttendanceSavedState,
-  readAttendanceSessionInfo
+  readAttendanceSessionInfo,
+  readQrGeneratorOptions: createQrGeneratorOptions({ masterDao: { readPage: (...args) => memberCore.readPage(...args) } })
 });
 
 const dispatch = createDispatch(handle);
@@ -155,7 +157,7 @@ createServer(async (req, res) => {
       const action = req.method === 'GET' ? parsed.searchParams.get('action') : body && body.action;
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'member_read']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'member_read', 'qr_generator_options']);
       const writeActions = new Set(['time_travel_set', 'members_read']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {

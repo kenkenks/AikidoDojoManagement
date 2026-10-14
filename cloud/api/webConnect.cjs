@@ -6,7 +6,9 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 function createDispatch(handle) {
   if (typeof handle !== 'function') throw new Error('handle is required');
   return async function dispatch({ action, input, context }) {
-    const contract = WebConnectCore.resolve(action, input);
+    const contract = action === 'qr_generator_options'
+      ? { operation: 'qrGenerator.options', input: null }
+      : WebConnectCore.resolve(action, input);
     const reply = (status, body) => ({ status, headers: {
       'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store'
     }, body });
