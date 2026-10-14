@@ -66,3 +66,24 @@ test('dev-firebase target push targets Firebase Hosting only (dry-run)', () => {
   assert.match(result.stdout, /\[DRY RUN\] firebase deploy --only hosting --project dojo-management-dev/);
   assert.doesNotMatch(result.stdout, /\[DRY RUN\] gcloud run deploy/);
 });
+
+
+test('CLI --dry-run prevents deployment without requiring environment override', () => {
+  const result = spawnSync(process.execPath, ['tools/target.mjs', 'push', 'dev-firebase', '--dry-run'], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+    env: { ...process.env, DOJO_DEPLOY_DRY_RUN: '0' }
+  });
+  assert.equal(result.status, 0, result.stderr || result.stdout);
+  assert.match(result.stdout, /\[DRY RUN\] firebase deploy --only hosting --project dojo-management-dev/);
+  assert.doesNotMatch(result.stdout, /Deploy complete|releasing new version/);
+});
+
+test('unknown push flags fail closed before deploying', () => {
+  const result = spawnSync(process.execPath, ['tools/target.mjs', 'push', 'dev-firebase', '--unexpected'], {
+    cwd: root, encoding: 'utf8', windowsHide: true
+  });
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /Unknown target option/);
+});

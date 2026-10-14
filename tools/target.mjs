@@ -4,7 +4,11 @@ import { fileURLToPath } from "node:url";
 import { spawnSync } from "node:child_process";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const [command, targetName] = process.argv.slice(2);
+const [command, targetName, ...flags] = process.argv.slice(2);
+const dryRun = flags.includes("--dry-run") || process.env.DOJO_DEPLOY_DRY_RUN === "1";
+if (flags.some(flag => flag !== "--dry-run")) {
+  throw new Error(`Unknown target option: ${flags.join(" ")}`);
+}
 
 if (!["build", "push"].includes(command) || !targetName) {
   console.error("usage: node tools/target.mjs <build|push> <target>");
@@ -32,7 +36,10 @@ const webExcludes = (profile.webExclude || []).map(globToRegExp);
 const gasUrl = `https://script.google.com/macros/s/${profile.gas.deploymentId}/exec`;
 
 build();
-if (command === "push") runClasp(["push"]);
+if (command === "push") {
+  if (dryRun) console.log(`[DRY RUN] clasp push (target: ${targetName})`);
+  else runClasp(["push"]);
+}
 
 function buildFirebase() {
   const builder = join(repoRoot, "tools", "build-time-travel-firestore.mjs");
@@ -117,7 +124,7 @@ function pushFirebase() {
 }
 
 function runFirebaseDeploy(executable, args, cwd) {
-  if (process.env.DOJO_DEPLOY_DRY_RUN === "1") {
+  if (dryRun) {
     console.log(`[DRY RUN] ${executable} ${args.join(" ")} (cwd: ${normalize(relative(repoRoot, cwd)) || "."})`);
     return;
   }
