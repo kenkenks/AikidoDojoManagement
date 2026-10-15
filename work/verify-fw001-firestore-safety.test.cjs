@@ -68,6 +68,41 @@ test('journal persistence failure prevents the remote write',async t=>{
   await assert.rejects(S.guardedDatabase(db,j,S.gate()).createFixture(key,S.fixtureData(j.data)[key]),/DISK_FULL/);
   assert.equal(db.writes.length,0);
 });
+test('journal rename recovers from transient EPERM with atomic replacement',t=>{
+  const j=journal(t),rename=fs.renameSync;let attempts=0;
+  t.mock.method(fs,'renameSync',(from,to)=>{
+    if(++attempts<=2)throw Object.assign(Error('locked'),{code:'EPERM'});
+    return rename(from,to);
+  });
+  j.data.status='retry_saved';j.save();
+  assert.equal(attempts,3);
+  assert.equal(S.openJournal(j.file).data.status,'retry_saved');
+  assert.equal(fs.existsSync(j.file+'.next'),false);
+});
+test('persistent rename EPERM preserves both journals and prevents remote dispatch',async t=>{
+  const j=journal(t),original=fs.readFileSync(j.file),db=database(),key='members/'+j.data.ids.member;
+  let attempts=0;const denied=Object.assign(Error('locked'),{code:'EPERM'});
+  t.mock.method(fs,'renameSync',()=>{attempts++;throw denied;});
+  const started=performance.now();
+  await assert.rejects(S.guardedDatabase(db,j,S.gate()).createFixture(key,S.fixtureData(j.data)[key]),e=>e===denied);
+  assert.ok(attempts>1 && attempts<=11);
+  assert.ok(performance.now()-started<2000);
+  assert.deepEqual(fs.readFileSync(j.file),original);
+  const pending=JSON.parse(fs.readFileSync(j.file+'.next','utf8'));
+  assert.equal(pending.documents[key].state,'in_flight');
+  assert.equal(db.writes.length,0);
+  assert.equal(db.records.size,0);
+});
+test('non-EPERM rename errors are propagated without retry or journal damage',t=>{
+  const j=journal(t),original=fs.readFileSync(j.file);let attempts=0;
+  const denied=Object.assign(Error('denied'),{code:'EACCES'});
+  t.mock.method(fs,'renameSync',()=>{attempts++;throw denied;});
+  j.data.status='not_saved';
+  assert.throws(()=>j.save(),e=>e===denied);
+  assert.equal(attempts,1);
+  assert.deepEqual(fs.readFileSync(j.file),original);
+  assert.equal(JSON.parse(fs.readFileSync(j.file+'.next','utf8')).status,'not_saved');
+});
 test('pre-existing fixture collision is never overwritten or deleted',async t=>{
   const j=prepared(t),key='members/'+j.data.ids.member,db=database({[key]:S.fixtureData(j.data)[key]});
   await assert.rejects(S.guardedDatabase(db,j,S.gate()).createFixture(key,S.fixtureData(j.data)[key]),/ALREADY_EXISTS/);

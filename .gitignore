@@ -11,3 +11,5 @@ deploy_logs/
 # Python generated files
 __pycache__/
 *.pyc
+
+/work/fw001-firestore-runs/

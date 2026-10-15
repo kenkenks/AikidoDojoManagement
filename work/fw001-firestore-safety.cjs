@@ -48,7 +48,17 @@ function validateJournal(j){
 function atomicSave(file,data){
   const temp=file+'.next',fd=fs.openSync(temp,'w',0o600);
   try{fs.writeFileSync(fd,JSON.stringify(data,null,2)+'\n');fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
-  fs.renameSync(temp,file);
+  // Keep the old journal intact until replacement succeeds. Only transient
+  // Windows EPERM is retryable; persistent failures leave both files for diagnosis.
+  const until=performance.now()+200,waiter=new Int32Array(new SharedArrayBuffer(4));
+  for(let retries=0;;retries++){
+    try{fs.renameSync(temp,file);break;}
+    catch(error){
+      const remaining=until-performance.now();
+      if(error.code!=='EPERM' || retries>=10 || remaining<=0)throw error;
+      Atomics.wait(waiter,0,0,Math.min(20,remaining));
+    }
+  }
 }
 function journalAccess(file,data,save=atomicSave){return {file,data,
   save(){validateJournal(data);save(file,data);},
