@@ -16,8 +16,8 @@ test("TimeTrip Firebase GET/POST routes through Auth and Dojo API Client while G
   assert.match(html, /firebaseAuthClient\.signInWithGoogle\(\)/);
   assert.match(html, /Googleでログイン/);
   assert.match(html, /firebaseAuthClient\.onUserChanged/);
-  assert.match(html, /dojoApiClient\.request\(firebaseApiUrl\("\/api\/admin\/time-travel"\)\)/);
-  assert.match(html, /dojoApiClient\.request\(firebaseApiUrl\("\/api\/admin\/time-travel"\), \{/);
+  assert.match(html, /dojoApiClient\.request\(firebaseApiUrl\("\/api\/system\/admin\/time-travel"\)\)/);
+  assert.match(html, /dojoApiClient\.request\(firebaseApiUrl\("\/api\/system\/admin\/time-travel"\), \{/);
   assert.match(html, /method:"POST"/);
   assert.match(html, /"Content-Type":"application\/json"/);
   assert.match(html, /body:JSON\.stringify\(firebasePayload\)/);

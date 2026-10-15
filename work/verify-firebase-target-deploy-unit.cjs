@@ -102,7 +102,7 @@ test('deploy verifier detects a missing runtime module before deploy', () => {
       cwd: root, encoding: 'utf8', windowsHide: true
     });
     assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Missing dependency: cloud\/api\/admin-api\.cjs -> \.\/dojo-principal\.cjs/);
+    assert.match(result.stderr.replace(/\\/g, '/'), /Missing dependency: cloud\/api\/admin-api\.cjs -> \.\/dojo-principal\.cjs/);
   } finally {
     fs.writeFileSync(missing, backup);
   }
