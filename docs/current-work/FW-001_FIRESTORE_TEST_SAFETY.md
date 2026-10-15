@@ -1,8 +1,25 @@
 # FW-001追加修正：実Firestoreテストの安全性と回収手順
 
-基準：FW-001 Patch適用済みソース（既存131テストPASS）。対象はテスト基盤のみ。
+## Current verified status — 2026-10-15
 
-今回の変更ファイルは次の6件。業務処理・GAS・API・設定ファイルは変更していない。
+FW-001 DEV candidate verification is complete. The current offline suite is **186/186 PASS**, 0 FAIL, exit 0; git diff --check passed. Earlier test counts below are historical results, not the current total.
+
+- Project: dojo-management-dev; database: (default).
+- Candidate: dojo-time-travel-admin-00039-pex. Normal serving revision dojo-time-travel-admin-00024-728 remained at 100%.
+- Run: FW001TEST_83f59b07a48f44b1aed1603a9eb8c412.
+- Registration, repeat submission and cancellation: all three confirmed and independently verified against Firestore.
+- Repeat retained the original IDs and ten-document count. Cancellation retained those IDs, recorded cancellation metadata, kept invoice/View amounts at 1,000 yen and reduced View attendance details to zero.
+- All ten dedicated documents were recovered. Final read-only absence check: **2026-10-15 17:03:51 JST**, all ten absent and dedicated scope queries empty.
+- Final journal: status: passed; step: 3; verifiedStep: 3; stopped: true; pending: false; lateWritesPossible: false; errors empty. stopped prevents further staged operations after recovery.
+- No promotion to normal traffic or Firebase Hosting publication was performed. DEV candidate placement is complete; broader release is outside this verification.
+- P001 fee-display mapping, broader load/contention validation and populated-data rollout audits remain separate tasks and do not block this scoped FW-001 verification completion.
+
+The journal and generated browser scripts remain ignored local evidence; do not add them to Git. This status records completed authorization, not permission to repeat live operations. See [verification record](FW-001_VERIFICATION_2026-10-15.md) and [candidate procedure](FW-001_CANDIDATE_TEST_SAFETY.md).
+
+
+初期導入時の履歴：FW-001 Patch適用済みソース（当時131テストPASS）。対象はテスト基盤のみ。
+
+初期導入時の変更ファイルは次の6件。業務処理・GAS・API・設定ファイルは変更していない。
 
 - work/verify-fw001-firestore-real.cjs（修正）
 - work/verify-fw001.cjs（追加オフライン試験の登録のみ）
@@ -20,10 +37,14 @@
 - 書込送信・transaction.create/setより前に、対象パスをローカル台帳へ同期書込しfsyncする。応答が失われても対象を追跡する。
 - 子PIDも開始メッセージ送信前に台帳へ記録する。子のコマンドラインには台帳の絶対パスが入る。
 - 回収では所有項目を確認し、読取時のupdateTimeを条件として文書単位で削除する。削除後と最後の再読取で不在を確認する。
-- 削除・読取失敗は対象別に記録し、他の文書の回収を継続する。回収全体の期限を超えた未確認文書はnot_verifiedとして残す。
+- 現在の回収は、全対象の存在・所有条件・更新時刻を事前確認してから削除を開始する。最初の削除失敗・所有不一致・更新競合・通信障害で、そのラウンドの後続削除を停止する。旧仕様の「他の文書の回収を継続」は廃止した。
 - 検証・回収・SDK終了がすべて完了し、不確定な書込もない場合だけ、検証をpassedとする。
 
 GAS、FW-001の業務処理、DAO/DTO、API、登録・請求仕様は変更していない。書込をテスト用ラッパーで監視するだけであり、実行する業務処理は既存のまま。
+
+## Direct-SDK CLI scope and candidate distinction
+
+以下の子プロセス・--confirm-writer-stopped付きCLI手順は直接SDKテスト用。candidate B方式では使用せず、FW-001_CANDIDATE_TEST_SAFETY.mdのrecover()手順と状態判定を使用する。
 
 ## 保存先のガード
 
@@ -78,7 +99,7 @@ work/fw001-firestore-runs/FW001TEST_<32桁UUID>.json
 node work/verify-fw001.cjs
 ```
 
-既存131件＋追加30件＝161件。追加試験はメモリDBとローカル子プロセスを用い、Firestore SDK・認証・エミュレータ・外部通信は使わない。
+初期導入時の履歴：既存131件＋追加30件＝161件（現在は186件）。追加試験はメモリDBとローカル子プロセスを用い、Firestore SDK・認証・エミュレータ・外部通信は使わない。
 
 追加試験だけを実行する場合：
 
@@ -189,3 +210,13 @@ node work/verify-fw001-firestore-real.cjs --confirm-development --recover --conf
 ネットワーク切断後にサーバー側だけで書込が確定すること、親子両方の強制終了、電源断、ディスク障害、権限の取り消しなどに対し、完全な削除保証はできない。fsync済み台帳も、ハードウェア障害や保存媒体喪失まで保証しない。SDKのPromiseの期限はリモート操作の取消保証ではない。
 
 このため不確定状態を失敗として残し、台帳から後で確認・回収できるようにしている。台帳を紛失した場合は自動回収を行わず、保存したFW001_JOURNALのrun/prefixから上記10種類の対象をFirebase Console等で手動調査する。出席・請求は専用member_id、月次選択は専用billing_group_id、Viewは専用member_idと対象月で照合する。所有を確定できない文書は削除しない。
+
+## Current cleanup safety contract
+
+The shared inspectOrCleanup implementation checks every journaled path before the first delete: allowed identity, attempted/noncollision entry, existence, ownership and updateTime for present documents. Any preflight failure blocks all deletes. Already absent paths are permitted so a partial cleanup can be inspected safely; the completed live run separately required all ten present before recovery.
+
+Each deletion re-reads ownership and supplies lastUpdateTime from that snapshot. The first failed/uncertain delete, ownership mismatch, changed version, read failure or still-present result stops subsequent deletes in that round. States distinguish deleted_verified, absent, unknown_or_failed, owner_mismatch_not_deleted, still_present and not_processed; preflight_failed blocks dispatch. Uncertain outcomes never count as success. Journal-save failure also prevents subsequent deletes by propagating the error.
+
+Candidate recover returns cleanup_incomplete on an incomplete round; it does not automatically repeat failed deletions. Successful rounds retain waiting, dedicated-scope rediscovery and final absence verification; reappearance or failed verification cannot become PASS. A finite observation window cannot prove that no arbitrarily late commit will ever occur. Additional recovery after an error requires separate approval.
+
+The latest offline suite includes normal ten-document cleanup, all-owner preflight, first-delete failure, partial cleanup followed by update conflict or lost response, bounded communication failures, and reappearance tests: 186/186 PASS.

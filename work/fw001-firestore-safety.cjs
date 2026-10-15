@@ -34,6 +34,15 @@ function identity(j,key){const i=j.ids;const fixed={
   if(!/^\d{4}-(0[1-9]|1[0-2])$/.test(j.month || ''))throw failure('DOCUMENT_OUTSIDE_RUN');
   if(key==='monthly_selections/'+monthlySelectionDocumentId(i.group,j.month))return {member_id:i.member,billing_group_id:i.group,target_month:j.month};
   if(key==='payment_status_views/view_'+monthlySelectionDocumentId(i.member,j.month))return {member_id:i.member,target_month:j.month};
+  if(j.candidate){
+    const uuid='[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}';
+    if(new RegExp('^invoices/INV-'+j.month+'-'+i.group+'-'+i.member+'-[a-f0-9]{8}$').test(key))
+      return {member_id:i.member,billing_group_id:i.group,target_month:j.month,plan_id:i.plan,invoice_id:key.slice('invoices/'.length)};
+    if(new RegExp('^attendances/ATT-'+uuid+'$').test(key))
+      return {member_id:i.member,location_id:i.dojo,billing_block_id:i.block,teacher_id:i.teacher,
+        attendance_session_id:j.prefix+'_SESSION',target_month:j.month,'稽古日':j.date,slot_id:i.slot,attendance_id:key.slice('attendances/'.length)};
+    throw failure('DOCUMENT_OUTSIDE_RUN');
+  }
   if(key==='invoices/INV-'+j.month+'-'+i.group+'-'+i.member+'-'+j.prefix.slice(0,8))return {member_id:i.member,billing_group_id:i.group,target_month:j.month,plan_id:i.plan};
   if(new RegExp('^attendances/ATT-'+j.prefix+'_[a-f0-9]{32}$').test(key))return {member_id:i.member,location_id:i.dojo,billing_block_id:i.block,teacher_id:i.teacher,attendance_session_id:j.prefix+'_SESSION'};
   throw failure('DOCUMENT_OUTSIDE_RUN');
@@ -42,6 +51,17 @@ function owns(j,key,fields){return Object.entries(identity(j,key)).every(([name,
 function validateJournal(j){
   if(j?.schema!==SCHEMA || j.projectId!==PROJECT || j.databaseId!==DATABASE || !/^FW001TEST_[a-f0-9]{32}$/.test(j.prefix || '') ||
       JSON.stringify(j.ids)!==JSON.stringify(idsFor(j.prefix)) || !j.documents || Array.isArray(j.documents) || typeof j.documents!=='object' || Object.keys(j.documents).length>5000 || !Array.isArray(j.errors))throw failure('INVALID_RUN_JOURNAL');
+  if(j.candidate && (j.candidate.url!=='https://candidate---dojo-time-travel-admin-q6ujypei6a-an.a.run.app' ||
+      j.candidate.revision!=='dojo-time-travel-admin-00039-pex' || !/^\d{4}-(0[1-9]|1[0-2])$/.test(j.month || '') ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(j.date || '') || !Number.isFinite(Date.parse(j.date+'T00:00:00Z')) ||
+      new Date(j.date+'T00:00:00Z').toISOString().slice(0,10)!==j.date ||
+      !['baseline','stopped','pending'].every(key=>typeof j.candidate[key]==='boolean') ||
+      !Number.isInteger(j.candidate.step) || j.candidate.step<0 || j.candidate.step>3 ||
+      !Number.isInteger(j.candidate.verifiedStep) || j.candidate.verifiedStep<0 || j.candidate.verifiedStep>j.candidate.step))throw failure('INVALID_CANDIDATE_JOURNAL');
+  if(j.candidate && (j.candidate.mode!=='staged' || !Array.isArray(j.candidate.operations) || j.candidate.operations.length>3 ||
+      j.candidate.operations.some((op,index)=>op.testId!==j.prefix || op.number!==index+1 || op.kind!==['register','repeat','cancel'][index] ||
+        op.url!==j.candidate.url || op.revision!==j.candidate.revision || !/^[a-f0-9]{64}$/.test(op.inputHash || '') ||
+        !['issued','confirmed','unknown'].includes(op.outcome))))throw failure('INVALID_STAGED_OPERATION');
   for(const [key,value]of Object.entries(j.documents)){identity(j,key);if(!value || typeof value.attempted!=='boolean')throw failure('INVALID_RUN_JOURNAL');}
   return j;
 }
@@ -117,7 +137,29 @@ function guardedDatabase(db,journal,stop,{rpcMs=10000}={}){
 }
 async function inspectOrCleanup(db,journal,{remove=false,rpcMs=10000}={}){
   assertClient(db);
+  if(remove && journal.data.candidate && (journal.data.lateWritesPossible || journal.data.candidate.pending ||
+      journal.data.candidate.operations.some(op=>op.outcome!=='confirmed')))
+    throw failure('CANDIDATE_REMOTE_OUTCOME_UNCERTAIN');
   const report={verifiedAt:null,complete:true,documents:{}};
+  if(remove){
+    // Inspect the entire run before the first delete. Absent documents permit
+    // resuming a partial cleanup; collisions and uncertain reads block all deletes.
+    for(const [key,entry]of Object.entries(journal.data.documents)){
+      report.documents[key]='not_processed';
+      try{
+        identity(journal.data,key);
+        if(!entry.attempted || entry.state==='collision')throw failure('CLEANUP_ENTRY_NOT_OWNED');
+        const snap=await deadline(()=>db.doc(key).get(),rpcMs);
+        if(snap.exists && !owns(journal.data,key,snap.data()))throw failure('CLEANUP_OWNER_MISMATCH');
+        if(snap.exists && !snap.updateTime)throw failure('DELETE_PRECONDITION_REQUIRED');
+      }catch(error){
+        report.complete=false;report.documents[key]='preflight_failed';
+        journal.issue('cleanup','preflight',key,error);
+        for(const pending of Object.keys(journal.data.documents))report.documents[pending]??='not_processed';
+        report.verifiedAt=new Date().toISOString();journal.data.cleanup=report;journal.save();return report;
+      }
+    }
+  }
   for(const [key,entry]of Object.entries(journal.data.documents)){
     let state;
     try{
@@ -137,6 +179,7 @@ async function inspectOrCleanup(db,journal,{remove=false,rpcMs=10000}={}){
       }
     }catch(error){state='unknown_or_failed';report.complete=false;journal.issue('cleanup',remove?'delete_or_verify':'inspect',key,error);}
     report.documents[key]=state;journal.data.cleanup=report;journal.save();
+    if(remove && !['absent','deleted_verified'].includes(state))break;
   }
   // A second read detects reappearance; it cannot rule out a later server commit.
   if(remove)for(const [key,state]of Object.entries(report.documents)){
@@ -186,4 +229,4 @@ async function orchestrate(file,{launch,mode='run',signal}={}){
     documents:Object.fromEntries(Object.keys(journal.data.documents).map(key=>[key,journal.data.cleanup?.documents[key] || 'not_verified'])),errors:journal.data.errors};
 }
 module.exports={PROJECT,DATABASE,SCHEMA,failure,errorInfo,validateTarget,assertDatabase,idsFor,fixtureData,identity,owns,
-  createJournal,openJournal,gate,deadline,guardedDatabase,inspectOrCleanup,supervise,orchestrate};
+  validateJournal,createJournal,openJournal,gate,deadline,guardedDatabase,inspectOrCleanup,supervise,orchestrate};

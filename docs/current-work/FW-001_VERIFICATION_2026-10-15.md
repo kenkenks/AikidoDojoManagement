@@ -1,6 +1,27 @@
 # FW-001 verification — 2026-10-15
 
+## Current verified status — 2026-10-15
+
+FW-001 DEV candidate verification is complete. The current offline suite is **186/186 PASS**, 0 FAIL, exit 0; git diff --check passed. Earlier test counts below are historical results, not the current total.
+
+- Project: dojo-management-dev; database: (default).
+- Candidate: dojo-time-travel-admin-00039-pex. Normal serving revision dojo-time-travel-admin-00024-728 remained at 100%.
+- Run: FW001TEST_83f59b07a48f44b1aed1603a9eb8c412.
+- Registration, repeat submission and cancellation: all three confirmed and independently verified against Firestore.
+- Repeat retained the original IDs and ten-document count. Cancellation retained those IDs, recorded cancellation metadata, kept invoice/View amounts at 1,000 yen and reduced View attendance details to zero.
+- All ten dedicated documents were recovered. Final read-only absence check: **2026-10-15 17:03:51 JST**, all ten absent and dedicated scope queries empty.
+- Final journal: status: passed; step: 3; verifiedStep: 3; stopped: true; pending: false; lateWritesPossible: false; errors empty. stopped prevents further staged operations after recovery.
+- No promotion to normal traffic or Firebase Hosting publication was performed. DEV candidate placement is complete; broader release is outside this verification.
+- P001 fee-display mapping, broader load/contention validation and populated-data rollout audits remain separate tasks and do not block this scoped FW-001 verification completion.
+
+The journal and generated browser scripts remain ignored local evidence; do not add them to Git. This status records completed authorization, not permission to repeat live operations. See [verification record](FW-001_VERIFICATION_2026-10-15.md) and [candidate procedure](FW-001_CANDIDATE_TEST_SAFETY.md).
+
+
 Baseline HEAD: `42ff6a9`. Workflow: ARCH-022.
+
+## Historical EPERM verification record (retained)
+
+The following sections describe the earlier direct-SDK verification and its commit proposal. They are historical; the current candidate result and cleanup contract above/below supersede their scope and totals.
 
 ## Change reviewed
 
@@ -30,3 +51,13 @@ Proposed commit message: `fix: retry transient EPERM when saving FW-001 journals
 ## Limits
 
 Persistent permission failures still stop saving; the retry is not a permission bypass. Failures after remote dispatch, process/power loss and late server commits can still require journal-based recovery. Absence is established at the recorded inspection time. This verification does not include deployment or deployed-browser E2E.
+
+## Current cleanup safety contract
+
+The shared inspectOrCleanup implementation checks every journaled path before the first delete: allowed identity, attempted/noncollision entry, existence, ownership and updateTime for present documents. Any preflight failure blocks all deletes. Already absent paths are permitted so a partial cleanup can be inspected safely; the completed live run separately required all ten present before recovery.
+
+Each deletion re-reads ownership and supplies lastUpdateTime from that snapshot. The first failed/uncertain delete, ownership mismatch, changed version, read failure or still-present result stops subsequent deletes in that round. States distinguish deleted_verified, absent, unknown_or_failed, owner_mismatch_not_deleted, still_present and not_processed; preflight_failed blocks dispatch. Uncertain outcomes never count as success. Journal-save failure also prevents subsequent deletes by propagating the error.
+
+Candidate recover returns cleanup_incomplete on an incomplete round; it does not automatically repeat failed deletions. Successful rounds retain waiting, dedicated-scope rediscovery and final absence verification; reappearance or failed verification cannot become PASS. A finite observation window cannot prove that no arbitrarily late commit will ever occur. Additional recovery after an error requires separate approval.
+
+The latest offline suite includes normal ten-document cleanup, all-owner preflight, first-delete failure, partial cleanup followed by update conflict or lost response, bounded communication failures, and reappearance tests: 186/186 PASS.

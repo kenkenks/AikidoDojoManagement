@@ -45,6 +45,30 @@ function database(seed={},hooks={}){
 }
 function prepared(t){const j=journal(t);j.data.month='2099-07';j.save();return j;}
 const hang=()=>new Promise(()=>{});
+test('cleanup preflight checks every owner before deleting any document',async t=>{
+  const j=prepared(t),fixtures=S.fixtureData(j.data),keys=Object.keys(fixtures);
+  keys.forEach(key=>j.intent(key,'create'));
+  const db=database(fixtures);db.records.set(keys.at(-1),{});
+  const report=await S.inspectOrCleanup(db,j,{remove:true});
+  assert.equal(report.complete,false);assert.equal(db.writes.length,0);
+  assert.equal(db.records.size,6);
+});
+test('partial cleanup stops on conflict or lost delete response and preserves remaining documents',async t=>{
+  for(const lostResponse of [false,true]){
+    const j=prepared(t),fixtures=S.fixtureData(j.data),keys=Object.keys(fixtures),attempts=[];
+    keys.forEach(key=>j.intent(key,'create'));
+    const db=database(fixtures,{delete:async(key,options,remove)=>{
+      attempts.push(key);assert.equal(options.lastUpdateTime,1);
+      if(key===keys[1]){if(lostResponse)remove();throw Error(lostResponse?'CONNECTION_LOST':'FAILED_PRECONDITION');}
+      remove();
+    }});
+    const report=await S.inspectOrCleanup(db,j,{remove:true});
+    assert.equal(report.complete,false);assert.deepEqual(attempts,keys.slice(0,2));
+    assert.equal(report.documents[keys[0]],'deleted_verified');
+    assert.equal(report.documents[keys[1]],'unknown_or_failed');
+    for(const key of keys.slice(2)){assert(db.records.has(key));assert.equal(report.documents[key],'not_processed');}
+  }
+});
 test('target, database, environment and CLI mode checks fail closed before SDK use',()=>{
   S.validateTarget(profile,{});
   for(const changed of [{projectId:'production'},{confirmedDevelopmentProject:'production'},{mode:'production'},{runtime:'gas'}])assert.throws(()=>S.validateTarget({...profile,...changed},{}));
@@ -107,24 +131,24 @@ test('pre-existing fixture collision is never overwritten or deleted',async t=>{
   const j=prepared(t),key='members/'+j.data.ids.member,db=database({[key]:S.fixtureData(j.data)[key]});
   await assert.rejects(S.guardedDatabase(db,j,S.gate()).createFixture(key,S.fixtureData(j.data)[key]),/ALREADY_EXISTS/);
   const report=await S.inspectOrCleanup(db,j,{remove:true});assert.equal(report.complete,false);assert.equal(db.writes.length,0);
-  assert.equal(report.documents[key],'collision_not_deleted');
+  assert.equal(report.documents[key],'preflight_failed');
 });
-test('cleanup checks ownership and update preconditions; continues after delete failure',async t=>{
+test('cleanup checks ownership and update preconditions; stops after delete failure',async t=>{
   const j=prepared(t),fixtures=S.fixtureData(j.data),keys=Object.keys(fixtures).slice(0,3);
   keys.forEach(key=>j.intent(key,'create'));
   const db=database(Object.fromEntries(keys.map(key=>[key,fixtures[key]])),{delete:async(key,options,remove)=>{
     assert.ok(Object.hasOwn(options,'lastUpdateTime'));if(key===keys[0])throw Error('PERMISSION_DENIED');remove();
   }});
   const report=await S.inspectOrCleanup(db,j,{remove:true});assert.equal(report.complete,false);
-  assert.ok(db.records.has(keys[0]));assert.equal(db.records.size,1);assert.equal(j.data.errors[0].path,keys[0]);
+  assert.ok(db.records.has(keys[0]));assert.equal(db.records.size,3);assert.equal(report.documents[keys[1]],'not_processed');assert.equal(j.data.errors[0].path,keys[0]);
   const changed=database({[keys[0]]:{member_id:'OTHER',billing_group_id:'OTHER'}});
-  assert.equal((await S.inspectOrCleanup(changed,j,{remove:true})).documents[keys[0]],'owner_mismatch_not_deleted');assert.equal(changed.writes.length,0);
+  assert.equal((await S.inspectOrCleanup(changed,j,{remove:true})).documents[keys[0]],'preflight_failed');assert.equal(changed.writes.length,0);
 });
-test('stalled cleanup RPC is bounded, diagnosed, and other documents are still attempted',async t=>{
+test('stalled cleanup preflight blocks all deletes',async t=>{
   const j=prepared(t),fixtures=S.fixtureData(j.data),keys=Object.keys(fixtures).slice(0,2);keys.forEach(key=>j.intent(key,'create'));
   const db=database(Object.fromEntries(keys.map(key=>[key,fixtures[key]])),{get:(key,next)=>key===keys[0]?hang():next()});
   const report=await S.inspectOrCleanup(db,j,{remove:true,rpcMs:10});
-  assert.equal(report.complete,false);assert.equal(report.documents[keys[0]],'unknown_or_failed');assert.equal(db.records.size,1);
+  assert.equal(report.complete,false);assert.equal(report.documents[keys[0]],'preflight_failed');assert.equal(db.records.size,2);assert.equal(db.writes.length,0);
 });
 test('stalled delete stays unknown even if it completes after the deadline',async t=>{
   const j=prepared(t),fixtures=S.fixtureData(j.data),key=Object.keys(fixtures)[0];j.intent(key,'create');
@@ -141,7 +165,7 @@ test('inspection is read-only; changed document at delete and post-delete reappe
   const reappears=database({[key]:fixtures[key]},{delete:async()=>{}});
   assert.equal((await S.inspectOrCleanup(reappears,j,{remove:true})).documents[key],'still_present');
   let reads=0,late;
-  late=database({[key]:fixtures[key]},{get:(_key,next)=>{if(++reads===3)late.records.set(key,fixtures[key]);return next();}});
+  late=database({[key]:fixtures[key]},{get:(_key,next)=>{if(++reads===4)late.records.set(key,fixtures[key]);return next();}});
   assert.equal((await S.inspectOrCleanup(late,j,{remove:true})).documents[key],'reappeared');
 });
 test('corrupt/out-of-run journals and out-of-run transaction writes are rejected',async t=>{

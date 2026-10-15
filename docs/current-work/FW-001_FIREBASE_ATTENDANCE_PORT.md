@@ -1,5 +1,22 @@
 # FW-001 Firebase attendance port
 
+## Current verified status — 2026-10-15
+
+FW-001 DEV candidate verification is complete. The current offline suite is **186/186 PASS**, 0 FAIL, exit 0; git diff --check passed. Earlier test counts below are historical results, not the current total.
+
+- Project: dojo-management-dev; database: (default).
+- Candidate: dojo-time-travel-admin-00039-pex. Normal serving revision dojo-time-travel-admin-00024-728 remained at 100%.
+- Run: FW001TEST_83f59b07a48f44b1aed1603a9eb8c412.
+- Registration, repeat submission and cancellation: all three confirmed and independently verified against Firestore.
+- Repeat retained the original IDs and ten-document count. Cancellation retained those IDs, recorded cancellation metadata, kept invoice/View amounts at 1,000 yen and reduced View attendance details to zero.
+- All ten dedicated documents were recovered. Final read-only absence check: **2026-10-15 17:03:51 JST**, all ten absent and dedicated scope queries empty.
+- Final journal: status: passed; step: 3; verifiedStep: 3; stopped: true; pending: false; lateWritesPossible: false; errors empty. stopped prevents further staged operations after recovery.
+- No promotion to normal traffic or Firebase Hosting publication was performed. DEV candidate placement is complete; broader release is outside this verification.
+- P001 fee-display mapping, broader load/contention validation and populated-data rollout audits remain separate tasks and do not block this scoped FW-001 verification completion.
+
+The journal and generated browser scripts remain ignored local evidence; do not add them to Git. This status records completed authorization, not permission to repeat live operations. See [verification record](FW-001_VERIFICATION_2026-10-15.md) and [candidate procedure](FW-001_CANDIDATE_TEST_SAFETY.md).
+
+
 Baseline: AikidoDojoManagement-main(119).zip. Date: 2026-10-15.
 
 ## Canonical path and ARCH-022
@@ -52,11 +69,11 @@ npm run target:build -- dev-firebase
 node work/verify-fw001.cjs
 ```
 
-131 tests PASS: full pipeline, retry, cancel/re-register, usage cap/payments, failure rollback, simulated concurrent retry, whole-batch authorization, page-script sending/readback and actual HTTP dispatch/method rejection. These use transaction/DOM doubles, not deployed Firebase.
+Historical initial verification: 131 tests PASS: full pipeline, retry, cancel/re-register, usage cap/payments, failure rollback, simulated concurrent retry, whole-batch authorization, page-script sending/readback and actual HTTP dispatch/method rejection. These use transaction/DOM doubles, not deployed Firebase.
 
 The original TimeTrip fixture expected GET despite ZIP119 using batchGet. This failure was reproduced on untouched 119; only its fixture was corrected. TimeTrip Core/business was not changed.
 
-Development Firestore read probe timed out at 30 seconds. No fixture or business writes were started. Real SDK roundtrip/contention, permissions/index requirements and deployed browser E2E remain unverified. No commit, push or deployment.
+Historical initial status (superseded by the current verified status above): Development Firestore read probe timed out at 30 seconds. No fixture or business writes were started. Real SDK roundtrip/contention, permissions/index requirements and deployed browser E2E remain unverified. No commit, push or deployment.
 
 Opt-in authenticated development checks:
 
@@ -67,9 +84,9 @@ node work/verify-fw001-firestore-real.cjs --confirm-development
 
 The second creates unique test fixtures in dojo-management-dev, tests registration/repeat/cancel, and cleans only its own documents. Offline verification never runs it.
 
-## Deferred issues
+## Separate follow-up tasks (outside FW-001 completion)
 
-- Real Firestore roundtrip and deployed browser verification.
+- Resolved for the scoped DEV candidate run: real Firestore roundtrip and authenticated candidate browser operations. General production release verification remains outside scope.
 - P001/fee read values: billing-firestore returns English fee fields but billing-selection reads Japanese fields; investigate/fix separately. Registration calculations are verified with English physical fees.
 - Preserve GAS semantics: empty-slot items skip usage-billing synchronization. Cancellation billing policy/group aggregation changes are outside this port.
 - Optimize bounded master/scope reads and measure real contention. No additional conflict guard schema or new feature.
