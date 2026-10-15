@@ -2,6 +2,7 @@
 // Firestore read adapter. Monthly selection collection is deliberately explicit:
 // there is no MonthlySelection.yml contract in schema/ as of ZIP116.
 const {createBillingSelectionReader} = require('./billing-selection.cjs');
+const {restoreMasterFields} = require('./master-fields.cjs');
 const {monthlySelectionDocumentId, assertMonthlySelectionIdentity} = require('./monthly-selection-key.cjs');
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -19,7 +20,13 @@ function createBillingFirestoreReader(core, {monthlySelectionCollection, targetM
       if (!page || !Array.isArray(page.documents) || page.documents.length > Math.min(100,maxMasterRows - rows.length)) throw new Error('INVALID_MASTER_PAGE');
       for (const doc of page.documents) {
         if (!doc || !doc.fields || typeof doc.fields !== 'object' || Array.isArray(doc.fields)) throw new Error('INVALID_MASTER_DOCUMENT');
-        rows.push(doc.fields);
+        const row=collection==='fees'?restoreMasterFields('Fee',doc.fields,doc.id):doc.fields;
+        if(collection==='fees')for(const key of ['回数単価','上限金額']){
+          if(row[key]!=null && row[key]!=='' &&
+              (!['string','number'].includes(typeof row[key]) || !Number.isFinite(Number(row[key])) || Number(row[key])<0))
+            throw new Error('INVALID_FEE_AMOUNT');
+        }
+        rows.push(row);
       }
       token = page.nextPageToken || null;
       if (token && (seen.has(token) || rows.length >= maxMasterRows)) throw new Error('MASTER_PAGINATION_INCOMPLETE');

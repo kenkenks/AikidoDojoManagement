@@ -149,12 +149,25 @@
     let attendanceInfoRequestSeq = 0;
     let attendanceInfoInFlightKey = "";
     let attendanceInfoLoadedKey = "";
+    let attendanceClockKey = "";
 
     initializeAttendanceContext();
 
     document.getElementById("attendanceDate").textContent = currentAttendanceDate();
     window.addEventListener("dojo-system-context", function() {
       document.getElementById("attendanceDate").textContent = currentAttendanceDate();
+      const clock = attendanceBusinessClockKey();
+      if (IS_FIREBASE_ATTENDANCE && attendanceClockKey && clock !== attendanceClockKey) {
+        if (submitting) return;
+        ++attendanceInfoRequestSeq;
+        attendanceInfoInFlightKey = attendanceInfoLoadedKey = "";
+        currentBillingBlockId = "";
+        currentSlots = [];
+        clearCandidates(true);
+        persistAttendanceContext();
+        renderKeys();
+      }
+      attendanceClockKey = clock;
       refreshAttendanceSessionInfoIfNeeded();
     });
     updateSendButton();
@@ -296,7 +309,14 @@
     }
 
     function attendanceSessionInfoKey() {
-      return currentLocationId + "|" + currentBillingBlockId;
+      return currentLocationId + "|" + currentBillingBlockId + "|" + attendanceBusinessClockKey();
+    }
+
+    function attendanceBusinessClockKey() {
+      if (!IS_FIREBASE_ATTENDANCE) return "";
+      const ctx = window.DOJO_SYSTEM_CONTEXT;
+      return ctx ? JSON.stringify([ctx.time_travel_enabled,
+        ctx.time_travel_enabled ? ctx.system_now : String(ctx.system_now || "").slice(0,10), ctx.target_month]) : "";
     }
 
     function refreshAttendanceSessionInfoIfNeeded() {
@@ -744,6 +764,8 @@
         submitting = false;
         renderCandidates();
         updateSendButton();
+        if (IS_FIREBASE_ATTENDANCE && attendanceClockKey && attendanceBusinessClockKey() !== attendanceClockKey)
+          window.dispatchEvent(new Event("dojo-system-context"));
       });
     }
 

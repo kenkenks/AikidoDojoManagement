@@ -40,7 +40,9 @@ const modules = {
   './webConnect.cjs': { createDispatch },
   '../qr/generator-options.cjs': { createQrGeneratorOptions: () => async () => ({ ok: true }) },
   '../attendance/session-masters.cjs': { createSessionMasterReader: () => async () => ({}) },
-  '../attendance/session-info.cjs': { createSessionInfo: () => async () => ({}) },
+  '../attendance/session-info.cjs': { createSystemSessionInfo: ({getSystemContext}) => {
+    assert.equal(typeof getSystemContext,'function');return async () => ({});
+  } },
   '../attendance/saved-state.cjs': { createAttendanceSavedState: () => async () => ({}) },
   '../time-travel/target.cjs': { createTimeTravelTarget: () => ({}) }
 };

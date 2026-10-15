@@ -64,4 +64,19 @@ function createSessionInfo({readSessionMasters, now = () => new Date(), timeZone
         ? '課金枠を自動判定できませんでした。候補から選択してください。' : '本日の課金枠がありません。'};
   };
 }
-module.exports = {createSessionInfo};
+// Bind the existing selector to the authoritative business clock, not client `at`.
+function createSystemSessionInfo({readSessionMasters,getSystemContext}) {
+  if(typeof getSystemContext!=='function')throw new TypeError('SYSTEM_CONTEXT_REQUIRED');
+  const select=createSessionInfo({readSessionMasters});
+  return async params=>{
+    const context=await getSystemContext();
+    if(context?.ok!==true || context.timezone!=='Asia/Tokyo' ||
+        !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(context.system_now || ''))
+      throw new Error('SYSTEM_CONTEXT_UNAVAILABLE');
+    const iso=context.system_now.replace(' ','T')+'+09:00',date=new Date(iso);
+    if(!Number.isFinite(date.getTime()) || new Date(date.getTime()+9*3600000).toISOString().slice(0,19)!==context.system_now.replace(' ','T'))
+      throw new Error('SYSTEM_CONTEXT_UNAVAILABLE');
+    return select({...params,at:iso});
+  };
+}
+module.exports = {createSessionInfo,createSystemSessionInfo};

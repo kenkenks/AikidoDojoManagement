@@ -21,7 +21,7 @@ const { createDispatch } = require('./webConnect.cjs');
 const { createQrGeneratorOptions } = require('../qr/generator-options.cjs');
 const { createAttendanceRankOptions } = require('../attendance/rank-options.cjs');
 const { createSessionMasterReader } = require('../attendance/session-masters.cjs');
-const { createSessionInfo } = require('../attendance/session-info.cjs');
+const { createSystemSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createFirestoreMemberAttendanceState } = require('../attendance/member-state-firestore.cjs');
 const { createTimeTravelTarget, createAttendanceRegistrationTarget } = require('../time-travel/target.cjs');
@@ -81,7 +81,8 @@ const readSessionMasters = createSessionMasterReader({
       queryEqual: (source, filters) => memberCore.queryEqual(source, filters)
     }
   });
-const readAttendanceSessionInfo = createSessionInfo({readSessionMasters});
+const readAttendanceSessionInfo = createSystemSessionInfo({readSessionMasters,
+  getSystemContext:()=>application.getSystemContext()});
 const readMemberAttendanceState = createFirestoreMemberAttendanceState(memberCore, {
   getTargetMonth: async () => {
     const context = await application.getSystemContext();
