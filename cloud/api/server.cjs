@@ -21,10 +21,14 @@ const { createDispatch } = require('./webConnect.cjs');
 const { createQrGeneratorOptions } = require('../qr/generator-options.cjs');
 const { createAttendanceRankOptions } = require('../attendance/rank-options.cjs');
 const { createSessionMasterReader } = require('../attendance/session-masters.cjs');
+const {createTeacherTodayReader}=require('../attendance/teacher-today-firestore.cjs');
 const { createSystemSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createFirestoreMemberAttendanceState } = require('../attendance/member-state-firestore.cjs');
-const { createTimeTravelTarget, createAttendanceRegistrationTarget } = require('../time-travel/target.cjs');
+const { createFirestoreProgressReader } = require('../attendance/progress-firestore.cjs');
+const { createBillingMemberInfoReader } = require('../billing/member-info-firestore.cjs');
+const {createReceptionSummaryReader}=require('../billing/reception-summary-firestore.cjs');
+const { createTimeTravelTarget, createAttendanceRegistrationTarget,createTeacherOverviewTarget } = require('../time-travel/target.cjs');
 
 const root = path.resolve(__dirname, '..', '..');
 const port = Number(process.env.PORT || 8082);
@@ -100,6 +104,21 @@ const readMemberAttendanceState = createFirestoreMemberAttendanceState(memberCor
 });
 
 const handle = createAdminApi({
+  readPaymentReceptionSummary:createReceptionSummaryReader(getFirestore(firebaseApp),{
+    getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
+  }),
+  readBillingMemberInfo: createBillingMemberInfoReader(getFirestore(firebaseApp), {
+    getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
+  }),
+  readAttendanceProgressSummary: createFirestoreProgressReader(memberCore),
+  isActiveTeacher:async id=>{
+    const row=await memberCore.readById({collection:'teachers'},id);
+    return !!row&&['','有効','在籍','TRUE'].includes(String(row.status??'').trim())&&(!row.teacher_id||row.teacher_id===id);
+  },
+  readTeacherAttendanceToday:createTeacherTodayReader(memberCore,{
+    getSystemContext:()=>application.getSystemContext(),
+    createOverview:createTeacherOverviewTarget
+  }),
   verifyIdToken: (token, revoked) => getAuth(firebaseApp).verifyIdToken(token, revoked),
   getTimeTravel: () => application.getTimeTravel(),
   getSystemContext: () => application.getSystemContext(),
@@ -186,7 +205,7 @@ createServer(async (req, res) => {
       const action = req.method === 'GET' ? parsed.searchParams.get('action') : body && body.action;
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read', 'qr_generator_options']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary']);
       const writeActions = new Set(['time_travel_set', 'members_read', 'attendance_batch']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {

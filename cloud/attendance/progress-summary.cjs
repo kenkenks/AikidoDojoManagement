@@ -6,7 +6,7 @@ function nonnegative(value) {
   if (value == null || str(value) === '') return 0;
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) throw new Error('INVALID_PROGRESS_COUNT');
-  return n;
+  return Math.floor(n);
 }
 function date(value) {
   if (value == null || str(value) === '') return '';

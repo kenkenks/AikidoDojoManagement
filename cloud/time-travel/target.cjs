@@ -17,4 +17,8 @@ function createAttendanceRegistrationTarget(ctx, dependencies) {
   const artifactPath = path.resolve(__dirname,'..','..','.build','portable-timetravel-firestore','DojoTimeTravelFirestore.cjs');
   return require(artifactPath).createAttendanceRegistration(ctx,dependencies);
 }
-module.exports = { createTimeTravelTarget, createAttendanceRegistrationTarget };
+function createTeacherOverviewTarget(options) {
+  const artifactPath=path.resolve(__dirname,'..','..','.build','portable-timetravel-firestore','DojoTimeTravelFirestore.cjs');
+  return require(artifactPath).createTeacherAttendanceOverview(options);
+}
+module.exports = { createTimeTravelTarget, createAttendanceRegistrationTarget,createTeacherOverviewTarget };

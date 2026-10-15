@@ -6,10 +6,14 @@ var WebConnectCore = (function () {
     if (action === 'system_context') return { operation: 'systemContext.read', input: null };
     if (action === 'time_travel_admin') return { operation: 'timeTravel.read', input: null };
     if (action === 'member_read') return { operation: 'member.readById', input: input || {} };
+    if (action === 'getMemberInfo') return { operation: 'billing.memberInfo', input: input || {} };
+    if (action === 'payment_reception_summary') return { operation: 'billing.receptionSummary', input: input || {} };
     if (action === 'members_read') return { operation: 'member.readByIds', input: input || {} };
     if (action === 'attendance_session_info') return { operation: 'attendance.sessionInfo', input: input || {} };
+    if (action === 'teacher_attendance_today') return { operation: 'attendance.teacherToday', input: input || {} };
     if (action === 'attendance_rank_options') return { operation: 'attendance.rankOptions', input: input || {} };
     if (action === 'member_attendance_state') return { operation: 'attendance.memberState', input: input || {} };
+    if (action === 'attendance_progress_summary') return { operation: 'attendance.progressSummary', input: input || {} };
     if (action === 'attendance_saved_state') return { operation: 'attendance.savedState', input: input || {} };
     if (action === 'attendance_batch') return { operation: 'attendance.registerBatch', input: input || {} };
     if (action === 'time_travel_set') {

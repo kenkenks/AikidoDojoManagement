@@ -4,7 +4,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
 const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -22,6 +22,10 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const attendanceSession = operation === 'attendance.sessionInfo';
     const registration = operation === 'attendance.registerBatch';
     const memberState = operation === 'attendance.memberState';
+    const progressSummary = operation === 'attendance.progressSummary';
+    const billingMemberInfo = operation === 'billing.memberInfo';
+    const receptionSummary = operation === 'billing.receptionSummary';
+    const teacherToday=operation==='attendance.teacherToday';
     const qrOptions = operation === 'qrGenerator.options';
     const rankOptions = operation === 'attendance.rankOptions';
     const attendance = url.split('?')[0] === '/api/admin/attendance/saved-state' || operation === 'attendance.savedState';
@@ -30,7 +34,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberOperation = operation === 'member.readById';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!systemContext && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -51,6 +55,24 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
+    if(receptionSummary){
+      if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});
+      if(!operationInput||Object.keys(operationInput).some(k=>!['action','reception_date','location_id','billing_block_id'].includes(k))||
+        !['location_id','billing_block_id'].every(k=>typeof operationInput[k]==='string'&&/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(operationInput[k]))||
+        (operationInput.reception_date!==undefined&&(typeof operationInput.reception_date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(operationInput.reception_date))))return reply(400,{error:'INVALID_RECEPTION_PARAMS'});
+      if(typeof readPaymentReceptionSummary!=='function')return reply(503,{error:'RECEPTION_READ_UNAVAILABLE'});
+      try{return reply(200,await readPaymentReceptionSummary(operationInput));}
+      catch(error){const code=['RECEPTION_MIGRATION_REQUIRED','RECEPTION_SOURCE_CONFLICT'].includes(error?.message)?error.message:'RECEPTION_READ_UNAVAILABLE';
+        return reply(code==='RECEPTION_READ_UNAVAILABLE'?503:409,{error:code});}
+    }
+    if(billingMemberInfo){
+      if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});
+      if(typeof operationInput?.member_id!=='string'||!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(operationInput.member_id)||
+        Object.keys(operationInput).some(key=>!['action','member_id'].includes(key)))return reply(400,{error:'INVALID_BILLING_PARAMS'});
+      if(typeof readBillingMemberInfo!=='function')return reply(503,{error:'BILLING_READ_UNAVAILABLE'});
+      try{return reply(200,await readBillingMemberInfo(operationInput.member_id));}
+      catch{return reply(503,{error:'BILLING_READ_UNAVAILABLE'});}
+    }
     if (registration) {
       // Authorize the whole batch before any DAO access or mutation.
       try { validateAttendanceInput(operationInput); }
@@ -74,17 +96,37 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     // Only a verified, server-resolved member can read their own saved attendance.
     // All other operations retain their existing admin-only boundary.
     if (user.admin !== true) {
-      if ((!attendance && !attendanceSession && !rankOptions && !memberState) || typeof resolveDojoPrincipal !== 'function') return reply(403, { error: 'FORBIDDEN' });
+      if ((!progressSummary && !teacherToday && !attendance && !attendanceSession && !rankOptions && !memberState) || typeof resolveDojoPrincipal !== 'function') return reply(403, { error: 'FORBIDDEN' });
       const principal = await resolveDojoPrincipal(user);
-      if (attendance || memberState) {
+      let teacher=false;
+      if(principal?.teacher_id && typeof isActiveTeacher==='function'){
+        try{teacher=await isActiveTeacher(principal.teacher_id)===true;}catch{return reply(403,{error:'FORBIDDEN'});}
+      }
+      if(teacherToday&&!teacher)return reply(403,{error:'FORBIDDEN'});
+      if (attendance || memberState || progressSummary) {
         const requestedMember = operation ? operationInput?.member_id : new URL(url, 'http://localhost').searchParams.get('member_id');
-        if (!canAccessMember(principal, requestedMember)) return reply(403, { error: 'FORBIDDEN' });
+        if (!teacher&&!canAccessMember(principal, requestedMember)) return reply(403, { error: 'FORBIDDEN' });
       } else if (rankOptions) {
-        if (!principal?.member_id) return reply(403, { error: 'FORBIDDEN' });
+        if (!teacher&&!principal?.member_id) return reply(403, { error: 'FORBIDDEN' });
       } else if (attendanceSession) {
         // A linked member may see dojo session labels/slots, never arbitrary time-travel queries.
-        if (!principal?.member_id || operationInput?.at != null) return reply(403, { error: 'FORBIDDEN' });
+        if ((!teacher&&!principal?.member_id) || operationInput?.at != null) return reply(403, { error: 'FORBIDDEN' });
       }
+    }
+    if(progressSummary){
+      if(typeof operationInput?.member_id!=='string'||!/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(operationInput.member_id)||
+        Object.keys(operationInput).some(key=>!['action','member_id'].includes(key)))return reply(400,{error:'INVALID_PROGRESS_PARAMS'});
+      if(typeof readAttendanceProgressSummary!=='function')return reply(503,{error:'PROGRESS_UNAVAILABLE'});
+      try{const result=await readAttendanceProgressSummary(operationInput.member_id);return reply(result?.ok===true?200:400,result);}
+      catch{return reply(503,{error:'PROGRESS_UNAVAILABLE'});}
+    }
+    if(teacherToday){
+      const allowed=['action','location_id','billing_block_id','attendance_date'];
+      if(!operationInput || Object.keys(operationInput).some(k=>!allowed.includes(k)) || typeof operationInput.location_id!=='string' || !operationInput.location_id ||
+        ['billing_block_id','attendance_date'].some(k=>operationInput[k]!=null&&(typeof operationInput[k]!=='string'||!operationInput[k])))return reply(400,{error:'INVALID_TEACHER_SCOPE'});
+      if(typeof readTeacherAttendanceToday!=='function')return reply(503,{error:'TEACHER_OVERVIEW_UNAVAILABLE'});
+      try{const result=await readTeacherAttendanceToday(operationInput);return reply(result?.ok===true?200:400,result);}
+      catch{return reply(503,{error:'TEACHER_OVERVIEW_UNAVAILABLE'});}
     }
     if (memberState) {
       const keys = ['member_id', 'location_id', 'billing_block_id', 'attendance_date'];

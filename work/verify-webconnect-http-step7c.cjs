@@ -21,6 +21,10 @@ const handle = createAdminApi({
   readMembers: async ids => { calls.push(['members', ids]); return ids.map(id => ({ id })); },
   readAttendanceSavedState: async input => { calls.push(['saved', input]); return { ok: true }; },
   readAttendanceSessionInfo: async input => { calls.push(['session', input]); return { ok: true }; },
+  readTeacherAttendanceToday:async input=>{calls.push(['teacherToday',input]);return {ok:true,member_count:0,attendance_items:[]};},
+  readAttendanceProgressSummary:async id=>{calls.push(['progress',id]);return {ok:true,member_id:id};},
+  readBillingMemberInfo:async id=>{calls.push(['billing',id]);return {ok:true,memberId:id};},
+  readPaymentReceptionSummary:async input=>{calls.push(['reception',input]);return {ok:true};},
   readQrGeneratorOptions: async () => { calls.push(['qrOptions']); return { ok: true, members: [], plans: [], locations: [], teachers: [] }; }
   ,registerAttendanceBatch:async input=>{calls.push(['attendance',input]);return {ok:true,registered_count:1};}
 });
@@ -36,10 +40,14 @@ const modules = {
   './dojo-account-firestore.cjs': { createFirestoreDojoPrincipalResolver: () => async () => null },
   '../attendance/rank-options.cjs': { createAttendanceRankOptions: () => async () => ({}) },
   '../attendance/member-state-firestore.cjs': { createFirestoreMemberAttendanceState: () => async () => ({}) },
+  '../attendance/progress-firestore.cjs': { createFirestoreProgressReader: () => async () => ({}) },
+  '../billing/member-info-firestore.cjs': { createBillingMemberInfoReader: () => async () => ({}) },
+  '../billing/reception-summary-firestore.cjs': { createReceptionSummaryReader: () => async () => ({}) },
   './admin-api.cjs': { createAdminApi: () => handle },
   './webConnect.cjs': { createDispatch },
   '../qr/generator-options.cjs': { createQrGeneratorOptions: () => async () => ({ ok: true }) },
   '../attendance/session-masters.cjs': { createSessionMasterReader: () => async () => ({}) },
+  '../attendance/teacher-today-firestore.cjs': {createTeacherTodayReader:()=>async()=>({})},
   '../attendance/session-info.cjs': { createSystemSessionInfo: ({getSystemContext}) => {
     assert.equal(typeof getSystemContext,'function');return async () => ({});
   } },
@@ -71,6 +79,42 @@ test('GET authenticated member and session info reach existing handler', async (
   assert.equal(member.status, 200); assert.equal(session.status, 200);
   assert.deepEqual(JSON.parse(JSON.stringify(calls)), [['member', 'M001'], ['session', { action: 'attendance_session_info', location_id: 'L001' }]]);
 });
+
+test('teacher today is connected through authenticated GET and rejects POST',async()=>{
+  calls=[];
+  const r=await request('GET','/api/webconnect?action=teacher_attendance_today&location_id=L1&attendance_date=2026-10-26',undefined,'Bearer admin');
+  assert.equal(r.status,200);assert.equal(r.body.member_count,0);assert.equal(calls[0][0],'teacherToday');
+  const denied=await request('POST','/api/webconnect',{action:'teacher_attendance_today',input:{location_id:'L1'}},'Bearer admin');
+  assert.equal(denied.status,405);assert.equal(calls.length,1);
+});
+test('progress summary uses authenticated GET and rejects POST before reader',async()=>{
+  calls=[];
+  assert.equal((await request('GET','/api/webconnect?action=attendance_progress_summary&member_id=M1')).status,401);
+  assert.equal((await request('POST','/api/webconnect',{action:'attendance_progress_summary',input:{member_id:'M1'}},'Bearer admin')).status,405);
+  assert.equal(calls.length,0);
+  const result=await request('GET','/api/webconnect?action=attendance_progress_summary&member_id=M1',undefined,'Bearer admin');
+  assert.equal(result.status,200);assert.equal(result.body.member_id,'M1');assert.equal(calls[0][0],'progress');
+});
+
+test('billing getMemberInfo GET is admin-only and POST is rejected before reader',async()=>{
+  calls=[];
+  assert.equal((await request('GET','/api/webconnect?action=getMemberInfo&member_id=M1')).status,401);
+  assert.equal((await request('GET','/api/webconnect?action=getMemberInfo&member_id=M1',undefined,'Bearer member')).status,403);
+  assert.equal((await request('POST','/api/webconnect',{action:'getMemberInfo',input:{member_id:'M1'}},'Bearer admin')).status,405);
+  assert.equal(calls.length,0);
+  assert.equal((await request('GET','/api/webconnect?action=getMemberInfo&member_id=M1',undefined,'Bearer admin')).status,200);
+  assert.equal((await request('GET','/api/webconnect?action=getPaymentInfo&member_id=M1',undefined,'Bearer admin')).status,404);
+  assert.equal(calls.length,1);
+});
+
+test('reception summary GET is admin-only and rejects POST before reader',async()=>{
+  calls=[];const url='/api/webconnect?action=payment_reception_summary&location_id=L1&billing_block_id=B1';
+  assert.equal((await request('GET',url)).status,401);
+  assert.equal((await request('GET',url,undefined,'Bearer teacher')).status,403);
+  assert.equal((await request('POST','/api/webconnect',{action:'payment_reception_summary',input:{}},'Bearer admin')).status,405);
+  assert.equal(calls.length,0);assert.equal((await request('GET',url,undefined,'Bearer admin')).status,200);assert.equal(calls.length,1);
+});
+
 test('POST batch read delegates JSON input through operation', async () => {
   calls = [];
   const r = await request('POST', '/api/webconnect', { action: 'members_read', input: { ids: ['M1', 'M2'] } }, 'Bearer admin');

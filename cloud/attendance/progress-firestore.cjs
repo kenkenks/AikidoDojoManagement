@@ -1,6 +1,6 @@
 'use strict';
 const {restoreMasterFields} = require('./master-fields.cjs');
-// Read-only adapter. Identity authorization belongs to the caller; no WebConnect exposure yet.
+// Read-only adapter. WebConnect callers must authorize identity before invoking this reader.
 const {projectAttendanceProgress} = require('./progress-summary.cjs');
 const clean = v => String(v ?? '').trim();
 const active = row => ['', '有効', '在籍', 'TRUE'].includes(clean(row?.['状態']));

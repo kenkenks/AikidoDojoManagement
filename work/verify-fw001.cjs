@@ -3,6 +3,8 @@ const {spawnSync}=require('node:child_process');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 const files=[
+  'verify-attendance-summary-firebase.cjs',
+  'verify-attendance-check-firebase.cjs',
   'verify-fw001-gas-compatibility.test.cjs',
   'verify-fw001-candidate-safety.test.cjs',
   'verify-fw001-registration.cjs','verify-fw001-browser.cjs','verify-fw001-firestore-safety.test.cjs',

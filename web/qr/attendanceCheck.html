@@ -123,8 +123,26 @@
 
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
+  <script src="firebase_auth.js"></script>
+  <script src="dojo_api_client.js"></script>
+  <script src="attendance_firebase_read.js"></script>
   <script>
     const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
+    const IS_FIREBASE_ATTENDANCE=window.DOJO_RUNTIME_CONFIG.runtime==='firebase';
+    const firebaseAttendanceAuth=IS_FIREBASE_ATTENDANCE?window.DOJO_FIREBASE_AUTH.create({runtimeConfig:window.DOJO_RUNTIME_CONFIG}):null;
+    const firebaseAttendanceApi=IS_FIREBASE_ATTENDANCE?window.DOJO_API_CLIENT.create({getCurrentUser:firebaseAttendanceAuth.getCurrentUser}):null;
+    if(IS_FIREBASE_ATTENDANCE){
+      const card=document.createElement('section');card.className='card';
+      const status=document.createElement('span');status.id='firebaseCheckStatus';
+      const login=document.createElement('button');login.textContent='Googleログイン';
+      login.onclick=()=>firebaseAttendanceAuth.signInWithGoogle().catch(()=>{status.textContent='認証に失敗しました。';});
+      card.append(status,login);document.querySelector('h1').after(card);
+      firebaseAttendanceAuth.ready.then(()=>{
+        const update=user=>{status.textContent=user?'Firebase認証済み（権限はAPIで確認）':'Firebase認証が必要です。';login.hidden=!!user;
+          if(user){loadRankOptions();if(currentLocationId)loadAttendanceSessionInfo();}};
+        update(firebaseAttendanceAuth.getCurrentUser());firebaseAttendanceAuth.onUserChanged(update);
+      }).catch(()=>{status.textContent='認証初期化に失敗しました。';});
+    }
     const memberNameMap = { M001: "山田太郎", M002: "川本花子", M003: "佐藤一郎" };
 
     let html5QrCode = null;
@@ -140,10 +158,21 @@
     let submitting = false;
     let teacherOverviewItems = [];
     let rankOptions = [];
+    let overviewClockKey = "";
+    let sessionInfoRequestSeq = 0;
 
     document.getElementById("attendanceDate").textContent = currentAttendanceDate();
     window.addEventListener("dojo-system-context", function() {
       document.getElementById("attendanceDate").textContent = currentAttendanceDate();
+      if(IS_FIREBASE_ATTENDANCE){
+        const ctx=window.DOJO_SYSTEM_CONTEXT;
+        const key=ctx?JSON.stringify([ctx.time_travel_enabled,ctx.time_travel_enabled?ctx.system_now:String(ctx.system_now||'').slice(0,10),ctx.target_month]):'';
+        if(overviewClockKey&&key!==overviewClockKey){
+          if(submitting)return;
+          currentBillingBlockId='';currentSlots=[];clearCandidates(true);persistAttendanceContext();renderKeys();
+        }
+        overviewClockKey=key;
+      }
       if (currentLocationId) loadAttendanceSessionInfo();
     });
     updateSendButton();
@@ -308,6 +337,7 @@
     }
 
     function loadAttendanceSessionInfo() {
+      const requestSeq=++sessionInfoRequestSeq;
       if (!currentLocationId) {
         currentSlots = [];
         renderCandidates();
@@ -322,6 +352,7 @@
       if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
 
       jsonp(GAS_URL, params).then(function (data) {
+        if(IS_FIREBASE_ATTENDANCE&&requestSeq!==sessionInfoRequestSeq)return;
         if (!data.ok) throw new Error(data.message || "稽古枠を取得できませんでした。");
         document.getElementById("locationId").textContent = data.location_name + " (" + data.location_id + ")";
         document.getElementById("locationId").className = "ok";
@@ -348,6 +379,7 @@
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
         loadTeacherAttendanceOverview();
       }).catch(function (error) {
+        if(IS_FIREBASE_ATTENDANCE&&requestSeq!==sessionInfoRequestSeq)return;
         currentSlots = [];
         renderCandidates();
         addLog(error.message || String(error), "error");
@@ -483,6 +515,7 @@
         required_training_count: 0,
         remaining_training_count: null,
         examination_ready: false,
+        billing_plan_id:"",billing_plan_name:"",billing_plan_selected:false,billing_plan_candidates:[],
         slot_ids: [],
         loaded: false,
         load_error: ""
@@ -507,6 +540,10 @@
         candidate.slot_ids = actualSlotIds;
         candidate.current_rank = data.current_rank || candidate.current_rank || "";
         if (!savedOnly) {
+          candidate.billing_plan_id=data.billing_plan_id||"";
+          candidate.billing_plan_name=data.billing_plan_name||"";
+          candidate.billing_plan_selected=data.billing_plan_selected===true;
+          candidate.billing_plan_candidates=data.billing_plan_candidates||[];
           candidate.member_name = data.member_name || "";
           candidate.training_count = Number(data.training_count || 0);
           candidate.required_training_count = Number(data.required_training_count || 0);
@@ -547,7 +584,7 @@
           candidate.member_id,
           expectedByMember[candidate.member_id],
           attempt > 1,
-          true
+          !IS_FIREBASE_ATTENDANCE
         );
       })).then(function(results) {
         const failed = results.filter(function(result) { return !result.ok; });
@@ -622,6 +659,18 @@
         rankSelect.onchange = function () { candidate.current_rank = rankSelect.value; };
         rankRow.append(rankLabel, rankSelect);
         row.appendChild(rankRow);
+        if(IS_FIREBASE_ATTENDANCE){
+          const label=document.createElement('label');label.textContent='会費タイプ';
+          if(candidate.billing_plan_selected){const name=document.createElement('span');name.textContent=candidate.billing_plan_name||candidate.billing_plan_id;label.appendChild(name);}
+          else{
+            const select=document.createElement('select');select.appendChild(new Option('月額／都度を選択',''));
+            candidate.billing_plan_candidates.forEach(plan=>select.appendChild(new Option(plan.plan_name||plan.plan_id,plan.plan_id)));
+            select.value=candidate.billing_plan_id;select.disabled=!candidate.loaded||submitting;
+            select.onchange=()=>{candidate.billing_plan_id=select.value;};
+            label.appendChild(select);
+          }
+          row.appendChild(label);
+        }
 
         const progress = document.createElement("div");
         progress.className = "progress";
@@ -705,6 +754,7 @@
         attendance_items: memberCandidates.map(function (item) {
           return {
             member_id: item.member_id,
+            ...(IS_FIREBASE_ATTENDANCE?{plan_id:item.billing_plan_id||""}:{}),
             current_rank: item.current_rank,
             slot_ids: item.slot_ids.slice()
           };
@@ -712,6 +762,9 @@
         source: "github_pages_qr"
       };
 
+      if(IS_FIREBASE_ATTENDANCE&&memberCandidates.some(item=>item.slot_ids.length&&!item.billing_plan_selected&&!item.billing_plan_id)){
+        addLog('会費タイプを選択してください。','error');return;
+      }
       const expectedByMember = {};
       payload.attendance_items.forEach(function(item) {
         expectedByMember[item.member_id] = {
@@ -724,7 +777,14 @@
       renderCandidates();
       updateSendButton();
       addLog("出席登録を送信しています。");
-      postJsonViaForm(GAS_URL, payload).then(function () {
+      const send=IS_FIREBASE_ATTENDANCE
+        ?window.DOJO_ATTENDANCE_FIREBASE_WRITE.register({input:payload,runtimeConfig:window.DOJO_RUNTIME_CONFIG,authClient:firebaseAttendanceAuth,apiClient:firebaseAttendanceApi})
+        :postJsonViaForm(GAS_URL,payload);
+      send.then(function(){
+        if(IS_FIREBASE_ATTENDANCE)return refreshAllMemberStates(expectedByMember).then(matches=>{
+          if(!matches)throw Error('保存結果が一致しません。');
+          return loadTeacherAttendanceOverview().then(ok=>{if(!ok)throw Error('出席一覧を確認できません。');return matches;});
+        });
         addLog("送信しました。GASの処理完了を待っています。");
         return waitForPostReceipt(payload.request_id, 1).then(function(receipt) {
           if (!receipt.ok) throw new Error(receipt.message || "GASの出席処理に失敗しました。");
@@ -739,6 +799,7 @@
         submitting = false;
         renderCandidates();
         updateSendButton();
+        if(IS_FIREBASE_ATTENDANCE&&overviewClockKey)window.dispatchEvent(new Event('dojo-system-context'));
       });
     }
 
@@ -866,6 +927,9 @@
     }
 
     function jsonp(url, params) {
+      if(IS_FIREBASE_ATTENDANCE)return window.DOJO_ATTENDANCE_FIREBASE_READ.request({
+        action:params.action,params,runtimeConfig:window.DOJO_RUNTIME_CONFIG,
+        authClient:firebaseAttendanceAuth,apiClient:firebaseAttendanceApi});
       return new Promise(function (resolve, reject) {
         const callbackName = "attendanceCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
         const script = document.createElement("script");

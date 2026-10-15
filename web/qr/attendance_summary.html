@@ -44,23 +44,61 @@
 
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
+  <script src="firebase_auth.js"></script>
+  <script src="dojo_api_client.js"></script>
   <script>
     const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
+    const isFirebase = window.DOJO_RUNTIME_CONFIG.runtime === 'firebase';
+    const summaryAuth = isFirebase ? window.DOJO_FIREBASE_AUTH.create({runtimeConfig:window.DOJO_RUNTIME_CONFIG}) : null;
+    const summaryApi = isFirebase ? window.DOJO_API_CLIENT.create({getCurrentUser:summaryAuth.getCurrentUser}) : null;
+    let summaryRequestSeq = 0;
     const memberSession = DojoVirtualSession.get();
     const initialMemberId = new URLSearchParams(location.search).get("member_id") ||
       (memberSession && memberSession.role === "MEMBER" ? memberSession.member_id : "") || "";
     document.getElementById("memberId").value = initialMemberId;
-    if (initialMemberId) loadSummary();
+    if (isFirebase) {
+      const login = document.createElement('button');
+      login.textContent = 'Googleログイン';
+      login.onclick = () => summaryAuth.signInWithGoogle().catch(() => showError('認証に失敗しました。'));
+      document.getElementById('memberInputCard').appendChild(login);
+      summaryAuth.ready.then(() => {
+        const update = user => {
+          ++summaryRequestSeq;
+          document.getElementById('summaryCard').hidden = true;
+          login.hidden = !!user;
+          if (user && document.getElementById('memberId').value.trim()) loadSummary();
+          else if (!user) showError('Firebaseログインが必要です。');
+        };
+        update(summaryAuth.getCurrentUser());
+        summaryAuth.onUserChanged(update);
+      }).catch(() => showError('認証初期化に失敗しました。'));
+    } else if (initialMemberId) loadSummary();
 
     function loadSummary() {
+      const seq = ++summaryRequestSeq;
       const memberId = document.getElementById("memberId").value.trim();
       if (!memberId) return showError("会員IDを入力してください。");
-      jsonp(GAS_URL, { action:"attendance_progress_summary", member_id:memberId })
+      document.getElementById('summaryCard').hidden = true;
+      return readSummary(memberId)
         .then(function(data) {
+          if (seq !== summaryRequestSeq) return;
           if (!data.ok) throw new Error(data.message || "出席情報を取得できませんでした。");
+          if (isFirebase && data.member_id !== memberId) throw new Error('会員情報が一致しません。');
           renderSummary(data);
         })
-        .catch(function(error) { showError(error.message || String(error)); });
+        .catch(function(error) { if (seq === summaryRequestSeq) showError(isFirebase ? '出席情報を取得できませんでした。ログインと閲覧権限を確認してください。' : error.message || String(error)); });
+    }
+
+    async function readSummary(memberId) {
+      if (!isFirebase) return jsonp(GAS_URL, {action:'attendance_progress_summary',member_id:memberId});
+      await summaryAuth.ready;
+      if (!summaryAuth.getCurrentUser()) throw new Error('AUTH_REQUIRED');
+      const url = new URL(String(GAS_URL).replace(/\/+$/, '') + '/api/webconnect');
+      url.searchParams.set('action','attendance_progress_summary');
+      url.searchParams.set('member_id',memberId);
+      const response = await summaryApi.request(url.toString(), {method:'GET'});
+      if (!response.ok) throw new Error('SUMMARY_READ_FAILED');
+      return response.json();
     }
 
     function renderSummary(data) {
