@@ -28,6 +28,7 @@ const { createFirestoreMemberAttendanceState } = require('../attendance/member-s
 const { createFirestoreProgressReader } = require('../attendance/progress-firestore.cjs');
 const { createBillingMemberInfoReader } = require('../billing/member-info-firestore.cjs');
 const {createReceptionSummaryReader}=require('../billing/reception-summary-firestore.cjs');
+const {createPaymentScreenReader}=require('../billing/payment-screen-firestore.cjs');
 const { createTimeTravelTarget, createAttendanceRegistrationTarget,createTeacherOverviewTarget } = require('../time-travel/target.cjs');
 
 const root = path.resolve(__dirname, '..', '..');
@@ -104,6 +105,9 @@ const readMemberAttendanceState = createFirestoreMemberAttendanceState(memberCor
 });
 
 const handle = createAdminApi({
+  readPaymentScreen:createPaymentScreenReader(getFirestore(firebaseApp),{
+    getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
+  }),
   readPaymentReceptionSummary:createReceptionSummaryReader(getFirestore(firebaseApp),{
     getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
   }),
@@ -205,7 +209,7 @@ createServer(async (req, res) => {
       const action = req.method === 'GET' ? parsed.searchParams.get('action') : body && body.action;
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary','payment_screen_read']);
       const writeActions = new Set(['time_travel_set', 'members_read', 'attendance_batch']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {

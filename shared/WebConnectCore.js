@@ -8,6 +8,7 @@ var WebConnectCore = (function () {
     if (action === 'member_read') return { operation: 'member.readById', input: input || {} };
     if (action === 'getMemberInfo') return { operation: 'billing.memberInfo', input: input || {} };
     if (action === 'payment_reception_summary') return { operation: 'billing.receptionSummary', input: input || {} };
+    if (action === 'payment_screen_read') return { operation: 'billing.screenRead', input: input || {} };
     if (action === 'members_read') return { operation: 'member.readByIds', input: input || {} };
     if (action === 'attendance_session_info') return { operation: 'attendance.sessionInfo', input: input || {} };
     if (action === 'teacher_attendance_today') return { operation: 'attendance.teacherToday', input: input || {} };

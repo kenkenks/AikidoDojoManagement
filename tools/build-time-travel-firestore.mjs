@@ -14,7 +14,8 @@ const gasNames = ['00_Job','01_Commom','02_SheetAccess','DAO_Composition',
   'DAO_Business_View','DAO_Business_AttendanceProgress',
   '03_Billing','03_BillingCore','03_BillingMonthly','03_BillingRecord','03_BillingUsage',
   '04_Attendance','04_AttendanceCore','04_AttendanceProgress',
-  '20_PaymentStatusView','20_PaymentStatusTeacher','09_PaymentEvidenceRequest','06_PaymentReceptionScope'];
+  '20_PaymentStatusView','20_PaymentStatusTeacher','09_PaymentEvidenceRequest','06_PaymentReceptionScope',
+  '09_PaymentEvidenceQuery','09_PaymentEvidencePost'];
 const gasSources = gasNames.map(name => fs.readFileSync(path.join(root,'gas',name+'.js'),'utf8'));
 const {createHash} = await import('node:crypto');
 const gasSourceHashes = Object.fromEntries(gasNames.map((name,index) =>
@@ -26,6 +27,7 @@ const {${environmentNames.join(',')}}=require('./AttendanceEnvironment.js').crea
 const getSheetRows=(_context,name)=>{if(name!=='20_会費状態View'||!Array.isArray(ctx.receptionViews))throw Error('BILLING_READ_UNAVAILABLE');return ctx.receptionViews;};
 ${gasSources.join('\n')}
 return {register: input => registerAttendanceBatchLocked_(input,ctx),
+readEvidenceList: (input,model)=>paymentEvidenceQuery_listFromReadModel_(input,model),
 projectReceptionSources({invoices,payments,attendances}) {
   return {invoices:paymentStatusView_makeInvoiceItems_(invoices),
     payments:payments.map(row=>paymentStatusView_makePaymentDetailFromRow_(row)),

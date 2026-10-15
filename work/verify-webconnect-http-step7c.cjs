@@ -25,6 +25,7 @@ const handle = createAdminApi({
   readAttendanceProgressSummary:async id=>{calls.push(['progress',id]);return {ok:true,member_id:id};},
   readBillingMemberInfo:async id=>{calls.push(['billing',id]);return {ok:true,memberId:id};},
   readPaymentReceptionSummary:async input=>{calls.push(['reception',input]);return {ok:true};},
+  readPaymentScreen:async input=>{calls.push(['screen',input]);return {ok:true,summary:{ok:true},confirmed:{ok:true},posted:{ok:true}};},
   readQrGeneratorOptions: async () => { calls.push(['qrOptions']); return { ok: true, members: [], plans: [], locations: [], teachers: [] }; }
   ,registerAttendanceBatch:async input=>{calls.push(['attendance',input]);return {ok:true,registered_count:1};}
 });
@@ -43,6 +44,7 @@ const modules = {
   '../attendance/progress-firestore.cjs': { createFirestoreProgressReader: () => async () => ({}) },
   '../billing/member-info-firestore.cjs': { createBillingMemberInfoReader: () => async () => ({}) },
   '../billing/reception-summary-firestore.cjs': { createReceptionSummaryReader: () => async () => ({}) },
+  '../billing/payment-screen-firestore.cjs': { createPaymentScreenReader: () => async () => ({}) },
   './admin-api.cjs': { createAdminApi: () => handle },
   './webConnect.cjs': { createDispatch },
   '../qr/generator-options.cjs': { createQrGeneratorOptions: () => async () => ({ ok: true }) },
@@ -113,6 +115,14 @@ test('reception summary GET is admin-only and rejects POST before reader',async(
   assert.equal((await request('GET',url,undefined,'Bearer teacher')).status,403);
   assert.equal((await request('POST','/api/webconnect',{action:'payment_reception_summary',input:{}},'Bearer admin')).status,405);
   assert.equal(calls.length,0);assert.equal((await request('GET',url,undefined,'Bearer admin')).status,200);assert.equal(calls.length,1);
+});
+
+test('payment screen uses admin GET only; POST and non-admin fail before reader',async()=>{
+  calls=[];const url='/api/webconnect?action=payment_screen_read&location_id=L1&billing_block_id=B1&target_month=2026-11';
+  assert.equal((await request('GET',url)).status,401);assert.equal((await request('GET',url,undefined,'Bearer member')).status,403);
+  assert.equal((await request('POST','/api/webconnect',{action:'payment_screen_read',input:{}},'Bearer admin')).status,405);
+  assert.equal(calls.length,0);const result=await request('GET',url,undefined,'Bearer admin');assert.equal(result.status,200);
+  assert.equal(result.body.confirmed.ok,true);assert.equal(calls.length,1);
 });
 
 test('POST batch read delegates JSON input through operation', async () => {
