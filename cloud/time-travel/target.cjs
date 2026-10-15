@@ -13,4 +13,8 @@ function createTimeTravelTarget(config, dependencies = {}) {
   return createApplication(config, dependencies);
 }
 
-module.exports = { createTimeTravelTarget };
+function createAttendanceRegistrationTarget(ctx, dependencies) {
+  const artifactPath = path.resolve(__dirname,'..','..','.build','portable-timetravel-firestore','DojoTimeTravelFirestore.cjs');
+  return require(artifactPath).createAttendanceRegistration(ctx,dependencies);
+}
+module.exports = { createTimeTravelTarget, createAttendanceRegistrationTarget };

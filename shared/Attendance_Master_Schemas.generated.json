@@ -204,5 +204,311 @@
         "documentId": false
       }
     ]
+  },
+  "Teacher": {
+    "entity": "teacher",
+    "version": "0.1",
+    "collection": "teachers",
+    "documentIdField": "teacher_id",
+    "fields": [
+      {
+        "logicalName": "teacher_id",
+        "physicalName": "teacher_id",
+        "type": "string",
+        "required": true,
+        "documentId": true
+      },
+      {
+        "logicalName": "member_id",
+        "physicalName": "member_id",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "表示名",
+        "physicalName": "display_name",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "氏名",
+        "physicalName": "full_name",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "役職",
+        "physicalName": "position",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "組織役割",
+        "physicalName": "organization_role",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "適用開始日",
+        "physicalName": "effective_start_date",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "適用終了日",
+        "physicalName": "effective_end_date",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "出席受付可",
+        "physicalName": "can_accept_attendance",
+        "type": "boolean",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "会費回収可",
+        "physicalName": "can_collect_membership_fee",
+        "type": "boolean",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "状態",
+        "physicalName": "status",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "備考",
+        "physicalName": "notes",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      }
+    ]
+  },
+  "Fee": {
+    "entity": "fee",
+    "version": "0.1",
+    "collection": "fees",
+    "documentIdField": "plan_id",
+    "fields": [
+      {
+        "logicalName": "plan_id",
+        "physicalName": "plan_id",
+        "type": "string",
+        "required": true,
+        "documentId": true
+      },
+      {
+        "logicalName": "表示名",
+        "physicalName": "display_name",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "区分",
+        "physicalName": "category",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "会費タイプ",
+        "physicalName": "membership_fee_type",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "回数単価",
+        "physicalName": "unit_price",
+        "type": "number",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "上限金額",
+        "physicalName": "maximum_amount",
+        "type": "number",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "状態",
+        "physicalName": "status",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "説明",
+        "physicalName": "description",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      }
+    ]
+  },
+  "PlanSelectionRule": {
+    "entity": "plan_selection_rule",
+    "version": "0.1",
+    "collection": "plan_selection_rules",
+    "documentIdField": "plan_selection_rule_id",
+    "fields": [
+      {
+        "logicalName": "plan_selection_rule_id",
+        "physicalName": "plan_selection_rule_id",
+        "type": "string",
+        "required": true,
+        "documentId": true
+      },
+      {
+        "logicalName": "member_type",
+        "physicalName": "member_type",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "selectable_plan_id",
+        "physicalName": "selectable_plan_id",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      }
+    ]
+  },
+  "Rank": {
+    "entity": "rank",
+    "version": "0.1",
+    "collection": "ranks",
+    "documentIdField": "rank_id",
+    "fields": [
+      {
+        "logicalName": "rank_id",
+        "physicalName": "rank_id",
+        "type": "string",
+        "required": true,
+        "documentId": true
+      },
+      {
+        "logicalName": "表示名",
+        "physicalName": "display_name",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "公式帳票名",
+        "physicalName": "official_document_name",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "資格体系",
+        "physicalName": "qualification_system",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "表示順",
+        "physicalName": "display_order",
+        "type": "number",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "状態",
+        "physicalName": "status",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "備考",
+        "physicalName": "notes",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      }
+    ]
+  },
+  "ExaminationStandard": {
+    "entity": "examination_standard",
+    "version": "0.1",
+    "collection": "examination_standards",
+    "documentIdField": "examination_standard_id",
+    "fields": [
+      {
+        "logicalName": "examination_standard_id",
+        "physicalName": "examination_standard_id",
+        "type": "string",
+        "required": true,
+        "documentId": true
+      },
+      {
+        "logicalName": "現在級段位",
+        "physicalName": "current_rank",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "次回審査級段位",
+        "physicalName": "next_rank",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "必要稽古数",
+        "physicalName": "required_training_count",
+        "type": "number",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "必要経過年数",
+        "physicalName": "required_elapsed_years",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "進捗表示対象",
+        "physicalName": "show_progress",
+        "type": "boolean",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "状態",
+        "physicalName": "status",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      },
+      {
+        "logicalName": "備考",
+        "physicalName": "notes",
+        "type": "string",
+        "required": false,
+        "documentId": false
+      }
+    ]
   }
 }

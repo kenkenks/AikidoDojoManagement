@@ -52,7 +52,7 @@
   <nav class="top-nav"><a href="member_home.html">会員ホーム</a><a href="paypay_code.html">PayPay決済コード登録</a><a href="index.html">入口</a></nav>
 
   <section id="firebaseAttendanceNotice" class="card" hidden>
-    <strong>Firebase版：出席情報の確認（読み取り専用）</strong>
+    <strong>Firebase版：出席情報の確認・登録</strong>
     <p id="firebaseAttendanceStatus">認証状態を確認しています。</p>
     <button id="firebaseAttendanceLogin" type="button" hidden>Googleログイン</button>
     <p>出席登録・級段位取得・稽古枠取得は未接続です。GASへの代替送信は行いません。</p>
@@ -124,7 +124,7 @@
       });
       firebaseAttendanceAuth.ready.then(function() {
         function updateAuthState(user) {
-          status.textContent = user ? "Firebase認証済み（本人の出席情報のみ取得可能）" : "Firebase認証が必要です。";
+          status.textContent = user ? "Firebase認証済み" : "Firebase認証が必要です。";
           login.hidden = !!user;
         }
         updateAuthState(firebaseAttendanceAuth.getCurrentUser());
@@ -498,13 +498,13 @@
           candidate.member_id,
           expectedByMember[candidate.member_id],
           attempt > 1,
-          true
+          !IS_FIREBASE_ATTENDANCE
         );
       })).then(function(results) {
         const failed = results.filter(function(result) { return !result.ok; });
         const mismatched = results.filter(function(result) { return result.ok && !result.matches; });
         if ((failed.length > 0 || mismatched.length > 0) && attempt < 6) {
-          addLog("GASの保存完了を待っています（確認 " + attempt + "/6）。", "warn");
+          addLog((IS_FIREBASE_ATTENDANCE ? "保存結果" : "GASの保存完了") + "を待っています（確認 " + attempt + "/6）。", "warn");
           return new Promise(function(resolve) {
             window.setTimeout(function() {
               resolve(refreshAllMemberStates(expectedByMember, attempt + 1));
@@ -665,10 +665,6 @@
     }
 
     function sendCandidatesToGas() {
-      if (IS_FIREBASE_ATTENDANCE) {
-        addLog("Firebase版の出席登録は未接続です。送信しません。", "error");
-        return;
-      }
       if (submitting) return;
       if (!currentTeacherId || !currentLocationId || !currentBillingBlockId) {
         addLog("先生・道場・課金枠をすべて設定してください。", "error");
@@ -727,7 +723,15 @@
       renderCandidates();
       updateSendButton();
       addLog("出席登録を送信しています。");
-      postJsonViaForm(GAS_URL, payload).then(function () {
+      const send = IS_FIREBASE_ATTENDANCE
+        ? window.DOJO_ATTENDANCE_FIREBASE_WRITE.register({input:payload,
+            runtimeConfig:window.DOJO_RUNTIME_CONFIG,authClient:firebaseAttendanceAuth,apiClient:firebaseAttendanceApi})
+        : postJsonViaForm(GAS_URL, payload);
+      send.then(function () {
+        if (IS_FIREBASE_ATTENDANCE) {
+          addLog("出席登録が完了しました。保存結果を再確認します。");
+          return refreshAllMemberStates(expectedByMember);
+        }
         addLog("送信しました。GASの処理完了を待っています。");
         return waitForPostReceipt(payload.request_id, 1).then(function(receipt) {
           if (!receipt.ok) throw new Error(receipt.message || "GASの出席処理に失敗しました。");
@@ -806,8 +810,8 @@
       const waitingForTeacher = !currentTeacherId;
 
       teacherQrGuide.hidden = !waitingForTeacher;
-      sendButton.hidden = IS_FIREBASE_ATTENDANCE || waitingForTeacher;
-      sendButton.disabled = IS_FIREBASE_ATTENDANCE || !(
+      sendButton.hidden = waitingForTeacher;
+      sendButton.disabled = !(
         !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
         memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.loaded && item.current_rank; })
       );

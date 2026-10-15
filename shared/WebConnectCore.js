@@ -11,6 +11,7 @@ var WebConnectCore = (function () {
     if (action === 'attendance_rank_options') return { operation: 'attendance.rankOptions', input: input || {} };
     if (action === 'member_attendance_state') return { operation: 'attendance.memberState', input: input || {} };
     if (action === 'attendance_saved_state') return { operation: 'attendance.savedState', input: input || {} };
+    if (action === 'attendance_batch') return { operation: 'attendance.registerBatch', input: input || {} };
     if (action === 'time_travel_set') {
       var data = input || {};
       return { operation: 'timeTravel.save', input: {

@@ -1,4 +1,6 @@
 'use strict';
+// Canonical GAS date constructors use the dojo script's timezone.
+process.env.TZ = 'Asia/Tokyo';
 
 if (process.env.FIREBASE_AUTH_EMULATOR_HOST) {
   throw new Error('AUTH_EMULATOR_NOT_ALLOWED');
@@ -8,6 +10,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
+const {getFirestore} = require('firebase-admin/firestore');
+const {createAttendanceCore} = require('../../adapters/firestore/DAO_Core.js');
 const { createServer } = require('node:http');
 const { createDao } = require('../../shared/DAO_Business.js');
 const { createFirestoreCore } = require('../member-read/DAO_Core_Firestore.cjs');
@@ -20,7 +24,7 @@ const { createSessionMasterReader } = require('../attendance/session-masters.cjs
 const { createSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createFirestoreMemberAttendanceState } = require('../attendance/member-state-firestore.cjs');
-const { createTimeTravelTarget } = require('../time-travel/target.cjs');
+const { createTimeTravelTarget, createAttendanceRegistrationTarget } = require('../time-travel/target.cjs');
 
 const root = path.resolve(__dirname, '..', '..');
 const port = Number(process.env.PORT || 8082);
@@ -62,6 +66,9 @@ const memberCore = createFirestoreCore(profile, {
   getAccessToken: async () => (await credential.getAccessToken()).access_token
 });
 const memberDao = createDao(memberCore, 'firestore');
+const attendanceCore = createAttendanceCore(getFirestore(firebaseApp),{
+  createRegistration:createAttendanceRegistrationTarget
+});
 
 const readAttendanceSavedState = createAttendanceSavedState({
   memberDao,
@@ -99,6 +106,7 @@ const handle = createAdminApi({
   readMember: id => memberDao.readById('members', id),
   readMembers: ids => memberDao.readByIds('members', ids),
   readAttendanceSavedState,
+  registerAttendanceBatch: input => attendanceCore.register(input),
   readMemberAttendanceState,
   readAttendanceRankOptions: createAttendanceRankOptions({ masterDao: { readPage: (...args) => memberCore.readPage(...args) } }),
   resolveDojoPrincipal: createFirestoreDojoPrincipalResolver(memberCore),
@@ -178,7 +186,7 @@ createServer(async (req, res) => {
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
       const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read', 'qr_generator_options']);
-      const writeActions = new Set(['time_travel_set', 'members_read']);
+      const writeActions = new Set(['time_travel_set', 'members_read', 'attendance_batch']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {
         res.writeHead(405, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' });

@@ -19,6 +19,17 @@ test('Firestore TimeTrip uses Setting business port without generic portable DAO
     ['DEBUG',{key:'DEBUG',value:'FALSE'}]
   ]);
   const fetchImpl=async(url,options={})=>{
+    // ZIP119 Core reads by batchGet. The original fixture only modeled GET.
+    if (url.endsWith(':batchGet')) {
+      const requested=JSON.parse(options.body).documents;
+      const rows=requested.map(name=>{
+        const id=name.split('/').at(-1);
+        if (!docs.has(id)) return {missing:name};
+        const fields=Object.fromEntries(Object.entries(docs.get(id)).map(([k,v])=>[k,{stringValue:v}]));
+        return {found:{name,fields}};
+      });
+      return {ok:true,status:200,text:async()=>JSON.stringify(rows)};
+    }
     const id=decodeURIComponent(url.split('/').pop().split('?')[0]);
     if ((options.method||'GET')==='GET') {
       if (!docs.has(id)) return response(404,{error:{status:'NOT_FOUND'}});

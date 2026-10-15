@@ -8,10 +8,11 @@ const root = path.resolve(__dirname, "..");
 const html = fs.readFileSync(path.join(root, "web/qr/attendance.html"), "utf8");
 const script = fs.readFileSync(path.join(root, "web/qr/attendance_firebase_read.js"), "utf8");
 function create() { const ctx = { URL, globalThis:null };ctx.globalThis=ctx;vm.runInNewContext(script,ctx);return ctx.DOJO_ATTENDANCE_FIREBASE_READ; }
-test("Firebase branch never falls back to GAS and disables writes", () => {
-  assert.match(html, /IS_FIREBASE_ATTENDANCE \|\| waitingForTeacher/);
-  assert.match(html, /sendButton.disabled = IS_FIREBASE_ATTENDANCE/);
-  assert.match(html, /if \(IS_FIREBASE_ATTENDANCE\) \{\s*addLog\("Firebase版の出席登録/);
+test("Firebase branch uses the authenticated writer and result readback", () => {
+  assert.match(html, /sendButton.hidden = waitingForTeacher/);
+  assert.doesNotMatch(html, /sendButton.disabled = IS_FIREBASE_ATTENDANCE/);
+  assert.match(html, /DOJO_ATTENDANCE_FIREBASE_WRITE\.register/);
+  assert.match(html, /refreshAllMemberStates\(expectedByMember\)/);
   assert.match(html, /DOJO_ATTENDANCE_FIREBASE_READ\.request/);
 });
 test("unsupported actions reject without a network request", async () => {

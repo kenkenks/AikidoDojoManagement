@@ -1,4 +1,5 @@
 'use strict';
+const {restoreMasterFields} = require('./master-fields.cjs');
 // Read-only adapter. Identity authorization belongs to the caller; no WebConnect exposure yet.
 const {projectAttendanceProgress} = require('./progress-summary.cjs');
 const clean = v => String(v ?? '').trim();
@@ -11,7 +12,7 @@ async function allMasterRows(core, collection) {
       throw new Error('INVALID_PROGRESS_MASTER_PAGE');
     for (const doc of result.documents) {
       if (!doc || !doc.fields || typeof doc.fields !== 'object') throw new Error('INVALID_PROGRESS_MASTER_ROW');
-      rows.push(doc.fields);
+      rows.push(restoreMasterFields(collection==='ranks'?'Rank':'ExaminationStandard',doc.fields,doc.id));
     }
     if (!result.nextPageToken) return rows;
     if (seen.has(result.nextPageToken)) throw new Error('PROGRESS_MASTER_PAGINATION_LOOP');

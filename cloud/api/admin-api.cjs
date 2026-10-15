@@ -2,8 +2,9 @@
 const { createAdminTimeTravelApi } = require('../time-travel/admin-api.cjs');
 const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
+const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, resolveDojoPrincipal }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -19,6 +20,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const operationInput = request.input || null;
     const systemContext = url === '/api/system/context' || operation === 'systemContext.read';
     const attendanceSession = operation === 'attendance.sessionInfo';
+    const registration = operation === 'attendance.registerBatch';
     const memberState = operation === 'attendance.memberState';
     const qrOptions = operation === 'qrGenerator.options';
     const rankOptions = operation === 'attendance.rankOptions';
@@ -28,7 +30,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberOperation = operation === 'member.readById';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!systemContext && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!systemContext && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -49,6 +51,26 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
+    if (registration) {
+      // Authorize the whole batch before any DAO access or mutation.
+      try { validateAttendanceInput(operationInput); }
+      catch { return reply(400,{error:'INVALID_ATTENDANCE_INPUT'}); }
+      if (user.admin !== true) {
+        if (typeof resolveDojoPrincipal !== 'function') return reply(403,{error:'FORBIDDEN'});
+        const principal = await resolveDojoPrincipal(user);
+        const ownMember = operationInput.attendance_items.every(item=>canAccessMember(principal,item.member_id));
+        const ownTeacher = principal?.teacher_id && principal.teacher_id === operationInput.teacher_id;
+        if (!ownMember && !ownTeacher) return reply(403,{error:'FORBIDDEN'});
+      }
+      if (typeof registerAttendanceBatch !== 'function') return reply(503,{error:'ATTENDANCE_WRITE_UNAVAILABLE'});
+      try {
+        const result = await registerAttendanceBatch(operationInput);
+        return reply(result?.ok === true ? 200 : 400,result);
+      } catch (error) {
+        console.error('[ATTENDANCE_WRITE_ERROR]',{code:/^[A-Z][A-Z0-9_]{2,80}$/.test(error?.message || '') ? error.message : 'UNCLASSIFIED_EXCEPTION'});
+        return reply(503,{error:'ATTENDANCE_WRITE_UNAVAILABLE'});
+      }
+    }
     // Only a verified, server-resolved member can read their own saved attendance.
     // All other operations retain their existing admin-only boundary.
     if (user.admin !== true) {

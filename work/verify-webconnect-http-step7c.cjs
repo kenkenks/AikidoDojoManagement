@@ -22,11 +22,14 @@ const handle = createAdminApi({
   readAttendanceSavedState: async input => { calls.push(['saved', input]); return { ok: true }; },
   readAttendanceSessionInfo: async input => { calls.push(['session', input]); return { ok: true }; },
   readQrGeneratorOptions: async () => { calls.push(['qrOptions']); return { ok: true, members: [], plans: [], locations: [], teachers: [] }; }
+  ,registerAttendanceBatch:async input=>{calls.push(['attendance',input]);return {ok:true,registered_count:1};}
 });
 let callback;
 const modules = {
   'firebase-admin/app': { initializeApp: () => ({}), applicationDefault: () => ({ getAccessToken: async () => ({ access_token: 'test' }) }) },
   'firebase-admin/auth': { getAuth: () => ({ verifyIdToken: async () => ({ uid: 'admin', admin: true }) }) },
+  'firebase-admin/firestore': {getFirestore:()=>({})},
+  '../../adapters/firestore/DAO_Core.js': {createAttendanceCore:()=>({register:async()=>({ok:true})})},
   'node:http': { createServer: cb => { callback = cb; return { listen: () => {} }; } },
   '../../shared/DAO_Business.js': { createDao: () => ({}) },
   '../member-read/DAO_Core_Firestore.cjs': { createFirestoreCore: () => ({}) },
@@ -96,4 +99,13 @@ test('QR options uses Dispatcher with admin authorization only', async () => {
   assert.equal(result.body.ok, true);
   assert.deepEqual(calls, [['qrOptions']]);
   assert.equal((await request('POST', '/api/webconnect', { action: 'qr_generator_options' }, 'Bearer admin')).status, 405);
+});
+test('attendance POST uses the same HTTP dispatcher and GET is rejected',async()=>{
+  const input={teacher_id:'T1',location_id:'L1',billing_block_id:'B1',attendance_items:[{member_id:'M1',slot_ids:['S1']}]};
+  calls=[];
+  assert.equal((await request('GET','/api/webconnect?action=attendance_batch',undefined,'Bearer admin')).status,405);
+  assert.equal(calls.length,0);
+  const result=await request('POST','/api/webconnect',{action:'attendance_batch',input},'Bearer admin');
+  assert.equal(result.status,200);assert.equal(result.body.registered_count,1);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)),[['attendance',input]]);
 });
