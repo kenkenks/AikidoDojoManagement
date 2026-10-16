@@ -4,7 +4,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
 const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -26,6 +26,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const billingMemberInfo = operation === 'billing.memberInfo';
     const receptionSummary = operation === 'billing.receptionSummary';
     const paymentScreen = operation === 'billing.screenRead';
+    const cashAccept = operation === 'billing.cashAccept';
     const teacherToday=operation==='attendance.teacherToday';
     const qrOptions = operation === 'qrGenerator.options';
     const rankOptions = operation === 'attendance.rankOptions';
@@ -35,7 +36,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberOperation = operation === 'member.readById';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -56,6 +57,23 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
+    if(cashAccept){
+      if(String(request.method||'').toUpperCase()!=='POST')return reply(405,{error:'METHOD_NOT_ALLOWED'});
+      if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});
+      if(typeof acceptCashPayment!=='function')return reply(503,{error:'PAYMENT_CASH_ACCEPT_UNAVAILABLE'});
+      try{
+        const result=await acceptCashPayment(operationInput,user);
+        return reply(result?.ok===true?200:500,result?.ok===true?result:{error:'PAYMENT_CASH_ACCEPT_FAILED'});
+      }catch(error){
+        const code=typeof error?.code==='string'&&/^[A-Z][A-Z0-9_]{2,80}$/.test(error.code)
+          ?error.code:(typeof error?.message==='string'&&/^[A-Z][A-Z0-9_]{2,80}$/.test(error.message)?error.message:'PAYMENT_CASH_ACCEPT_UNAVAILABLE');
+        const known400=new Set(['INVALID_PAYMENT_CASH_ACCEPT_PARAMS','PAYMENT_CASH_MEMBER_GROUP_INVALID','PAYMENT_CASH_RECEPTION_SCOPE_INVALID']);
+        const known409=new Set(['PAYMENT_CASH_REQUEST_CONFLICT','PAYMENT_CASH_REQUEST_INCOMPLETE','PAYMENT_CASH_NO_INVOICE','PAYMENT_CASH_NOTHING_DUE','PAYMENT_CASH_EVIDENCE_PENDING']);
+        const status=known400.has(code)?400:known409.has(code)?409:code==='PAYMENT_CASH_ACCEPT_FORBIDDEN'?403:code==='PAYMENT_CASH_ACCEPT_UNAUTHENTICATED'?401:503;
+        if(status===503)console.error('[PAYMENT_CASH_ACCEPT_ERROR]',{code});
+        return reply(status,{error:status===503?'PAYMENT_CASH_ACCEPT_UNAVAILABLE':code});
+      }
+    }
     if(paymentScreen){
       if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});
       if(!operationInput||Object.keys(operationInput).some(k=>!['action','reception_date','location_id','billing_block_id','target_month','payment_method'].includes(k))||

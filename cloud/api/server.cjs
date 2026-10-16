@@ -10,7 +10,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { initializeApp, applicationDefault } = require('firebase-admin/app');
 const { getAuth } = require('firebase-admin/auth');
-const {getFirestore} = require('firebase-admin/firestore');
+const {getFirestore,FieldValue} = require('firebase-admin/firestore');
 const {createAttendanceCore} = require('../../adapters/firestore/DAO_Core.js');
 const { createServer } = require('node:http');
 const { createDao } = require('../../shared/DAO_Business.js');
@@ -29,6 +29,8 @@ const { createFirestoreProgressReader } = require('../attendance/progress-firest
 const { createBillingMemberInfoReader } = require('../billing/member-info-firestore.cjs');
 const {createReceptionSummaryReader}=require('../billing/reception-summary-firestore.cjs');
 const {createPaymentScreenReader}=require('../billing/payment-screen-firestore.cjs');
+const {createPaymentCashAcceptCommand}=require('../billing/payment-cash-accept-command.cjs');
+const {createPaymentCashAcceptFirestoreExecutor}=require('../billing/payment-cash-accept-firestore.cjs');
 const { createTimeTravelTarget, createAttendanceRegistrationTarget,createTeacherOverviewTarget } = require('../time-travel/target.cjs');
 
 const root = path.resolve(__dirname, '..', '..');
@@ -74,6 +76,12 @@ const memberDao = createDao(memberCore, 'firestore');
 const attendanceCore = createAttendanceCore(getFirestore(firebaseApp),{
   createRegistration:createAttendanceRegistrationTarget
 });
+const paymentCashExecutor=createPaymentCashAcceptFirestoreExecutor(getFirestore(firebaseApp),{
+  getSystemContext:()=>application.getSystemContext(),
+  createProjection:()=>createAttendanceRegistrationTarget({daoCore:{},timezone:'Asia/Tokyo',cache:{}},{uuid:()=>{throw Error('UUID_FORBIDDEN');}}),
+  serverTimestamp:()=>FieldValue.serverTimestamp()
+});
+const paymentCashCommand=createPaymentCashAcceptCommand({executeAtomic:paymentCashExecutor});
 
 const readAttendanceSavedState = createAttendanceSavedState({
   memberDao,
@@ -108,6 +116,7 @@ const handle = createAdminApi({
   readPaymentScreen:createPaymentScreenReader(getFirestore(firebaseApp),{
     getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
   }),
+  acceptCashPayment:(input,user)=>paymentCashCommand.execute(input,user),
   readPaymentReceptionSummary:createReceptionSummaryReader(getFirestore(firebaseApp),{
     getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
   }),
@@ -210,14 +219,14 @@ createServer(async (req, res) => {
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
       const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary','payment_screen_read']);
-      const writeActions = new Set(['time_travel_set', 'members_read', 'attendance_batch']);
+      const writeActions = new Set(['time_travel_set', 'members_read', 'attendance_batch','payment_cash_accept']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {
         res.writeHead(405, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: 'METHOD_NOT_ALLOWED' }));
         return;
       }
-      const result = await dispatch({ action, input, context: {
+      const result = await dispatch({ action, input, method:req.method, context: {
         authorization: req.headers.authorization
       } });
       res.writeHead(result.status, { ...result.headers, ...corsHeaders });

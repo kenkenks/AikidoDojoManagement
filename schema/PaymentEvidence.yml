@@ -1,0 +1,68 @@
+entity: payment_evidence
+version: "0.2"
+fields:
+  - name: evidence_id
+    type: string
+    primary_key: true
+    required: true
+  - name: invoice_id
+    type: string
+  - name: billing_group_id
+    type: string
+    firestore_only: true
+  - name: member_id
+    type: string
+  - name: payment_method
+    type: string
+  - name: amount
+    type: number
+  - name: reception_date
+    type: string
+  - name: location_id
+    type: string
+    firestore_only: true
+  - name: billing_block_id
+    type: string
+    firestore_only: true
+  - name: teacher_id
+    type: string
+    firestore_only: true
+  - name: reception_session_id
+    type: string
+    firestore_only: true
+  - name: status
+    type: string
+  - name: evidence_code
+    type: string
+  - name: requested_at
+    type: string
+  - name: confirmed_at
+    type: string
+  - name: confirmed_by
+    type: string
+  - name: posted_at
+    type: string
+  - name: payment_log_id
+    type: string
+  - name: remarks
+    type: string
+  - name: request_id
+    type: string
+    firestore_only: true
+  - name: authenticated_uid
+    type: string
+    firestore_only: true
+  - name: receptionist_type
+    type: string
+    firestore_only: true
+  - name: receptionist_id
+    type: string
+    firestore_only: true
+  - name: recorded_at
+    type: timestamp
+    firestore_only: true
+sources:
+  gas:
+    sheet: "09_決済エビデンス"
+  firestore:
+    collection: paymentEvidences

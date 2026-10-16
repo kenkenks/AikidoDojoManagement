@@ -42,10 +42,18 @@ test('legacy identity resolves from reciprocally linked posted evidence',async()
   const view=JSON.parse(t.payment_status_views[0].reception_payments_json);view[0].invoice_id='';t.payment_status_views[0].reception_payments_json=JSON.stringify(view);
   assert.equal((await harness(t).read(params)).payment_count,1);
 });
-test('conflicting raw payer, evidence or View details fail rather than choose first',async()=>{
-  for(const mutate of [t=>t.payments[0].member_id='M2',t=>{const rows=JSON.parse(t.payment_status_views[0].reception_payments_json);rows[0].amount=1;t.payment_status_views[0].reception_payments_json=JSON.stringify(rows);},t=>t.payment_status_views[0].reception_payments_json='bad']){
+test('source identity and structurally corrupt View details still fail closed',async()=>{
+  for(const mutate of [t=>t.payments[0].member_id='M2',t=>t.payment_status_views[0].reception_payments_json='bad',
+    t=>t.payment_status_views[0].reception_payments_json=JSON.stringify([{payment_id:'BAD ID'}]),
+    t=>t.payment_status_views[0].reception_payments_json=JSON.stringify([{payment_id:'PAY1'},{payment_id:'PAY1'}])]){
     const t=prepareViews(fixture());mutate(t);await assert.rejects(harness(t).read(params));
   }
+});
+test('stale View values are advisory and canonical transaction sources win without a write',async()=>{
+  const t=prepareViews(fixture()),h=harness(t);
+  const rows=JSON.parse(t.payment_status_views[0].reception_payments_json);rows[0].amount=1;
+  t.payment_status_views[0].reception_payments_json=JSON.stringify(rows);
+  const result=await h.read(params);assert.equal(result.cash_total,500);assert.equal(h.writes,0);
 });
 test('multiple group members deduplicate invoices/payments and group outstanding once',async()=>{
   const t=fixture();t.members.push({id:'M2',member_id:'M2',member_name:'TEST2',billing_group_id:'G1'});
@@ -85,11 +93,11 @@ test('admin authorization precedes reader, and migration/conflict/unavailable ar
   assert.equal((await call('Bearer admin')).status,200);
   for(const error of ['RECEPTION_MIGRATION_REQUIRED','RECEPTION_SOURCE_CONFLICT','NETWORK_FAILURE']){failure=error;const r=await call('Bearer admin');assert.equal(r.status,error==='NETWORK_FAILURE'?503:409);assert.equal(r.body.error,error==='NETWORK_FAILURE'?'RECEPTION_READ_UNAVAILABLE':error);}
 });
-test('same payment across Views must agree; duplicate copies alone do not create extra payments',async()=>{
+test('same canonical payment across Views does not create extra payments',async()=>{
   const t=fixture();t.members.push({id:'M2',member_id:'M2',member_name:'TEST2',billing_group_id:'G1'});prepareViews(t);
   assert.equal((await harness(t).read(params)).payment_count,1);
   const rows=JSON.parse(t.payment_status_views[1].reception_payments_json);rows[0].member_id='M2';t.payment_status_views[1].reception_payments_json=JSON.stringify(rows);
-  await assert.rejects(harness(t).read(params),/SOURCE_CONFLICT/);
+  assert.equal((await harness(t).read(params)).payment_count,1);
 });
 test('reconstructed identity must agree with evidence invoice, not just evidence payer',async()=>{
   const t=prepareViews(fixture()),p=t.payments[0];delete p.member_id;delete p.invoice_id;p['決済ID']='E1';

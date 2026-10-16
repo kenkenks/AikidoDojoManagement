@@ -32,8 +32,9 @@ test('runtime reuses existing Firebase auth and bearer API client in safe script
   const runtime = html.indexOf('src="runtime_config.js"');
   const auth = html.indexOf('src="firebase_auth.js"');
   const client = html.indexOf('src="dojo_api_client.js"');
+  const cashClient = html.indexOf('src="payment_cash_accept_client.js"');
   const context = html.indexOf('src="system_context.js"');
-  assert.ok(runtime >= 0 && runtime < auth && auth < client && client < context);
+  assert.ok(runtime >= 0 && runtime < auth && auth < client && client < cashClient && cashClient < context);
   assert.match(html, /const IS_FIREBASE = RUNTIME_CONFIG\.runtime === "firebase"/);
   assert.match(html, /DOJO_FIREBASE_AUTH\.create/);
   assert.match(html, /DOJO_API_CLIENT\.create/);
@@ -162,14 +163,28 @@ test('Firebase refreshes only the combined payment screen DTO', () => {
   assert.doesNotMatch(screen, /\.sort\s*\(/);
 });
 
-test('Firebase write controls and every write entry point are blocked', () => {
-  for (const name of ['confirmPayment', 'sendPaymentsToGas', 'postConfirmedPayments', 'postSelectedConfirmedEvidences']) {
+test('Firebase cash uses its Command while unrelated write entry points stay blocked', () => {
+  for (const name of ['sendPaymentsToGas', 'postConfirmedPayments', 'postSelectedConfirmedEvidences']) {
     assert.match(functionBody(name), /^\s*if \(firebaseWriteBlocked\(/, `${name} must reject Firebase first`);
   }
+  assert.match(functionBody('confirmPayment'), /^\s*if \(IS_FIREBASE\) return acceptFirebaseCashPayment\(payType\);/);
   const disabled = functionBody('disableFirebaseWriteControls');
   for (const id of ['completePaymentsButton', 'postConfirmedPaymentsButton', 'postSelectedConfirmedEvidencesButton']) {
     assert.match(disabled, new RegExp(id));
   }
+});
+
+test('Firebase cash POST uses existing WebConnect and refreshes member and screen DTOs',()=>{
+  const send=functionBody('sendFirebaseCashAccept');
+  assert.match(send,/method:"POST"/);
+  assert.match(send,/action:"payment_cash_accept"/);
+  assert.match(send,/dojoApiClient\.request/);
+  assert.doesNotMatch(send,/GAS_URL/);
+  const accept=functionBody('acceptFirebaseCashPayment');
+  assert.match(accept,/firebaseCashAcceptClient\.execute\(input\)/);
+  assert.match(accept,/loadFirebaseMemberForPayment\(memberId, planId\)/);
+  assert.match(accept,/loadPaymentScreenRead\(\)/);
+  assert.match(accept,/結果が不明/);
 });
 
 test('Firebase cannot fall through to GAS member reads or GAS POST', () => {

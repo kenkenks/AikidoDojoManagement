@@ -5,7 +5,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 
 function createDispatch(handle) {
   if (typeof handle !== 'function') throw new Error('handle is required');
-  return async function dispatch({ action, input, context }) {
+  return async function dispatch({ action, input, context, method }) {
     const contract = action === 'qr_generator_options'
       ? { operation: 'qrGenerator.options', input: null }
       : WebConnectCore.resolve(action, input);
@@ -13,6 +13,9 @@ function createDispatch(handle) {
       'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store'
     }, body });
     if (!contract) return reply(404, { error: 'UNKNOWN_ACTION' });
+    if (contract.operation === 'billing.cashAccept' && String(method || '').toUpperCase() !== 'POST') {
+      return reply(405, { error: 'METHOD_NOT_ALLOWED' });
+    }
     // GET query includes the routing action; memberState accepts only its four domain keys.
     if (contract.operation === 'attendance.memberState' && contract.input) {
       const { action: _action, ...domainInput } = contract.input;
@@ -24,7 +27,7 @@ function createDispatch(handle) {
           key => typeof contract.input?.[key] !== 'string')) {
       return reply(400, { error: 'INVALID_ATTENDANCE_PARAMS' });
     }
-    return handle({ operation: contract.operation, input: contract.input,
+    return handle({ operation: contract.operation, input: contract.input, method,
       authorization: context && context.authorization });
 
   };

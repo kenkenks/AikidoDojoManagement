@@ -209,7 +209,7 @@
   <nav class="top-nav"><a href="teacher_home.html">先生ホーム</a><a href="index.html">入口</a></nav>
 
   <div id="firebaseAccessPanel" class="card hidden">
-    <strong>Firebase DEV 読取接続</strong>
+    <strong>Firebase DEV 接続</strong>
     <div id="firebaseAccessStatus" class="firebase-status loading">認証を準備しています。</div>
     <button id="firebaseLoginButton" type="button">管理者としてGoogleログイン</button>
   </div>
@@ -301,6 +301,7 @@
   <script src="runtime_config.js"></script>
   <script src="firebase_auth.js"></script>
   <script src="dojo_api_client.js"></script>
+  <script src="payment_cash_accept_client.js"></script>
   <script>
     const RUNTIME_CONFIG = window.DOJO_RUNTIME_CONFIG;
     const IS_FIREBASE = RUNTIME_CONFIG.runtime === "firebase";
@@ -310,6 +311,12 @@
       : null;
     const dojoApiClient = IS_FIREBASE
       ? window.DOJO_API_CLIENT.create({ getCurrentUser:firebaseAuthClient.getCurrentUser })
+      : null;
+    const firebaseCashAcceptClient = IS_FIREBASE
+      ? window.DOJO_PAYMENT_CASH_ACCEPT.create({
+          send:sendFirebaseCashAccept,
+          generateRequestId:makeFirebaseCashRequestId
+        })
       : null;
 
     let html5QrCode = null;
@@ -338,7 +345,7 @@
 
     function firebaseWriteBlocked(operation) {
       if (!IS_FIREBASE) return false;
-      const message = "Firebase DEVでは" + operation + "を実行できません。読取専用です。";
+      const message = "Firebase DEVでは" + operation + "は未対応です。";
       setFirebaseAccessStatus(message, "error");
       addLog(message);
       return true;
@@ -398,6 +405,68 @@
 
     function webConnectRead(params) {
       return IS_FIREBASE ? firebaseWebConnectRead(params) : jsonp(GAS_URL, params);
+    }
+
+    function makeFirebaseCashRequestId() {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return "cash-" + window.crypto.randomUUID();
+      }
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      return "cash-" + Array.from(bytes, function(value) {
+        return value.toString(16).padStart(2, "0");
+      }).join("");
+    }
+
+    async function sendFirebaseCashAccept(input) {
+      await firebaseAuthClient.ready;
+      if (!firebaseAuthClient.getCurrentUser()) {
+        const authError = new Error("Firebase認証が必要です。管理者としてGoogleログインしてください。");
+        authError.outcomeUnknown = false;
+        throw authError;
+      }
+      const controller = new AbortController();
+      const timer = window.setTimeout(function() { controller.abort(); }, 15000);
+      let response;
+      try {
+        response = await dojoApiClient.request(
+          String(RUNTIME_CONFIG.apiBaseUrl || "").replace(/\/+$/, "") + "/api/webconnect",
+          {
+            method:"POST",
+            cache:"no-store",
+            headers:{ "Content-Type":"application/json" },
+            body:JSON.stringify({ action:"payment_cash_accept", input:input }),
+            signal:controller.signal
+          }
+        );
+      } catch (error) {
+        const unknown = new Error("通信結果を確認できません。同じ受付を再試行してください。");
+        unknown.outcomeUnknown = true;
+        unknown.cause = error;
+        throw unknown;
+      } finally {
+        window.clearTimeout(timer);
+      }
+      let body = null;
+      try { body = await response.json(); } catch (error) {
+        if (response.ok) {
+          const unknown = new Error("受領結果を確認できません。同じ受付を再試行してください。");
+          unknown.outcomeUnknown = true;
+          throw unknown;
+        }
+      }
+      if (!response.ok) {
+        const code = body && (body.error || body.message);
+        const message = response.status === 401
+          ? "Firebase認証が必要です（HTTP 401）。"
+          : response.status === 403
+            ? "管理者権限がありません（HTTP 403）。"
+            : "現金受領に失敗しました（HTTP " + response.status + (code ? " / " + code : "") + "）。";
+        const failure = new Error(message);
+        failure.outcomeUnknown = false;
+        throw failure;
+      }
+      return body;
     }
 
     function initializeFirebaseAccess() {
@@ -603,8 +672,8 @@
                 現金受付
                 ・先生がその場で受付する運用
               -->
-              <button class="primary${IS_FIREBASE ? " firebase-write-disabled" : ""}" onclick="confirmPayment('現金')"${IS_FIREBASE ? " disabled" : ""}>
-                ${IS_FIREBASE ? "現金受領（Firebase未対応）" : "現金受領"}
+              <button id="firebaseCashAcceptButton" class="primary" onclick="confirmPayment('現金')">
+                現金受領
               </button>
 
             `
@@ -613,6 +682,7 @@
     }
 
     function confirmPayment(payType) {
+      if (IS_FIREBASE) return acceptFirebaseCashPayment(payType);
       if (firebaseWriteBlocked("現金受付")) return;
       if (payType !== "現金") {
         addLog("受領スキップ: 先生画面は現金受付専用です。PayPayは会員PayPay画面を使用してください。");
@@ -659,6 +729,71 @@
       renderPaymentList();
       renderSummary();
       renderCompletion(payment);
+    }
+
+    function setFirebaseCashAcceptBusy(busy) {
+      const button = document.getElementById("firebaseCashAcceptButton");
+      if (!button) return;
+      button.disabled = !!busy;
+      button.textContent = busy ? "受領処理中…" : "現金受領";
+    }
+
+    function acceptFirebaseCashPayment(payType) {
+      if (!IS_FIREBASE || payType !== "現金") return Promise.resolve(null);
+      if (!currentPayment || currentPayment.amount <= 0) {
+        const message = "受領対象の未払い会費がありません。";
+        setFirebaseAccessStatus(message, "error");
+        addLog(message);
+        return Promise.resolve(null);
+      }
+      if (!currentLocationId || !currentBillingBlockId || !currentPayment.billingGroupId) {
+        const message = "受付範囲または請求グループを確定できません。";
+        setFirebaseAccessStatus(message, "error");
+        addLog(message);
+        return Promise.resolve(null);
+      }
+      if (firebaseCashAcceptClient.isBusy()) {
+        addLog("現金受領は処理中です。二重送信を停止しました。");
+        return Promise.resolve({ ok:false, duplicate_submit:true });
+      }
+      const memberId = currentPayment.memberId;
+      const planId = currentPayment.planId;
+      const input = {
+        location_id:currentLocationId,
+        billing_block_id:currentBillingBlockId,
+        reception_session_id:receptionSessionId || "",
+        items:[{
+          member_id:memberId,
+          billing_group_id:currentPayment.billingGroupId
+        }]
+      };
+      setFirebaseCashAcceptBusy(true);
+      setFirebaseAccessStatus("現金受領を確定しています。", "loading");
+      addLog("Firebase現金受領送信: " + memberId);
+      return firebaseCashAcceptClient.execute(input).then(function(result) {
+        addLog("Firebase現金受領完了: " + memberId + " / " + Number(result.accepted_amount || 0) + "円");
+        setFirebaseAccessStatus("現金受領を確定しました。最新情報を再取得しています。", "loading");
+        return Promise.all([
+          loadFirebaseMemberForPayment(memberId, planId),
+          loadPaymentScreenRead()
+        ]).then(function(results) {
+          const refreshed = results.every(function(value) { return value !== null; });
+          setFirebaseAccessStatus(refreshed
+            ? "現金受領を確定し、表示を更新しました。"
+            : "現金受領は確定しましたが、最新表示の取得に失敗しました。再取得してください。", refreshed ? "" : "error");
+          return result;
+        });
+      }).catch(function(error) {
+        const unknown = error && error.outcomeUnknown === true;
+        const message = unknown
+          ? "通信結果が不明です。入金失敗とは断定できません。同じ会員の現金受領を再試行してください。"
+          : (error.message || String(error));
+        addLog("Firebase現金受領" + (unknown ? "結果不明: " : "失敗: ") + message);
+        setFirebaseAccessStatus(message, "error");
+        return null;
+      }).finally(function() {
+        setFirebaseCashAcceptBusy(false);
+      });
     }
 
     function renderCompletion(payment) {
@@ -824,7 +959,7 @@
         renderConfirmedEvidences();
         renderPostedEvidences();
         addLog("決済画面情報取得完了: 集計=" + Number(summary.payment_count || 0) + "件 / CONFIRMED=" + confirmedEvidences.length + " / POSTED=" + postedEvidences.length);
-        if (IS_FIREBASE) setFirebaseAccessStatus("会費受付情報を表示しました（読取専用）。", "");
+        if (IS_FIREBASE) setFirebaseAccessStatus("会費受付情報を表示しました。", "");
         return result;
       }).catch(function(error) {
         addLog("決済画面情報取得失敗: " + (error.message || String(error)));
@@ -1328,7 +1463,7 @@
       currentPayment = normalized;
       renderCurrentPayment();
       addLog("会費情報取得完了: " + normalized.memberName);
-      setFirebaseAccessStatus("会員別会費情報を表示しました（読取専用）。", "");
+      setFirebaseAccessStatus("会員別会費情報を表示しました。", "");
       return normalized;
     }).catch(function(error) {
       const message = error.message || String(error);

@@ -13,7 +13,7 @@ const gasNames = ['00_Job','01_Commom','02_SheetAccess','DAO_Composition',
   'DAO_Business_Member','DAO_Business_Attendance','DAO_Business_Billing',
   'DAO_Business_View','DAO_Business_AttendanceProgress',
   '03_Billing','03_BillingCore','03_BillingMonthly','03_BillingRecord','03_BillingUsage',
-  '04_Attendance','04_AttendanceCore','04_AttendanceProgress',
+  '04_Attendance','04_AttendanceCore','04_AttendanceProgress','05_Payment',
   '20_PaymentStatusView','20_PaymentStatusTeacher','09_PaymentEvidenceRequest','06_PaymentReceptionScope',
   '09_PaymentEvidenceQuery','09_PaymentEvidencePost'];
 const gasSources = gasNames.map(name => fs.readFileSync(path.join(root,'gas',name+'.js'),'utf8'));
@@ -34,6 +34,7 @@ projectReceptionSources({invoices,payments,attendances}) {
     attendances:attendances.filter(isActiveMasterRow_).map(paymentStatusView_makeAttendanceDetailFromRow_)};
 },
 readReceptionSummary: input=>paymentReception_getScopeSummary(input,ctx),
+calculateInvoiceStatuses: (invoices,payments)=>payment_calculateInvoiceStatuses_(invoices,payments),
 readMemberInfo(memberId,month,view) {
   if(view){
     const template=paymentStatusView_schemaTemplate_();

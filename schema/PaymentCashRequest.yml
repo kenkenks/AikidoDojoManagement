@@ -1,0 +1,43 @@
+entity: payment_cash_request
+version: "0.1"
+fields:
+  - name: request_id
+    type: string
+    group: Identity
+    primary_key: true
+    required: true
+  - name: input_hash
+    type: string
+    group: Identity
+    required: true # SHA-256 of the normalized request and verified actor.
+  - name: status
+    type: string
+    group: State
+    required: true # Only COMPLETED is persisted; incomplete records do not commit.
+  - name: authenticated_uid
+    type: string
+    group: Unclassified
+    required: true
+  - name: receptionist_type
+    type: string
+    group: Unclassified
+    required: true
+  - name: receptionist_id
+    type: string
+    group: Unclassified
+    required: true
+  - name: business_datetime
+    type: string
+    group: Unclassified
+    required: true
+  - name: recorded_at
+    type: timestamp
+    group: Unclassified
+    required: true
+  - name: result
+    type: object
+    group: Unclassified
+    required: true # Command result DTO, including accepted_amount and invoice-specific payments[].
+sources:
+  firestore:
+    collection: payment_cash_requests

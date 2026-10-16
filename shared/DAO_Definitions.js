@@ -20,9 +20,19 @@ const definitions = {
   paymentLog: {
     writable: ['payment_id','日時','target_month','billing_group_id','invoice_id','member_id','支払方法','入金額','決済ID','備考','reception_date','location_id','billing_block_id','teacher_id','reception_session_id'],
     sources: {
-      firestore: { collection: 'payments', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', member_id:'member_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', 備考:'備考', reception_date:'reception_date', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id' } },
+      firestore: { collection: 'payments', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', member_id:'member_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', 備考:'備考', reception_date:'reception_date', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id', request_id:'request_id', authenticated_uid:'authenticated_uid', receptionist_type:'receptionist_type', receptionist_id:'receptionist_id', recorded_at:'recorded_at' } },
       // GAS 06_入金ログ: base 9列 + paymentReception_ensureSchema() のScope 5列。member_idは物理列ではない。
       gas: { sheet: '06_入金ログ', fields: { payment_id:'payment_id', 日時:'日時', target_month:'target_month', billing_group_id:'billing_group_id', invoice_id:'invoice_id', 支払方法:'支払方法', 入金額:'入金額', 決済ID:'決済ID', 備考:'備考', reception_date:'reception_date', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id' } }
+    }
+  },
+  paymentCashRequest: {
+    writable: ['request_id','input_hash','status','authenticated_uid','receptionist_type','receptionist_id','business_datetime','recorded_at','result'],
+    sources: {
+      firestore: { collection: 'payment_cash_requests', keyField: 'request_id', fields: {
+        request_id:'request_id', input_hash:'input_hash', status:'status', authenticated_uid:'authenticated_uid',
+        receptionist_type:'receptionist_type', receptionist_id:'receptionist_id',
+        business_datetime:'business_datetime', recorded_at:'recorded_at', result:'result'
+      } }
     }
   },
   members: {
@@ -42,21 +52,21 @@ const definitions = {
   locations: {
     writable: [],
     sources: {
-      firestore: { collection: 'locations', fields: { location_id:'location_id', 状態:'状態' } },
+      firestore: { collection: 'dojos', keyField: 'location_id', fields: { location_id:'location_id', 状態:'status' } },
       gas: { sheet: '10_道場マスタ', fields: { location_id:'location_id', 状態:'状態' } }
     }
   },
   billingBlocks: {
     writable: [],
     sources: {
-      firestore: { collection: 'billingBlocks', fields: { billing_block_id:'billing_block_id', location_id:'location_id', 状態:'状態' } },
+      firestore: { collection: 'billing_blocks', keyField: 'billing_block_id', fields: { billing_block_id:'billing_block_id', location_id:'location_id', 状態:'status' } },
       gas: { sheet: '13_課金枠マスタ', fields: { billing_block_id:'billing_block_id', location_id:'location_id', 状態:'状態' } }
     }
   },
   trainingSlots: {
     writable: [],
     sources: {
-      firestore: { collection: 'trainingSlots', fields: { slot_id:'slot_id', location_id:'location_id', billing_block_id:'billing_block_id', 稽古時間分:'稽古時間分', 状態:'状態' } },
+      firestore: { collection: 'training_slots', keyField: 'slot_id', fields: { slot_id:'slot_id', location_id:'location_id', billing_block_id:'billing_block_id', 稽古時間分:'duration_minutes', 状態:'status' } },
       gas: { sheet: '12_稽古枠マスタ', fields: { slot_id:'slot_id', location_id:'location_id', billing_block_id:'billing_block_id', 稽古時間分:'稽古時間分', 状態:'状態' } }
     }
   },
@@ -71,7 +81,7 @@ const definitions = {
     writable: ['evidence_id','invoice_id','member_id','payment_method','amount','reception_date','status','evidence_code','requested_at','confirmed_at','confirmed_by','posted_at','payment_log_id','remarks'],
     sources: {
       firestore: { collection: 'paymentEvidences', keyField: 'evidence_id', fields: {
-        evidence_id:'evidence_id', invoice_id:'invoice_id', member_id:'member_id', payment_method:'payment_method', amount:'amount', reception_date:'reception_date', status:'status', evidence_code:'evidence_code', requested_at:'requested_at', confirmed_at:'confirmed_at', confirmed_by:'confirmed_by', posted_at:'posted_at', payment_log_id:'payment_log_id', remarks:'remarks'
+        evidence_id:'evidence_id', invoice_id:'invoice_id', billing_group_id:'billing_group_id', member_id:'member_id', payment_method:'payment_method', amount:'amount', reception_date:'reception_date', location_id:'location_id', billing_block_id:'billing_block_id', teacher_id:'teacher_id', reception_session_id:'reception_session_id', status:'status', evidence_code:'evidence_code', requested_at:'requested_at', confirmed_at:'confirmed_at', confirmed_by:'confirmed_by', posted_at:'posted_at', payment_log_id:'payment_log_id', remarks:'remarks', request_id:'request_id', authenticated_uid:'authenticated_uid', receptionist_type:'receptionist_type', receptionist_id:'receptionist_id', recorded_at:'recorded_at'
       } },
       gas: { sheet: '09_決済エビデンス', keyColumn: 1, keyField: 'evidence_id', fields: {
         evidence_id:'evidence_id', invoice_id:'invoice_id', member_id:'member_id', payment_method:'payment_method', amount:'amount', reception_date:'reception_date', status:'status', evidence_code:'evidence_code', requested_at:'requested_at', confirmed_at:'confirmed_at', confirmed_by:'confirmed_by', posted_at:'posted_at', payment_log_id:'payment_log_id', remarks:'remarks'
@@ -81,10 +91,10 @@ const definitions = {
 };
 const tableDefinitions = {
   members: { sheet: '01_会員マスタ', collection: 'members' },
-  locations: { sheet: '10_道場マスタ', collection: 'locations' },
+  locations: { sheet: '10_道場マスタ', collection: 'dojos' },
   teachers: { sheet: '11_先生マスタ', collection: 'teachers' },
-  trainingSlots: { sheet: '12_稽古枠マスタ', collection: 'trainingSlots' },
-  billingBlocks: { sheet: '13_課金枠マスタ', collection: 'billingBlocks' },
+  trainingSlots: { sheet: '12_稽古枠マスタ', collection: 'training_slots' },
+  billingBlocks: { sheet: '13_課金枠マスタ', collection: 'billing_blocks' },
   attendances: { sheet: '07_出席ログ', collection: 'attendances' }
 };
 module.exports = { definitions, tableDefinitions };

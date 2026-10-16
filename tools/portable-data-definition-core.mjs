@@ -88,15 +88,18 @@ export function validatePortableDefinition(definition) {
     }
   }
   if (!primaryKey) throw new Error('Primary key is required');
-  if (!definition.sources?.gas?.sheet) throw new Error('GAS sheet mapping is required');
   if (!definition.sources?.firestore?.collection) throw new Error('Firestore collection mapping is required');
+  if (definition.sources.gas !== undefined && !definition.sources.gas?.sheet) throw new Error('GAS sheet mapping is invalid');
   return primaryKey;
 }
 
 export function transformPortableDefinition(definition) {
   const keyField = validatePortableDefinition(definition);
   const firestoreFields = Object.fromEntries(definition.fields.map(({name, firestore_name}) => [name, firestore_name || name]));
-  const gasFields = Object.fromEntries(definition.fields.map(({name, gas_name}) => [name, gas_name || name]));
+  const gasFields = definition.sources.gas
+    ? Object.fromEntries(definition.fields.filter(field=>field.firestore_only !== true)
+        .map(({name, gas_name}) => [name, gas_name || name]))
+    : null;
   const writable = definition.fields.map(({name}) => name);
   const schemaFields = Object.fromEntries(definition.fields.map(field => [field.name, {
     type: field.type,
@@ -104,19 +107,19 @@ export function transformPortableDefinition(definition) {
     required: field.required === true,
     primaryKey: field.primary_key === true
   }]));
-  const gasKeyField = gasFields[keyField];
+  const sources = {
+    firestore: { collection: definition.sources.firestore.collection, keyField, fields: firestoreFields }
+  };
+  if (gasFields) sources.gas = {
+    sheet: definition.sources.gas.sheet,
+    keyColumn: definition.fields.findIndex(({name}) => name === keyField) + 1,
+    valueColumn: definition.fields.findIndex(({name}) => name === 'value') + 1,
+    keyField: gasFields[keyField],
+    fields: gasFields
+  };
   return {
     schema: { entity: definition.entity, version: definition.version, fields: schemaFields },
     writable,
-    sources: {
-      firestore: { collection: definition.sources.firestore.collection, keyField, fields: firestoreFields },
-      gas: {
-        sheet: definition.sources.gas.sheet,
-        keyColumn: definition.fields.findIndex(({name}) => name === keyField) + 1,
-        valueColumn: definition.fields.findIndex(({name}) => name === 'value') + 1,
-        keyField: gasKeyField,
-        fields: gasFields
-      }
-    }
+    sources
   };
 }

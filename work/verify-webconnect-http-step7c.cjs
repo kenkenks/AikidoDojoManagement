@@ -26,6 +26,7 @@ const handle = createAdminApi({
   readBillingMemberInfo:async id=>{calls.push(['billing',id]);return {ok:true,memberId:id};},
   readPaymentReceptionSummary:async input=>{calls.push(['reception',input]);return {ok:true};},
   readPaymentScreen:async input=>{calls.push(['screen',input]);return {ok:true,summary:{ok:true},confirmed:{ok:true},posted:{ok:true}};},
+  acceptCashPayment:async input=>{calls.push(['cash',input]);return {ok:true,request_id:input.request_id};},
   readQrGeneratorOptions: async () => { calls.push(['qrOptions']); return { ok: true, members: [], plans: [], locations: [], teachers: [] }; }
   ,registerAttendanceBatch:async input=>{calls.push(['attendance',input]);return {ok:true,registered_count:1};}
 });
@@ -33,7 +34,7 @@ let callback;
 const modules = {
   'firebase-admin/app': { initializeApp: () => ({}), applicationDefault: () => ({ getAccessToken: async () => ({ access_token: 'test' }) }) },
   'firebase-admin/auth': { getAuth: () => ({ verifyIdToken: async () => ({ uid: 'admin', admin: true }) }) },
-  'firebase-admin/firestore': {getFirestore:()=>({})},
+  'firebase-admin/firestore': {getFirestore:()=>({}),FieldValue:{serverTimestamp:()=>({})}},
   '../../adapters/firestore/DAO_Core.js': {createAttendanceCore:()=>({register:async()=>({ok:true})})},
   'node:http': { createServer: cb => { callback = cb; return { listen: () => {} }; } },
   '../../shared/DAO_Business.js': { createDao: () => ({}) },
@@ -45,6 +46,8 @@ const modules = {
   '../billing/member-info-firestore.cjs': { createBillingMemberInfoReader: () => async () => ({}) },
   '../billing/reception-summary-firestore.cjs': { createReceptionSummaryReader: () => async () => ({}) },
   '../billing/payment-screen-firestore.cjs': { createPaymentScreenReader: () => async () => ({}) },
+  '../billing/payment-cash-accept-command.cjs': {createPaymentCashAcceptCommand:()=>({execute:async input=>({ok:true,request_id:input.request_id})})},
+  '../billing/payment-cash-accept-firestore.cjs': {createPaymentCashAcceptFirestoreExecutor:()=>async()=>({ok:true})},
   './admin-api.cjs': { createAdminApi: () => handle },
   './webConnect.cjs': { createDispatch },
   '../qr/generator-options.cjs': { createQrGeneratorOptions: () => async () => ({ ok: true }) },
@@ -54,7 +57,7 @@ const modules = {
     assert.equal(typeof getSystemContext,'function');return async () => ({});
   } },
   '../attendance/saved-state.cjs': { createAttendanceSavedState: () => async () => ({}) },
-  '../time-travel/target.cjs': { createTimeTravelTarget: () => ({}) }
+  '../time-travel/target.cjs': { createTimeTravelTarget: () => ({}),createAttendanceRegistrationTarget:()=>({}) }
 };
 vm.runInNewContext(serverSource, {
   require: name => Object.hasOwn(modules, name) ? modules[name] : require(name),
@@ -164,4 +167,12 @@ test('attendance POST uses the same HTTP dispatcher and GET is rejected',async()
   const result=await request('POST','/api/webconnect',{action:'attendance_batch',input},'Bearer admin');
   assert.equal(result.status,200);assert.equal(result.body.registered_count,1);
   assert.deepEqual(JSON.parse(JSON.stringify(calls)),[['attendance',input]]);
+});
+test('cash acceptance is POST-only in the actual HTTP dispatcher',async()=>{
+  calls=[];const input={request_id:'R1',location_id:'L1',billing_block_id:'B1',items:[{member_id:'M1',billing_group_id:'G1'}]};
+  assert.equal((await request('GET','/api/webconnect?action=payment_cash_accept',undefined,'Bearer admin')).status,405);
+  assert.equal(calls.length,0);
+  const result=await request('POST','/api/webconnect',{action:'payment_cash_accept',input},'Bearer admin');
+  assert.equal(result.status,200);assert.equal(result.body.request_id,'R1');
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)),[['cash',input]]);
 });

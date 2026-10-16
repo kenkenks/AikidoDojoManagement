@@ -1,0 +1,56 @@
+entity: payment_log
+version: "0.2"
+fields:
+  - name: payment_id
+    type: string
+    primary_key: true
+    required: true
+  - name: 日時
+    type: string
+  - name: target_month
+    type: string
+  - name: billing_group_id
+    type: string
+  - name: invoice_id
+    type: string
+  - name: member_id
+    type: string
+    firestore_only: true
+  - name: 支払方法
+    type: string
+  - name: 入金額
+    type: number
+  - name: 決済ID
+    type: string
+  - name: 備考
+    type: string
+  - name: reception_date
+    type: string
+  - name: location_id
+    type: string
+  - name: billing_block_id
+    type: string
+  - name: teacher_id
+    type: string
+  - name: reception_session_id
+    type: string
+  - name: request_id
+    type: string
+    firestore_only: true
+  - name: authenticated_uid
+    type: string
+    firestore_only: true
+  - name: receptionist_type
+    type: string
+    firestore_only: true
+  - name: receptionist_id
+    type: string
+    firestore_only: true
+  - name: recorded_at
+    type: timestamp
+    firestore_only: true
+sources:
+  gas:
+    sheet: "06_入金ログ"
+  firestore:
+    collection: payments

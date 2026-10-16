@@ -88,19 +88,19 @@ function createReceptionSummaryReader(db,{getSystemContext,createProjection}){
         settings:{TIME_TRAVEL_ENABLED:'TRUE',DEBUG_DATE:now.toISOString(),DEBUG_TARGET_MONTH:month},cache:{}};
       const projection=createProjection(ctx,{uuid:()=>{throw Error('RECEPTION_WRITE_FORBIDDEN');}});
       const facts=projection.projectReceptionSources({invoices:[...invoiceMap.values()],payments:resolved,attendances:selectedAttendances});
-      const same=(a,b)=>Object.keys(b).every(k=>a[k]===b[k]);
       const parse=(v,key)=>{try{const x=JSON.parse(v[key]);if(!Array.isArray(x)||x.some(r=>!r||typeof r!=='object'||Array.isArray(r)))conflict();return x;}catch{conflict();}};
-      // Preserve the original member×month View population and order. Reject stale,
-      // conflicting, missing or invented details instead of repairing on GET.
+      // Preserve the original member×month View population and order. The persisted
+      // View is advisory: rebuild its detail JSON in memory from this transaction's
+      // canonical snapshot. Never repair/upsert the persisted View during a GET.
       for(const v of views){
         const expected={invoice_items_json:facts.invoices.filter(i=>i.billing_group_id===v.billing_group_id),
           reception_payments_json:facts.payments.filter(p=>p.billing_group_id===v.billing_group_id),
           attendance_items_json:facts.attendances.filter(a=>a.member_id===v.member_id)};
         for(const [key,rows]of Object.entries(expected)){
           const idKey={invoice_items_json:'invoice_id',reception_payments_json:'payment_id',attendance_items_json:'attendance_id'}[key];
-          const rowsById=new Map(rows.map(r=>[r[idKey],r])),items=parse(v,key),found=new Set();
-          for(const item of items){const source=rowsById.get(item[idKey]);if(!source||!same(item,source))conflict();found.add(item[idKey]);}
-          if(found.size!==rowsById.size)conflict();
+          const items=parse(v,key),ids=new Set();
+          for(const item of items){if(!ID.test(item[idKey]||'')||ids.has(item[idKey]))conflict();ids.add(item[idKey]);}
+          v[key]=JSON.stringify(rows);
         }
       }
       ctx.receptionViews=views;
