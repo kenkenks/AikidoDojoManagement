@@ -40,13 +40,50 @@ test('runtime reuses existing Firebase auth and bearer API client in safe script
 });
 
 test('Firebase WebConnect reads use bearer GET and never JSONP fallback', () => {
+  const firebaseUrl = functionBody('buildFirebaseWebConnectUrl');
   const firebaseRead = functionBody('firebaseWebConnectRead');
   const routedRead = functionBody('webConnectRead');
   assert.match(firebaseRead, /dojoApiClient\.request\(url, \{ method:"GET", cache:"no-store" \}\)/);
-  assert.match(firebaseRead, /\/api\/webconnect\?/);
+  assert.match(firebaseUrl, /\/api\/webconnect\?/);
   assert.doesNotMatch(firebaseRead, /jsonp\s*\(/);
   assert.doesNotMatch(firebaseRead, /method\s*:\s*"POST"/);
   assert.match(routedRead, /IS_FIREBASE \? firebaseWebConnectRead\(params\) : jsonp\(GAS_URL, params\)/);
+});
+
+test('payment_screen_read omits cache-buster while other Firebase reads keep it', () => {
+  const buildUrl = new Function(
+    'RUNTIME_CONFIG',
+    'URLSearchParams',
+    'Date',
+    `"use strict"; return function(params) {${functionBody('buildFirebaseWebConnectUrl')}};`
+  )(
+    { apiBaseUrl: 'https://dojo-time-travel-admin.example.test/' },
+    URLSearchParams,
+    { now: () => 1720000000000 }
+  );
+  const paymentUrl = new URL(buildUrl({
+    action: 'payment_screen_read',
+    reception_date: '2026-10-16',
+    location_id: 'L_KYO',
+    billing_block_id: 'B_KYO_MON_1030_1230',
+    payment_method: 'PAYPAY'
+  }));
+  assert.equal(paymentUrl.pathname, '/api/webconnect');
+  assert.deepEqual(Object.fromEntries(paymentUrl.searchParams), {
+    action: 'payment_screen_read',
+    reception_date: '2026-10-16',
+    location_id: 'L_KYO',
+    billing_block_id: 'B_KYO_MON_1030_1230',
+    payment_method: 'PAYPAY'
+  });
+  assert.equal(paymentUrl.searchParams.has('_ts'), false);
+
+  const sessionUrl = new URL(buildUrl({
+    action: 'attendance_session_info',
+    location_id: 'L_KYO',
+    billing_block_id: 'B_KYO_MON_1030_1230'
+  }));
+  assert.equal(sessionUrl.searchParams.get('_ts'), '1720000000000');
 });
 
 test('scope resolution uses attendance_session_info and screen read requires business scope', () => {

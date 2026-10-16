@@ -367,15 +367,19 @@
         (code ? " / " + code : "") + "）。");
     }
 
+    function buildFirebaseWebConnectUrl(params) {
+      const query = new URLSearchParams(params || {});
+      if (query.get("action") !== "payment_screen_read") query.set("_ts", Date.now());
+      return String(RUNTIME_CONFIG.apiBaseUrl || "").replace(/\/+$/, "") +
+        "/api/webconnect?" + query.toString();
+    }
+
     async function firebaseWebConnectRead(params) {
       await firebaseAuthClient.ready;
       if (!firebaseAuthClient.getCurrentUser()) {
         throw new Error("Firebase認証が必要です。管理者としてGoogleログインしてください。");
       }
-      const query = new URLSearchParams(params || {});
-      query.set("_ts", Date.now());
-      const url = String(RUNTIME_CONFIG.apiBaseUrl || "").replace(/\/+$/, "") +
-        "/api/webconnect?" + query.toString();
+      const url = buildFirebaseWebConnectUrl(params);
       let response;
       try {
         response = await dojoApiClient.request(url, { method:"GET", cache:"no-store" });
