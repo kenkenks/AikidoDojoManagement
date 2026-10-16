@@ -50,7 +50,7 @@ test('Firebase WebConnect reads use bearer GET and never JSONP fallback', () => 
   assert.match(routedRead, /IS_FIREBASE \? firebaseWebConnectRead\(params\) : jsonp\(GAS_URL, params\)/);
 });
 
-test('payment_screen_read omits cache-buster while other Firebase reads keep it', () => {
+test('strict Firebase billing reads omit cache-buster while attendance session keeps it', () => {
   const buildUrl = new Function(
     'RUNTIME_CONFIG',
     'URLSearchParams',
@@ -78,12 +78,67 @@ test('payment_screen_read omits cache-buster while other Firebase reads keep it'
   });
   assert.equal(paymentUrl.searchParams.has('_ts'), false);
 
+  const memberUrl = new URL(buildUrl({
+    action: 'getMemberInfo',
+    member_id: 'M001'
+  }));
+  assert.deepEqual(Object.fromEntries(memberUrl.searchParams), {
+    action: 'getMemberInfo',
+    member_id: 'M001'
+  });
+  assert.equal(memberUrl.searchParams.has('_ts'), false);
+
   const sessionUrl = new URL(buildUrl({
     action: 'attendance_session_info',
     location_id: 'L_KYO',
     billing_block_id: 'B_KYO_MON_1030_1230'
   }));
   assert.equal(sessionUrl.searchParams.get('_ts'), '1720000000000');
+});
+
+test('Firebase member read sends member_id only and never uses JSONP or POST', () => {
+  const read = functionBody('loadFirebaseMemberForPayment');
+  assert.match(read, /action:"getMemberInfo"/);
+  assert.match(read, /member_id:memberId/);
+  assert.doesNotMatch(read, /plan_id/);
+  assert.doesNotMatch(read, /jsonp\s*\(/);
+  assert.doesNotMatch(read, /fetch\s*\(/);
+  assert.doesNotMatch(read, /method\s*:\s*["']POST["']/);
+  assert.match(read, /paymentList\.some/);
+  assert.match(read, /billingGroupId === normalized\.billingGroupId/);
+});
+
+test('Firebase member DTO supports normal, matching-plan, paid and unpaid display', () => {
+  const normalize = new Function(
+    `"use strict"; return function(result, memberId, requestedPlanId) {${functionBody('normalizeFirebaseMemberPayment')}};`
+  )();
+  const base = {
+    ok:true, memberId:'M001', memberName:'会員一', billingGroupId:'G001',
+    targetMonth:'2026-10', planType:'P_MONTHLY', status:'未払い',
+    unpaidAmount:1500, invoiceIds:['I001'], invoiceCount:1,
+    invoiceSummary:'月会費 2000円', invoiceItems:[{ invoice_id:'I001', amount:2000 }]
+  };
+  const normal = normalize(base, 'M001', '');
+  assert.equal(normal.ok, true);
+  assert.equal(normal.payment.amount, 1500);
+  assert.equal(normal.payment.planId, 'P_MONTHLY');
+  assert.equal(normal.payment.billingGroupId, 'G001');
+  assert.equal(normal.payment.invoiceItems.length, 1);
+  assert.equal(normalize(base, 'M001', 'P_MONTHLY').ok, true);
+  const paid = normalize({ ...base, status:'支払済', unpaidAmount:0 }, 'M001', '');
+  assert.equal(paid.ok, true);
+  assert.equal(paid.payment.amount, 0);
+});
+
+test('Firebase member DTO stops on plan mismatch, undeclared month and missing invoice', () => {
+  const normalize = new Function(
+    `"use strict"; return function(result, memberId, requestedPlanId) {${functionBody('normalizeFirebaseMemberPayment')}};`
+  )();
+  const base = {ok:true,memberId:'M001',memberName:'会員一',billingGroupId:'G001',targetMonth:'2026-10',planType:'P_MONTHLY',status:'未払い',unpaidAmount:1500};
+  assert.match(normalize(base, 'M001', 'P_OTHER').message, /一致しません/);
+  assert.match(normalize({...base,status:'未宣言',planType:'',message:''}, 'M001', '').message, /未登録/);
+  assert.match(normalize({...base,status:'請求なし',unpaidAmount:0,message:''}, 'M001', '').message, /作成されていません/);
+  assert.equal(normalize({...base,planType:''}, 'M001', 'P_MONTHLY').ok, false);
 });
 
 test('scope resolution uses attendance_session_info and screen read requires business scope', () => {
@@ -117,9 +172,10 @@ test('Firebase write controls and every write entry point are blocked', () => {
   }
 });
 
-test('Firebase cannot fall through to migrated-out member reads or GAS POST', () => {
-  assert.match(functionBody('loadMemberForPayment'), /^\s*if \(IS_FIREBASE\)/);
+test('Firebase cannot fall through to GAS member reads or GAS POST', () => {
+  assert.match(functionBody('loadMemberForPayment'), /if \(IS_FIREBASE\) return loadFirebaseMemberForPayment\(memberId, planId\);/);
   assert.match(functionBody('loadMemberForPayment_fetch'), /^\s*if \(IS_FIREBASE\)/);
+  assert.match(functionBody('loadMemberForPayment'), /jsonp\(GAS_URL, \{\s*action: "getPaymentInfo"/);
   const batch = functionBody('sendPaymentsToGas');
   const evidencePost = functionBody('postSelectedConfirmedEvidences');
   assert.ok(batch.indexOf('firebaseWriteBlocked') < batch.indexOf('fetch(GAS_URL'));
