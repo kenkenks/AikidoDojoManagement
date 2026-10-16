@@ -194,6 +194,11 @@
       text-decoration:none;
       font-size:14px;
     }
+    .hidden { display:none !important; }
+    .firebase-status { margin-top:8px; white-space:pre-wrap; }
+    .firebase-status.error { color:#b00020; font-weight:bold; }
+    .firebase-status.loading { color:#7a5200; font-weight:bold; }
+    .firebase-write-disabled { cursor:not-allowed; opacity:.55; }
 
   </style>
 </head>
@@ -202,6 +207,12 @@
   <div class="role-badge">先生画面</div>
   <h1>合気道 会費受付</h1>
   <nav class="top-nav"><a href="teacher_home.html">先生ホーム</a><a href="index.html">入口</a></nav>
+
+  <div id="firebaseAccessPanel" class="card hidden">
+    <strong>Firebase DEV 読取接続</strong>
+    <div id="firebaseAccessStatus" class="firebase-status loading">認証を準備しています。</div>
+    <button id="firebaseLoginButton" type="button">管理者としてGoogleログイン</button>
+  </div>
 
   <div class="card">
     <div>保持中の道場ID</div>
@@ -242,7 +253,7 @@
     <div>現金: <span id="cashTotal">0</span>円</div>
     <div>受付人数: <span id="paymentCount">0</span>名</div>
     <button id="completePaymentsButton" onclick="sendPaymentsToGas()" disabled>集金完了</button>
-    <button onclick="postConfirmedPayments()">決済更新</button>
+    <button id="postConfirmedPaymentsButton" onclick="postConfirmedPayments()">決済更新</button>
   </div>
 
   <div class="card summary">
@@ -266,7 +277,7 @@
     <button onclick="loadPaymentEvidenceLists()">決済情報取得</button>
     <button onclick="selectAllConfirmedEvidences(true)">全選択</button>
     <button onclick="selectAllConfirmedEvidences(false)">全解除</button>
-    <button class="primary" onclick="postSelectedConfirmedEvidences()">選択分を決済更新</button>
+    <button id="postSelectedConfirmedEvidencesButton" class="primary" onclick="postSelectedConfirmedEvidences()">選択分を決済更新</button>
     <ul id="confirmedEvidenceList"></ul>
   </div>
 
@@ -288,8 +299,18 @@
 
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
+  <script src="firebase_auth.js"></script>
+  <script src="dojo_api_client.js"></script>
   <script>
-    const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
+    const RUNTIME_CONFIG = window.DOJO_RUNTIME_CONFIG;
+    const IS_FIREBASE = RUNTIME_CONFIG.runtime === "firebase";
+    const GAS_URL = RUNTIME_CONFIG.apiBaseUrl;
+    const firebaseAuthClient = IS_FIREBASE
+      ? window.DOJO_FIREBASE_AUTH.create({ runtimeConfig:RUNTIME_CONFIG })
+      : null;
+    const dojoApiClient = IS_FIREBASE
+      ? window.DOJO_API_CLIENT.create({ getCurrentUser:firebaseAuthClient.getCurrentUser })
+      : null;
 
     let html5QrCode = null;
     let scanning = false;
@@ -306,6 +327,101 @@
     let paymentList = [];
     let confirmedEvidences = [];
     let postedEvidences = [];
+
+    function setFirebaseAccessStatus(message, state) {
+      if (!IS_FIREBASE) return;
+      const root = document.getElementById("firebaseAccessStatus");
+      if (!root) return;
+      root.className = "firebase-status " + (state || "");
+      root.textContent = message;
+    }
+
+    function firebaseWriteBlocked(operation) {
+      if (!IS_FIREBASE) return false;
+      const message = "Firebase DEVでは" + operation + "を実行できません。読取専用です。";
+      setFirebaseAccessStatus(message, "error");
+      addLog(message);
+      return true;
+    }
+
+    function disableFirebaseWriteControls() {
+      if (!IS_FIREBASE) return;
+      [
+        "completePaymentsButton",
+        "postConfirmedPaymentsButton",
+        "postSelectedConfirmedEvidencesButton"
+      ].forEach(function(id) {
+        const button = document.getElementById(id);
+        if (button) {
+          button.disabled = true;
+          button.classList.add("firebase-write-disabled");
+        }
+      });
+    }
+
+    function firebaseReadError(response, body) {
+      if (response.status === 401) return new Error("Firebase認証が必要です（HTTP 401）。");
+      if (response.status === 403) return new Error("管理者権限がありません（HTTP 403）。");
+      const code = body && (body.error || body.message);
+      return new Error("Firebase会費情報の取得に失敗しました（HTTP " + response.status +
+        (code ? " / " + code : "") + "）。");
+    }
+
+    async function firebaseWebConnectRead(params) {
+      await firebaseAuthClient.ready;
+      if (!firebaseAuthClient.getCurrentUser()) {
+        throw new Error("Firebase認証が必要です。管理者としてGoogleログインしてください。");
+      }
+      const query = new URLSearchParams(params || {});
+      query.set("_ts", Date.now());
+      const url = String(RUNTIME_CONFIG.apiBaseUrl || "").replace(/\/+$/, "") +
+        "/api/webconnect?" + query.toString();
+      let response;
+      try {
+        response = await dojoApiClient.request(url, { method:"GET", cache:"no-store" });
+      } catch (error) {
+        if (error && error.message === "UNAUTHENTICATED") {
+          throw new Error("Firebase認証が必要です。管理者としてGoogleログインしてください。");
+        }
+        throw new Error("Firebaseとの通信に失敗しました。");
+      }
+      let body = null;
+      try { body = await response.json(); } catch (error) { body = null; }
+      if (!response.ok) throw firebaseReadError(response, body);
+      return body;
+    }
+
+    function webConnectRead(params) {
+      return IS_FIREBASE ? firebaseWebConnectRead(params) : jsonp(GAS_URL, params);
+    }
+
+    function initializeFirebaseAccess() {
+      if (!IS_FIREBASE) return;
+      document.getElementById("firebaseAccessPanel").classList.remove("hidden");
+      disableFirebaseWriteControls();
+      const loginButton = document.getElementById("firebaseLoginButton");
+      loginButton.addEventListener("click", function() {
+        setFirebaseAccessStatus("Googleログインを開始しています。", "loading");
+        firebaseAuthClient.signInWithGoogle().catch(function(error) {
+          setFirebaseAccessStatus("Firebase認証に失敗しました: " + (error.message || String(error)), "error");
+        });
+      });
+      firebaseAuthClient.ready.then(function() {
+        function updateUser(user) {
+          loginButton.classList.toggle("hidden", !!user);
+          if (!user) {
+            setFirebaseAccessStatus("会費受付情報の表示には管理者ログインが必要です。", "error");
+            return;
+          }
+          setFirebaseAccessStatus("ログイン済みです。管理者権限と受付範囲を確認しています。", "loading");
+          updateReceptionScope();
+        }
+        firebaseAuthClient.onUserChanged(updateUser);
+        updateUser(firebaseAuthClient.getCurrentUser());
+      }).catch(function(error) {
+        setFirebaseAccessStatus("Firebase認証の初期化に失敗しました: " + (error.message || String(error)), "error");
+      });
+    }
 
     function saveReceptionScopeToSession() {
       const session = DojoVirtualSession.get();
@@ -482,8 +598,8 @@
                 現金受付
                 ・先生がその場で受付する運用
               -->
-              <button class="primary" onclick="confirmPayment('現金')">
-                現金受領
+              <button class="primary${IS_FIREBASE ? " firebase-write-disabled" : ""}" onclick="confirmPayment('現金')"${IS_FIREBASE ? " disabled" : ""}>
+                ${IS_FIREBASE ? "現金受領（Firebase未対応）" : "現金受領"}
               </button>
 
             `
@@ -492,6 +608,7 @@
     }
 
     function confirmPayment(payType) {
+      if (firebaseWriteBlocked("現金受付")) return;
       if (payType !== "現金") {
         addLog("受領スキップ: 先生画面は現金受付専用です。PayPayは会員PayPay画面を使用してください。");
         return;
@@ -605,12 +722,23 @@
     function updateCompletionButton() {
       const button = document.getElementById("completePaymentsButton");
       if (!button) return;
+      if (IS_FIREBASE) {
+        button.disabled = true;
+        return;
+      }
       button.disabled = !currentTeacherId || !currentLocationId || !currentBillingBlockId || paymentList.length === 0;
     }
 
     function updateReceptionScope() {
       updateCompletionButton();
-      if (!currentLocationId) return;
+      if (!currentLocationId) {
+        if (IS_FIREBASE) setFirebaseAccessStatus("受付範囲を確定できません。道場QR、URLまたは既存セッションで道場を指定してください。", "error");
+        return;
+      }
+      if (IS_FIREBASE && !(window.DOJO_SYSTEM_CONTEXT && window.DOJO_SYSTEM_CONTEXT.system_now)) {
+        setFirebaseAccessStatus("SystemContextの業務日を待っています。", "loading");
+        return;
+      }
 
       receptionSessionId = makeReceptionSessionId();
       const params = {
@@ -619,11 +747,12 @@
       };
       if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
 
-      jsonp(GAS_URL, params).then(function(result) {
+      webConnectRead(params).then(function(result) {
         if (!result || result.ok !== true) {
           currentBillingBlockName = "";
           document.getElementById("billingBlockName").textContent = (result && result.message) || "課金枠を確認できませんでした。";
           addLog("課金枠確認エラー: " + ((result && result.message) || "ok=false"));
+          if (IS_FIREBASE) setFirebaseAccessStatus("受付範囲を確定できません。課金枠を確認できませんでした。", "error");
           return;
         }
         currentBillingBlockId = result.billing_block_id || currentBillingBlockId;
@@ -631,6 +760,7 @@
           currentBillingBlockName = "";
           document.getElementById("billingBlockName").textContent = result.message || "課金枠を確定できませんでした。";
           addLog("課金枠確認待ち: " + (result.message || "billing_block_id未確定"));
+          if (IS_FIREBASE) setFirebaseAccessStatus("受付範囲を確定できません。課金枠QR、URLまたは既存セッションで課金枠を指定してください。", "error");
           return;
         }
         currentBillingBlockName = result.billing_block_name || currentBillingBlockId;
@@ -643,14 +773,29 @@
         loadPaymentScreenRead();
       }).catch(function(error) {
         addLog("課金枠確認失敗: " + (error.message || String(error)));
+        if (IS_FIREBASE) setFirebaseAccessStatus(error.message || String(error), "error");
       });
     }
 
     function loadPaymentScreenRead() {
+      if (!currentLocationId || !currentBillingBlockId) {
+        const scopeMessage = "受付範囲を確定できません。道場と課金枠を指定してください。";
+        addLog("決済画面情報取得中止: " + scopeMessage);
+        if (IS_FIREBASE) setFirebaseAccessStatus(scopeMessage, "error");
+        return Promise.resolve(null);
+      }
+      const receptionDate = todayValue();
+      if (!receptionDate) {
+        const dateMessage = "SystemContextの業務日を取得できないため、会費受付情報を表示できません。";
+        addLog("決済画面情報取得中止: " + dateMessage);
+        if (IS_FIREBASE) setFirebaseAccessStatus(dateMessage, "error");
+        return Promise.resolve(null);
+      }
       addLog("決済画面情報取得開始");
-      return jsonp(GAS_URL, {
+      if (IS_FIREBASE) setFirebaseAccessStatus("会費受付情報を読み込んでいます。", "loading");
+      return webConnectRead({
         action: "payment_screen_read",
-        reception_date: todayValue(),
+        reception_date: receptionDate,
         location_id: currentLocationId,
         billing_block_id: currentBillingBlockId,
         payment_method: "PAYPAY"
@@ -674,12 +819,17 @@
         renderConfirmedEvidences();
         renderPostedEvidences();
         addLog("決済画面情報取得完了: 集計=" + Number(summary.payment_count || 0) + "件 / CONFIRMED=" + confirmedEvidences.length + " / POSTED=" + postedEvidences.length);
+        if (IS_FIREBASE) setFirebaseAccessStatus("会費受付情報を表示しました（読取専用）。", "");
+        return result;
       }).catch(function(error) {
         addLog("決済画面情報取得失敗: " + (error.message || String(error)));
+        if (IS_FIREBASE) setFirebaseAccessStatus(error.message || String(error), "error");
+        return null;
       });
     }
 
     function loadRegisteredScopeSummary() {
+      if (IS_FIREBASE) return loadPaymentScreenRead();
       if (!currentLocationId || !currentBillingBlockId) {
         addLog("登録済み取得スキップ: 道場・課金枠が未設定です。");
         return;
@@ -763,11 +913,13 @@
     function todayValue() {
       const context = window.DOJO_SYSTEM_CONTEXT;
       if (context && context.system_now) return String(context.system_now).slice(0, 10);
+      if (IS_FIREBASE) return "";
       const today = new Date();
       return today.getFullYear() + "-" + String(today.getMonth() + 1).padStart(2, "0") + "-" + String(today.getDate()).padStart(2, "0");
     }
 
     function sendPaymentsToGas() {
+      if (firebaseWriteBlocked("集金完了")) return;
       if (!currentTeacherId) {
         addLog("送信スキップ: teacher_id未設定");
         return;
@@ -859,10 +1011,12 @@
     }
 
     function postConfirmedPayments() {
+      if (firebaseWriteBlocked("決済更新")) return;
       loadPaymentEvidenceLists();
     }
 
     function loadPaymentEvidenceLists() {
+      if (IS_FIREBASE) return loadPaymentScreenRead();
       addLog("決済情報取得開始");
 
       Promise.all([
@@ -989,6 +1143,7 @@
     }
 
     function postSelectedConfirmedEvidences() {
+      if (firebaseWriteBlocked("選択分の決済更新")) return;
       if (!currentTeacherId) {
         addLog("決済更新スキップ: teacher_id未設定");
         return;
@@ -1100,6 +1255,12 @@
     }
 
   function loadMemberForPayment(memberId, planId) {
+    if (IS_FIREBASE) {
+      const message = "Firebase DEVでは会員別会費読取（getPaymentInfo）は今回の移行対象外です。";
+      setFirebaseAccessStatus(message, "error");
+      addLog(message);
+      return;
+    }
     planId = (planId == null || planId === "undefined" || planId === "null") ? "" : planId;
     addLog("会費情報登録開始: member_id=" + memberId + " / plan_id=" + (planId || "(04から取得)"));
 
@@ -1267,6 +1428,12 @@
 
   //　未使用予備 
   function loadMemberForPayment_fetch(memberId, planId) {
+    if (IS_FIREBASE) {
+      const message = "Firebase DEVでは会員別会費読取（getPaymentInfo）は今回の移行対象外です。";
+      setFirebaseAccessStatus(message, "error");
+      addLog(message);
+      return;
+    }
     addLog("会費情報登録中(fetch getPaymentInfo): " + memberId + " / " + planId);
 
     const query = new URLSearchParams({
@@ -1325,9 +1492,16 @@
       });
   }
 
+  initializeFirebaseAccess();
   initializeReceptionScopeFromUrl();
   window.addEventListener("dojo-system-context", function() {
     receptionSessionId = makeReceptionSessionId();
+    if (IS_FIREBASE && currentLocationId && firebaseAuthClient.getCurrentUser()) updateReceptionScope();
+  });
+  window.addEventListener("dojo-system-context-error", function(event) {
+    if (!IS_FIREBASE) return;
+    const detail = event.detail || {};
+    setFirebaseAccessStatus(detail.message || "SystemContextの業務日を取得できません。", "error");
   });
 
 </script>
