@@ -200,6 +200,45 @@
     .firebase-status.loading { color:#7a5200; font-weight:bold; }
     .firebase-write-disabled { cursor:not-allowed; opacity:.55; }
 
+
+    /* Firebase/GAS 共通のコンパクト表示。GASの操作領域は保持 */
+    body { padding: 10px; max-width: 920px; margin: auto; }
+    h1 { font-size: 19px; margin: 0 0 5px; }
+    .role-badge { margin-bottom: 4px; padding: 2px 7px; }
+    .top-nav { margin-bottom: 6px; }
+    .top-nav a { padding: 4px 8px; margin-bottom: 3px; }
+    .card { padding: 9px 11px; margin-bottom: 8px; }
+    .scope-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap: 8px; background:#edf5ff; }
+    .scope-field { min-width:0; font-size:12px; overflow-wrap:anywhere; }
+    .scope-field>span { color:#53677d; display:block; }
+    .scope-field .mini-summary { margin:0; }
+    .scan-card { background:#f1f7f4; }
+    #reader { max-width: 310px; margin-bottom:5px; }
+    .active-card { background:#fff8e8; }
+    .totals-card { background:#edf6ff; font-size:15px; line-height:1.5; }
+    .totals-card hr { margin:5px 0; border:0; border-top:1px solid #d4dfe8; }
+    .section-title { font-weight:bold; color:#5b4c22; }
+    .current-name { font-size:19px; margin:3px 0; }
+    .amount { font-size:23px; margin:4px 0; }
+    button { padding:7px 11px; margin:3px; }
+    .compact-details { margin-top:7px; }
+    details>summary { cursor:pointer; font-weight:bold; padding:4px 0; }
+    .evidence-card { background:#f4f0fb; }
+    .diagnostic-card { background:#f5f5f5; }
+    .evidence-body { padding-top:7px; }
+    .firebase-mode .gas-only { display:none !important; }
+    .firebase-mode .firebase-write-disabled { display:none; }
+    .summary-count { margin-left:6px; }
+    @media(max-width:520px) { .scope-strip { grid-template-columns:1fr 1fr; } .scope-field:last-child { grid-column:1/-1; } }
+
+    .totals-breakdown { display:flex; flex-wrap:wrap; gap:4px 20px; }
+    .totals-grand { margin-top:2px; }
+    .totals-grand strong { font-size:18px; }
+    .totals-grand small { font-size:13px; }
+    .compact-paid-row { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; padding:6px 4px; background:#f0faf3; }
+    .compact-paid-row .registered-payment-name { flex:1 1 110px; }
+    .compact-paid-row .paid-amount { font-weight:bold; white-space:nowrap; }
+    .compact-paid-row .paid-method { white-space:nowrap; font-size:13px; }
   </style>
 </head>
 
@@ -214,23 +253,22 @@
     <button id="firebaseLoginButton" type="button">管理者としてGoogleログイン</button>
   </div>
 
-  <div class="card">
-    <div>保持中の道場ID</div>
+  <section class="scope-strip card" aria-label="受付設定">
+    <div class="scope-field"><span>道場</span>
     <div id="locationId" class="warn">未設定</div>
   </div>
 
-  <div class="card">
-    <div>保持中の先生ID</div>
+  <div class="scope-field"><span>先生</span>
     <div id="teacherId" class="warn">未設定</div>
   </div>
 
-  <div class="card">
-    <div>保持中の課金枠</div>
+  <div class="scope-field"><span>課金枠</span>
     <div id="billingBlockId" class="warn">未設定</div>
     <div id="billingBlockName" class="mini-summary"></div>
   </div>
+  </section>
 
-  <div class="card">
+  <div class="card scan-card">
     <div id="reader"></div>
 
     <button onclick="startScan()">読み取り開始</button>
@@ -238,17 +276,17 @@
     <button onclick="resetScreen()">画面クリア</button>
   </div>
 
-  <div class="card">
-    <div>現在受付中</div>
+  <div class="card active-card">
+    <div class="section-title">現在受付中</div>
     <div id="currentPayment">会員、プランQRを読んでください</div>
   </div>
 
-  <div class="card">
+  <div class="card gas-only">
     <div>受付済</div>
     <ul id="paymentList"></ul>
   </div>
 
-  <div class="card summary">
+  <div class="card summary gas-only">
     <strong>今回の現金受付（未送信）</strong>
     <div>現金: <span id="cashTotal">0</span>円</div>
     <div>受付人数: <span id="paymentCount">0</span>名</div>
@@ -256,46 +294,44 @@
     <button id="postConfirmedPaymentsButton" onclick="postConfirmedPayments()">決済更新</button>
   </div>
 
-  <div class="card summary">
-    <strong>本日・この課金枠の登録済み</strong>
-    <div>現金: <span id="registeredCashTotal">0</span>円</div>
-    <div>PayPay: <span id="registeredPaypayTotal">0</span>円</div>
-    <div>合計: <span id="registeredGrandTotal">0</span>円</div>
-    <div>入金件数: <span id="registeredPaymentCount">0</span>件</div>
+  <div class="card summary totals-card">
+    <strong>本日の受付状況</strong>
+    <div class="totals-breakdown"><span>現金: <span id="registeredCashTotal">0</span>円</span><span>PayPay: <span id="registeredPaypayTotal">0</span>円</span></div>
+    <div class="totals-grand">⇒ 合計: <strong><span id="registeredGrandTotal">0</span>円</strong> <small>（入金件数: <span id="registeredPaymentCount">0</span>件）</small></div>
     <hr>
     <strong>出席との照合</strong>
     <div>現在の未回収予定額: <span id="expectedCollectionTotal">0</span>円</div>
     <div>出席人数: <span id="attendanceMemberCount">0</span>名</div>
     <div id="attendancePaymentWarnings" class="registered-payment-list"><div class="mini-summary">要確認はありません。</div></div>
     <button onclick="loadRegisteredScopeSummary()">登録済みを再取得</button>
-    <div id="registeredPaymentList" class="registered-payment-list"><div class="mini-summary">登録済み明細はありません。</div></div>
+    <details class="compact-details" open><summary>登録済み明細を表示</summary><div id="registeredPaymentList" class="registered-payment-list"><div class="mini-summary">登録済み明細はありません。</div></div></details>
   </div>
 
-  <div class="card">
-    <div>決済更新待ち（CONFIRMED）</div>
-    <div class="mini-summary">件数: <span id="confirmedEvidenceCount">0</span>件 / 合計: <span id="confirmedEvidenceTotal">0</span>円</div>
+  <details class="card evidence-card"><summary>PayPay決済更新待ち（CONFIRMED） <span id="confirmedEvidenceCount" class="summary-count">0</span>件</summary>
+    <div class="evidence-body">
+    <div class="mini-summary">合計: <span id="confirmedEvidenceTotal">0</span>円</div>
     <button onclick="loadPaymentEvidenceLists()">決済情報取得</button>
     <button onclick="selectAllConfirmedEvidences(true)">全選択</button>
     <button onclick="selectAllConfirmedEvidences(false)">全解除</button>
     <button id="postSelectedConfirmedEvidencesButton" class="primary" onclick="postSelectedConfirmedEvidences()">選択分を決済更新</button>
     <ul id="confirmedEvidenceList"></ul>
-  </div>
+    </div>
+  </details>
 
-  <div class="card">
-    <div>反映済み（POSTED）</div>
-    <div class="mini-summary">件数: <span id="postedEvidenceCount">0</span>件 / 合計: <span id="postedEvidenceTotal">0</span>円</div>
+  <details class="card evidence-card"><summary>PayPay反映済み（POSTED） <span id="postedEvidenceCount" class="summary-count">0</span>件</summary>
+    <div class="evidence-body">
+    <div class="mini-summary">合計: <span id="postedEvidenceTotal">0</span>円</div>
     <ul id="postedEvidenceList"></ul>
-  </div>
+    </div>
+  </details>
 
-  <div class="card">
-    <div>最新読み取りURL</div>
+  <details class="card diagnostic-card"><summary>最新読み取りURL</summary>
     <div id="latest" class="latest">なし</div>
-  </div>
+  </details>
 
-  <div class="card">
-    <div>操作ログ</div>
+  <details class="card diagnostic-card"><summary>操作ログ</summary>
     <ul id="log"></ul>
-  </div>
+  </details>
 
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
@@ -305,6 +341,7 @@
   <script>
     const RUNTIME_CONFIG = window.DOJO_RUNTIME_CONFIG;
     const IS_FIREBASE = RUNTIME_CONFIG.runtime === "firebase";
+    if (IS_FIREBASE) document.body.classList.add("firebase-mode");
     const GAS_URL = RUNTIME_CONFIG.apiBaseUrl;
     const firebaseAuthClient = IS_FIREBASE
       ? window.DOJO_FIREBASE_AUTH.create({ runtimeConfig:RUNTIME_CONFIG })
@@ -917,7 +954,10 @@
       });
     }
 
-    function loadPaymentScreenRead() {
+    let firebaseRefreshInFlight = false;
+    function loadPaymentScreenRead(options) {
+      const silent = !!(options && options.silent);
+      if (IS_FIREBASE && firebaseRefreshInFlight) return Promise.resolve(null);
       if (!currentLocationId || !currentBillingBlockId) {
         const scopeMessage = "受付範囲を確定できません。道場と課金枠を指定してください。";
         addLog("決済画面情報取得中止: " + scopeMessage);
@@ -931,8 +971,9 @@
         if (IS_FIREBASE) setFirebaseAccessStatus(dateMessage, "error");
         return Promise.resolve(null);
       }
-      addLog("決済画面情報取得開始");
-      if (IS_FIREBASE) setFirebaseAccessStatus("会費受付情報を読み込んでいます。", "loading");
+      if (!silent) addLog("決済画面情報取得開始");
+      if (IS_FIREBASE && !silent) setFirebaseAccessStatus("会費受付情報を読み込んでいます。", "loading");
+      if (IS_FIREBASE) firebaseRefreshInFlight = true;
       return webConnectRead({
         action: "payment_screen_read",
         reception_date: receptionDate,
@@ -958,14 +999,14 @@
         postedEvidences = Array.isArray(postedResult.evidences) ? postedResult.evidences : [];
         renderConfirmedEvidences();
         renderPostedEvidences();
-        addLog("決済画面情報取得完了: 集計=" + Number(summary.payment_count || 0) + "件 / CONFIRMED=" + confirmedEvidences.length + " / POSTED=" + postedEvidences.length);
-        if (IS_FIREBASE) setFirebaseAccessStatus("会費受付情報を表示しました。", "");
+        if (!silent) addLog("決済画面情報取得完了: 集計=" + Number(summary.payment_count || 0) + "件 / CONFIRMED=" + confirmedEvidences.length + " / POSTED=" + postedEvidences.length);
+        if (IS_FIREBASE && !silent) setFirebaseAccessStatus("会費受付情報を表示しました。", "");
         return result;
       }).catch(function(error) {
-        addLog("決済画面情報取得失敗: " + (error.message || String(error)));
+        if (!silent) addLog("決済画面情報取得失敗: " + (error.message || String(error)));
         if (IS_FIREBASE) setFirebaseAccessStatus(error.message || String(error), "error");
         return null;
-      });
+      }).finally(function() { if (IS_FIREBASE) firebaseRefreshInFlight = false; });
     }
 
     function loadRegisteredScopeSummary() {
@@ -1025,22 +1066,14 @@
       }
       root.innerHTML = payments.map(function(payment) {
         const name = payment.member_name || "会員名未設定";
-        const member = payment.member_id ? "（" + payment.member_id + "）" : "";
-        const billing = payment.billing_group_id || "未設定";
-        const invoice = payment.invoice_id ? " ／ 請求 " + payment.invoice_id : "";
-        return `
-          <div class="registered-payment-row">
-            <div class="registered-payment-head">
-              <span class="registered-payment-name">${escapeHtml(name + member)}</span>
-              <span class="registered-payment-status">支払済</span>
-            </div>
-            <div class="registered-payment-detail">
-              請求グループ ${escapeHtml(billing)}${escapeHtml(invoice)}<br>
-              対象月 ${escapeHtml(payment.target_month || "未設定")} ／
-              ${escapeHtml(payment.payment_method_label || payment.payment_method || "不明")} ${formatYen(payment.amount)}円<br>
-              受付 ${escapeHtml(payment.paid_at || "時刻不明")}
-            </div>
-          </div>`;
+        const methodRaw = String(payment.payment_method_label || payment.payment_method || "不明");
+        const method = /paypay/i.test(methodRaw) ? "PayPay" : /現金|cash/i.test(methodRaw) ? "現金" : methodRaw;
+        return `<div class="registered-payment-row compact-paid-row">
+          <span class="registered-payment-name">${escapeHtml(name)}</span>
+          <span class="paid-amount">${formatYen(payment.amount)}円</span>
+          <span class="paid-method">（${escapeHtml(method)}）</span>
+          <span class="registered-payment-status" aria-label="支払済">✓</span>
+        </div>`;
       }).join("");
     }
 
