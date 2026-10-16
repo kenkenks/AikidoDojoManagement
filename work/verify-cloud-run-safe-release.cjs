@@ -14,6 +14,7 @@ test('staging uses no-traffic tagged existing service and never deploys Hosting'
   assert.equal(r.status, 0, r.stderr || r.stdout);
   assert.match(r.stdout, /run deploy dojo-time-travel-admin/);
   assert.match(r.stdout, /--no-traffic --tag candidate/);
+  assert.match(r.stdout, /--min 0 --max 1 --max-instances 1/);
   assert.doesNotMatch(r.stdout, /allow-unauthenticated|firebase deploy|update-traffic/);
 });
 test('promotion and rollback require explicit revision and are dry-run by default', () => {

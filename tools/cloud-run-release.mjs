@@ -58,7 +58,7 @@ if (action === 'verify') {
   // No --allow-unauthenticated: preserve existing service IAM policy.
   // No Hosting deployment. Existing traffic stays on the current revision.
   run(['run', 'deploy', SERVICE, '--source', relative(root, deployRoot).replaceAll('\\', '/'),
-    ...base, '--no-traffic', '--tag', TAG, '--min', '0', '--max', '1',
+    ...base, '--no-traffic', '--tag', TAG, '--min', '0', '--max', '1', '--max-instances', '1',
     '--cpu', '1', '--memory', '512Mi', '--concurrency', '8']);
   console.log('Verify candidate tag URL and TimeTrip + Member before promote.');
 } else {
