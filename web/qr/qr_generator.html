@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>QR生成</title>
   <link rel="stylesheet" href="common.css">
+  <link rel="stylesheet" href="assets/qr-sheet.css" media="print">
   <style>
     .type-grid { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:9px; }
     .type-button {
@@ -43,9 +44,76 @@
     }
     .summary strong { display:inline-block; min-width:7em; }
     .next-button { width:100%; margin-top:10px; }
+    .action-row { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px; }
+    .action-row button { width:100%; }
+    .print-list { list-style:none; padding:0; margin:10px 0; }
+    .print-list-item {
+      display:grid;
+      grid-template-columns:1fr auto;
+      align-items:center;
+      gap:10px;
+      padding:9px 0;
+      border-bottom:1px solid #d7dee5;
+    }
+    .print-list-name { font-weight:bold; }
+    .print-list-url { color:#667; font-size:11px; word-break:break-all; }
+    #printDocument { display:none; }
     @media (min-width:700px) {
       body { max-width:760px; margin:0 auto; }
       .type-grid { grid-template-columns:repeat(5, minmax(0, 1fr)); }
+    }
+    @page { size:B5 landscape; margin:0; }
+    @media print {
+      html, body { width:257mm; height:182mm; margin:0; padding:0; background:#fff; }
+      body > :not(#printDocument) { display:none !important; }
+      #printDocument { display:block; }
+      .print-page {
+        box-sizing:border-box;
+        width:257mm;
+        height:182mm;
+        padding:2mm;
+        display:grid;
+        grid-template-columns:repeat(4, 1fr);
+        grid-template-rows:repeat(2, 1fr);
+        gap:1mm;
+        break-after:page;
+        page-break-after:always;
+      }
+      .print-page:last-child { break-after:auto; page-break-after:auto; }
+      .print-card {
+        box-sizing:border-box;
+        min-width:0;
+        min-height:0;
+        border:0.25mm dashed #777;
+        display:grid;
+        place-items:center;
+        overflow:hidden;
+      }
+      .print-card-shell {
+        position:relative;
+        width:62.3mm;
+        height:88.4mm;
+        overflow:hidden;
+      }
+      .print-card-shell > .qr-sheet {
+        position:absolute;
+        inset:0 auto auto 0;
+        margin:0;
+        page:auto;
+        border-radius:2.6mm;
+        box-shadow:none;
+        transform:scale(.842) !important;
+        transform-origin:top left !important;
+      }
+      .print-card-shell .qr-frame img { width:37mm; height:37mm; }
+      .print-location {
+        margin-top:.8mm;
+        color:var(--sf-teacher);
+        font-size:4mm;
+        line-height:1.3;
+        font-weight:800;
+        overflow-wrap:anywhere;
+      }
     }
   </style>
 </head>
@@ -65,7 +133,7 @@
       <button class="type-button monthly" data-type="PAYMENT_MONTHLY">月謝</button>
       <button class="type-button onetime" data-type="PAYMENT_ONETIME">都度支払い</button>
       <button class="type-button admin" data-type="DOJO">道場</button>
-      <button class="type-button admin" data-type="TEACHER">先生</button>
+      <button class="type-button admin" data-type="TEACHER">先生＋道場</button>
     </div>
   </section>
 
@@ -102,11 +170,25 @@
     <p class="note">5種類ともFunctional Prototypeとしてプレビュー・印刷できます。帳票デザインは後工程で調整します。</p>
   </section>
 
+  <section class="card">
+    <h2>4. B5印刷リスト</h2>
+    <div class="action-row">
+      <button id="addToPrintListButton" type="button" disabled>選択中のQRを追加</button>
+      <button id="clearPrintListButton" type="button" disabled>全件クリア</button>
+    </div>
+    <p id="printListSummary" class="note">0枚（B5 0ページ）</p>
+    <ol id="printList" class="print-list"></ol>
+    <button id="printPdfButton" class="next-button" type="button" disabled>B5 PDF／印刷</button>
+    <p class="note">印刷画面では倍率を「100%／実際のサイズ」、余白を「なし」にしてください。PDF保存も同じ設定です。</p>
+  </section>
+
   <section class="card"><h2>診断ログ</h2><pre id="operationLog" style="white-space:pre-wrap;word-break:break-word;margin:0;"></pre></section>
+  <div id="printDocument" aria-hidden="true"></div>
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
   <script src="firebase_auth.js"></script>
   <script src="dojo_api_client.js"></script>
+  <script src="qr_generator.js"></script>
   <script>
     const qrLogStartedAt = performance.now();
     function qrLog(step, detail) {
@@ -124,6 +206,7 @@
     qrLog("02", "apiBaseUrl configured=" + !!GAS_URL);
     let qrType = "MEMBER_CARD";
     let options = null;
+    const printItems = [];
 
     const teacherSession = DojoVirtualSession.get();
     qrLog("03", "session role=" + (teacherSession ? teacherSession.role : "none") + " teacher_id present=" + !!(teacherSession && teacherSession.teacher_id));
@@ -183,6 +266,18 @@
     });
 
     document.getElementById("previewButton").addEventListener("click", openPreview);
+    document.getElementById("addToPrintListButton").addEventListener("click", addCurrentQrToPrintList);
+    document.getElementById("clearPrintListButton").addEventListener("click", function() {
+      printItems.length = 0;
+      renderPrintList();
+    });
+    document.getElementById("printPdfButton").addEventListener("click", printB5Pdf);
+    document.getElementById("printList").addEventListener("click", function(event) {
+      const button = event.target.closest("button[data-print-index]");
+      if (!button) return;
+      printItems.splice(Number(button.dataset.printIndex), 1);
+      renderPrintList();
+    });
 
     function loadOptions() {
       qrLog("05", "qr_generator_options request start");
@@ -234,7 +329,7 @@
       if (!options) return;
       setVisible("memberField", qrType === "MEMBER_CARD" || qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME");
       setVisible("planField", qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME");
-      setVisible("locationField", qrType === "DOJO");
+      setVisible("locationField", qrType === "DOJO" || qrType === "TEACHER");
       setVisible("teacherField", qrType === "TEACHER");
 
       if (qrType === "PAYMENT_MONTHLY") {
@@ -383,7 +478,7 @@
         const plan = selectedRow(rows, "plan_id", valueOf("planSelect"));
         lines.push("<strong>プラン</strong>" + escapeHtml(plan ? plan.plan_id + "｜" + plan.plan_name : "未選択"));
       }
-      if (qrType === "DOJO") {
+      if (qrType === "DOJO" || qrType === "TEACHER") {
         const location = selectedRow(options.locations || [], "location_id", valueOf("locationSelect"));
         lines.push("<strong>道場</strong>" + escapeHtml(location ? location.location_id + "｜" + location.location_name : "未選択"));
       }
@@ -396,6 +491,7 @@
       const previewButton = document.getElementById("previewButton");
       previewButton.disabled = !isSelectionComplete();
       previewButton.textContent = "プレビューへ";
+      document.getElementById("addToPrintListButton").disabled = !isSelectionComplete();
     }
 
     function openPreview() {
@@ -454,10 +550,18 @@
           valueOf("teacherSelect")
         );
         if (!teacher) return;
+        const locationRow = selectedRow(
+          options.locations || [],
+          "location_id",
+          valueOf("locationSelect")
+        );
+        if (!locationRow) return;
         page = "teacher.html";
         query.set("teacher_id", teacher.teacher_id);
         query.set("teacher_name", teacher.teacher_name || "");
         query.set("role_name", teacher.role_name || "");
+        query.set("location_id", locationRow.location_id);
+        query.set("location_name", locationRow.location_name || "");
       }
 
       if (!page) return;
@@ -470,8 +574,189 @@
       if (qrType === "MEMBER_CARD") return !!valueOf("memberSelect");
       if (qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME") return !!valueOf("memberSelect") && !!valueOf("planSelect");
       if (qrType === "DOJO") return !!valueOf("locationSelect");
-      if (qrType === "TEACHER") return !!valueOf("teacherSelect");
+      if (qrType === "TEACHER") return !!valueOf("teacherSelect") && !!valueOf("locationSelect");
       return false;
+    }
+
+    function qrTargetOptions() {
+      const result = { image:{ size:"720x720", ecc:"M" } };
+      const isFirebaseDevHosting = location.hostname === "dojo-management-dev.web.app" ||
+        location.hostname === "dojo-management-dev.firebaseapp.com";
+      if (isFirebaseDevHosting) {
+        result.baseUrl = location.origin + "/qr/";
+        result.routes = {
+          MEMBER_CARD:"attendance.html",
+          PAYMENT_MONTHLY:"paypay_code.html",
+          PAYMENT_ONETIME:"paypay_code.html",
+          DOJO:"attendance.html",
+          TEACHER:"teacher_attendance.html"
+        };
+      }
+      return result;
+    }
+
+    function currentQrItem() {
+      if (!options || !isSelectionComplete()) return null;
+      const params = {};
+      let name = "";
+      let detail = "";
+      let primaryName = "";
+      let secondaryName = "";
+      let identityLabel = "QR ID";
+      let identityValue = "";
+      let selectedDojo = null;
+
+      if (qrType === "MEMBER_CARD" || qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME") {
+        const member = selectedRow(options.members || [], "member_id", valueOf("memberSelect"));
+        if (!member) return null;
+        params.member_id = member.member_id;
+        name = member.member_name || member.member_id;
+        detail = "会員 " + member.member_id;
+        primaryName = member.member_name || "（氏名未設定）";
+        identityLabel = "会員ID";
+        identityValue = member.member_id;
+      }
+      if (qrType === "PAYMENT_MONTHLY" || qrType === "PAYMENT_ONETIME") {
+        const plans = qrType === "PAYMENT_MONTHLY" ? (options.monthly_plans || []) : (options.onetime_plans || []);
+        const plan = selectedRow(plans, "plan_id", valueOf("planSelect"));
+        if (!plan) return null;
+        params.plan_id = plan.plan_id;
+        name += "／" + (plan.plan_name || plan.plan_id);
+        detail += "・" + plan.plan_id;
+        secondaryName = plan.plan_name || plan.plan_id;
+      }
+      if (qrType === "DOJO" || qrType === "TEACHER") {
+        selectedDojo = selectedRow(options.locations || [], "location_id", valueOf("locationSelect"));
+        if (!selectedDojo) return null;
+        params.location_id = selectedDojo.location_id;
+        name = selectedDojo.location_name || selectedDojo.location_id;
+        detail = "道場 " + selectedDojo.location_id;
+        primaryName = selectedDojo.location_name || selectedDojo.location_id;
+        identityLabel = "道場ID";
+        identityValue = selectedDojo.location_id;
+      }
+      if (qrType === "TEACHER") {
+        const teacher = selectedRow(options.teachers || [], "teacher_id", valueOf("teacherSelect"));
+        if (!teacher) return null;
+        params.teacher_id = teacher.teacher_id;
+        name = (teacher.teacher_name || teacher.teacher_id) + "／" + name;
+        detail = "先生 " + teacher.teacher_id + "・" + detail;
+        primaryName = teacher.teacher_name || "（先生名未設定）";
+        secondaryName = (teacher.role_name ? teacher.role_name + "／" : "") +
+          (selectedDojo.location_name || selectedDojo.location_id);
+        identityLabel = "先生ID";
+        identityValue = teacher.teacher_id;
+      }
+
+      const qr = DojoQrGenerator.buildQr(qrType, params, qrTargetOptions());
+      return {
+        type:qrType,
+        name:name,
+        detail:detail,
+        primaryName:primaryName,
+        secondaryName:secondaryName,
+        identityLabel:identityLabel,
+        identityValue:identityValue,
+        targetUrl:qr.targetUrl,
+        imageUrl:qr.imageUrl
+      };
+    }
+
+    function addCurrentQrToPrintList() {
+      const item = currentQrItem();
+      if (!item) return;
+      printItems.push(item);
+      renderPrintList();
+      qrLog("10", "print list added: type=" + item.type + " count=" + printItems.length);
+    }
+
+    function renderPrintList() {
+      document.getElementById("printList").innerHTML = printItems.map(function(item, index) {
+        return '<li class="print-list-item">' +
+          '<div><div class="print-list-name">' + escapeHtml(item.name) + '</div>' +
+          '<div class="print-list-url">' + escapeHtml(item.targetUrl) + '</div></div>' +
+          '<button type="button" data-print-index="' + index + '">削除</button></li>';
+      }).join("");
+      const pages = DojoQrGenerator.paginate(printItems, 8).length;
+      document.getElementById("printListSummary").textContent = printItems.length + "枚（B5 " + pages + "ページ）";
+      document.getElementById("clearPrintListButton").disabled = printItems.length === 0;
+      document.getElementById("printPdfButton").disabled = printItems.length === 0;
+    }
+
+    function renderPrintDocument() {
+      const pages = DojoQrGenerator.paginate(printItems, 8);
+      document.getElementById("printDocument").innerHTML = pages.map(function(page) {
+        return '<section class="print-page">' + page.map(function(item) {
+          return '<article class="print-card"><div class="print-card-shell">' +
+            printCardMarkup(item) + '</div></article>';
+        }).join("") + '</section>';
+      }).join("");
+    }
+
+    function printCardMarkup(item) {
+      const isTeacher = item.type === "TEACHER";
+      const isMember = item.type === "MEMBER_CARD";
+      const cardClass = isTeacher ? "qr-sheet qr-sheet--teacher" : "qr-sheet";
+      const eyebrow = isTeacher ? "先生カード" : (isMember ? "会員カード" : "QRカード");
+      const sheetKind = isTeacher ? "TEACHER / INSTRUCTOR" : (isMember ? "MEMBER / ATTENDANCE" : "DOJO SYSTEM / QR");
+      const usage = isTeacher ? "先生用QR" : (isMember ? "稽古の出席受付" : "道場システムQR");
+      const instruction = isTeacher
+        ? "先生・道場情報を設定して開始します。"
+        : (isMember ? "受付時にこのQRコードを読み取ってください。" : "用途に応じてこのQRコードを読み取ってください。");
+      const secondaryClass = isTeacher ? "print-location" : "teacher-role";
+      return '<main class="' + cardClass + '"><div class="sheet-inner">' +
+        '<header class="sheet-head"><div class="function-icon" aria-hidden="true">' + personIconSvg() + '</div>' +
+        '<div><div class="dojo-name">桜風館</div><div class="sheet-kind">' + sheetKind + '</div></div></header>' +
+        '<section class="member-block"><div class="eyebrow">' + eyebrow + '</div>' +
+        '<div class="member-name">' + escapeHtml(item.primaryName) + '</div>' +
+        (item.secondaryName ? '<div class="' + secondaryClass + '">' + escapeHtml(item.secondaryName) + '</div>' : '') +
+        '<div class="member-id">' + escapeHtml(item.identityLabel) + '&nbsp; <strong>' + escapeHtml(item.identityValue) + '</strong></div></section>' +
+        '<section class="qr-zone"><div class="qr-frame"><img src="' + escapeHtml(item.imageUrl) + '" alt=""></div></section>' +
+        '<footer class="sheet-foot"><div class="usage">' + usage + '<small>' + instruction + '</small></div>' +
+        flowerMarkSvg() + '</footer></div></main>';
+    }
+
+    function personIconSvg() {
+      return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">' +
+        '<circle cx="9" cy="7" r="3"></circle><path d="M3.5 18c.6-4 2.6-6 5.5-6s4.9 2 5.5 6"></path>' +
+        '<path d="m15 14 2.1 2.1L21 12.2"></path></svg>';
+    }
+
+    function flowerMarkSvg() {
+      return '<svg class="mark" viewBox="0 0 48 48" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="1.6">' +
+        '<path d="M24 23C13 18 13 8 24 5c11 3 11 13 0 18Z"></path>' +
+        '<path d="M25 24c5-11 15-9 17 2-5 10-14 8-17-2Z"></path>' +
+        '<path d="M23 25c11 3 10 14 0 18-10-4-11-15 0-18Z"></path>' +
+        '<path d="M22 24c-5 11-15 9-17-2 5-10 14-8 17 2Z"></path>' +
+        '<circle cx="24" cy="24" r="2.4"></circle></g></svg>';
+    }
+
+    function waitForPrintImages() {
+      const images = Array.from(document.querySelectorAll("#printDocument img"));
+      return Promise.all(images.map(function(image) {
+        if (image.complete && image.naturalWidth > 0) return Promise.resolve();
+        return new Promise(function(resolve, reject) {
+          image.addEventListener("load", resolve, { once:true });
+          image.addEventListener("error", function() { reject(new Error("QR画像を取得できませんでした。")); }, { once:true });
+        });
+      }));
+    }
+
+    function printB5Pdf() {
+      if (printItems.length === 0) return;
+      const button = document.getElementById("printPdfButton");
+      button.disabled = true;
+      button.textContent = "QR画像を準備中...";
+      renderPrintDocument();
+      waitForPrintImages().then(function() {
+        window.print();
+      }).catch(function(error) {
+        document.getElementById("printListSummary").className = "note error";
+        document.getElementById("printListSummary").textContent = error.message || String(error);
+      }).finally(function() {
+        button.disabled = false;
+        button.textContent = "B5 PDF／印刷";
+      });
     }
 
     function populateSelect(id, rows, valueKey, labelBuilder) {

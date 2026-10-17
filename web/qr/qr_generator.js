@@ -68,6 +68,9 @@
         break;
       case QR_TYPES.TEACHER:
         url.searchParams.set("teacher_id", required(params.teacher_id, "teacher_id"));
+        if (String(params.location_id || "").trim()) {
+          url.searchParams.set("location_id", String(params.location_id).trim());
+        }
         break;
       default:
         throw new Error("Unsupported QR type: " + qrType);
@@ -98,13 +101,26 @@
     };
   }
 
+  function paginate(items, pageSize) {
+    const size = Number(pageSize == null ? 8 : pageSize);
+    if (!Number.isInteger(size) || size < 1) {
+      throw new Error("pageSize must be a positive integer.");
+    }
+    const pages = [];
+    for (let index = 0; index < (items || []).length; index += size) {
+      pages.push(items.slice(index, index + size));
+    }
+    return pages;
+  }
+
   const api = Object.freeze({
     QR_TYPES,
     DEFAULT_BASE_URL,
     DEFAULT_ROUTES,
     buildQrTargetUrl,
     buildQrImageUrl,
-    buildQr
+    buildQr,
+    paginate
   });
 
   global.DojoQrGenerator = api;

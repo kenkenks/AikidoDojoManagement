@@ -257,23 +257,27 @@
       document.getElementById("latest").textContent = decodedText;
 
       const parsed = parseQrText(decodedText);
-      if (parsed.location_id || parsed.billing_block_id) {
-        if (parsed.location_id) currentLocationId = parsed.location_id;
-        currentBillingBlockId = parsed.billing_block_id || "";
-        currentSlots = [];
+      if (parsed.location_id || parsed.billing_block_id || parsed.teacher_id) {
+        const hasLocation = !!parsed.location_id;
+        const hasBillingBlock = !!parsed.billing_block_id;
+        const hasTeacher = !!parsed.teacher_id;
+        if (hasLocation) currentLocationId = parsed.location_id;
+        if (hasLocation || hasBillingBlock) {
+          currentBillingBlockId = parsed.billing_block_id || "";
+          currentSlots = [];
+        }
+        if (hasTeacher) currentTeacherId = parsed.teacher_id;
         persistAttendanceContext();
         renderKeys();
-        addLog(parsed.billing_block_id ? "道場・課金枠QRを読み取りました。" : "道場QRを読み取りました。課金枠を自動判定します。");
+        if (hasLocation && hasTeacher) {
+          addLog("先生＋道場QR読取: " + currentTeacherId + " / " + currentLocationId);
+        } else if (hasLocation || hasBillingBlock) {
+          addLog(hasBillingBlock ? "道場・課金枠QRを読み取りました。" : "道場QRを読み取りました。課金枠を自動判定します。");
+        } else {
+          addLog("先生QR読取: " + currentTeacherId);
+        }
         beep();
-        refreshAttendanceSessionInfoIfNeeded();
-        return;
-      }
-      if (parsed.teacher_id) {
-        currentTeacherId = parsed.teacher_id;
-        persistAttendanceContext();
-        renderKeys();
-        addLog("先生QR読取: " + currentTeacherId);
-        beep();
+        if (hasLocation || hasBillingBlock) refreshAttendanceSessionInfoIfNeeded();
         return;
       }
       if (parsed.member_id) {

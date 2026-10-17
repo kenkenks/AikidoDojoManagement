@@ -304,7 +304,8 @@ body {
 .teacher-role {
   margin-top:1.5mm;
   color:var(--sf-teacher);
-  font-size:2.7mm;
+  font-size:3.7mm;
+  line-height:1.25;
   font-weight:800;
 }
 
@@ -345,11 +346,13 @@ body {
 
 
 /* Teacher v3 — vertical fit correction */
-.qr-sheet--teacher .member-block { padding-top: 4mm; }
+.qr-sheet--teacher .member-block { padding-top: 3mm; }
 .qr-sheet--teacher .member-name { margin-top: .7mm; }
 .qr-sheet--teacher .teacher-role { margin-top: .8mm; }
 .qr-sheet--teacher .member-id {
   margin-top: 1mm;
-  padding-bottom: 3.5mm;
+  padding-bottom: 1.5mm;
 }
 .qr-sheet--teacher .qr-zone { align-content: center; }
+/* Slightly larger teacher details without changing QR geometry. */
+.qr-sheet--teacher .member-id { font-size: 3mm; }

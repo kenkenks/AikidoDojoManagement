@@ -5,6 +5,21 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>桜風館 先生カード</title>
   <link rel="stylesheet" href="../assets/qr-sheet.css">
+  <style>
+    /* 先生＋道場プレビュー専用：追加した道場情報とQRの重なりを防ぐ */
+    .qr-sheet--teacher .sheet-inner {
+      padding: 4mm 5mm 4mm 7mm;
+      grid-template-rows: auto auto minmax(0, 1fr) auto;
+    }
+    .qr-sheet--teacher .sheet-head { padding-bottom: 2mm; }
+    .qr-sheet--teacher .member-block { padding-top: 2mm; }
+    .qr-sheet--teacher .member-name { margin-top: .4mm; font-size: 5.6mm; }
+    .qr-sheet--teacher .teacher-role { margin-top: .5mm; font-size: 2.9mm; }
+    .qr-sheet--teacher .member-id { margin-top: .5mm; padding-bottom: 0; font-size: 2.5mm; }
+    .qr-sheet--teacher .qr-frame { width: 36mm; height: 36mm; }
+    .qr-sheet--teacher .qr-frame img { width: 32mm; height: 32mm; }
+    .qr-sheet--teacher .sheet-foot { padding-top: 1.5mm; }
+  </style>
 </head>
 <body>
   <nav class="preview-toolbar" aria-label="プレビュー操作">
@@ -35,6 +50,8 @@
           <div class="eyebrow">先生カード</div>
           <div id="teacherName" class="member-name">山田 太郎</div>
           <div id="roleName" class="teacher-role"></div>
+          <div id="locationName" class="teacher-role"></div>
+          <div id="locationId" class="member-id"></div>
           <div class="member-id">先生ID&nbsp; <strong id="teacherId">T001</strong></div>
         </section>
 
@@ -73,10 +90,13 @@
       const teacherId = (params.get("teacher_id") || "").trim();
       const teacherName = (params.get("teacher_name") || "").trim();
       const roleName = (params.get("role_name") || "").trim();
+      const locationId = (params.get("location_id") || "").trim();
+      const locationName = (params.get("location_name") || "").trim();
       const error = document.getElementById("error");
 
       try {
         if (!teacherId) throw new Error("teacher_id が指定されていません。");
+        if (!locationId) throw new Error("location_id が指定されていません。QR生成画面から道場を選択し直してください。");
         // Firebase dev QR only; preserve legacy GitHub Pages behavior.
         const isFirebaseDevHosting = location.hostname === "dojo-management-dev.web.app" ||
           location.hostname === "dojo-management-dev.firebaseapp.com";
@@ -87,7 +107,7 @@
         }
         const qr = DojoQrGenerator.buildQr(
           DojoQrGenerator.QR_TYPES.TEACHER,
-          { teacher_id: teacherId },
+          { teacher_id: teacherId, location_id: locationId },
           qrOptions
         );
         document.getElementById("teacherId").textContent = teacherId;
@@ -95,6 +115,8 @@
         const role = document.getElementById("roleName");
         role.textContent = roleName;
         role.style.display = roleName ? "block" : "none";
+        document.getElementById("locationName").textContent = "道場：" + (locationName || locationId);
+        document.getElementById("locationId").textContent = "道場ID " + locationId;
         const image = document.getElementById("qrImage");
         image.src = qr.imageUrl;
         image.dataset.targetUrl = qr.targetUrl;
