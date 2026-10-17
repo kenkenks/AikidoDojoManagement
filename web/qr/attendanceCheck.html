@@ -42,11 +42,11 @@
     .progress.ready { background: #dff3e6; color: #176b45; font-weight: bold; }
     .overview-toolbar { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
     .overview-list { margin-top:10px; }
-    .overview-row { display:grid; grid-template-columns:minmax(140px, 1fr) auto; gap:6px 12px; align-items:center; padding:10px 6px; border-top:1px solid #e5e5e5; }
+    .overview-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:6px; align-items:center; padding:9px 3px; border-top:1px solid #e5e5e5; font-size:13px; }
     .overview-row:first-child { border-top:0; }
     .overview-name { font-weight:bold; }
     .overview-rank { text-align:right; font-weight:bold; }
-    .overview-progress { grid-column:1 / -1; font-size:14px; padding:6px 8px; border-radius:6px; background:#f4f8fb; }
+    .overview-progress { grid-column:auto; font-size:12px; padding:5px 6px; border-radius:6px; background:#f4f8fb; white-space:nowrap; }
     .overview-row.near .overview-progress { background:#fff3cd; color:#6d4c00; font-weight:bold; }
     .overview-row.ready .overview-progress { background:#dff3e6; color:#176b45; font-weight:bold; }
     .empty { color: #777; }
@@ -54,8 +54,25 @@
     #log { padding-left: 20px; margin-bottom: 0; }
     @media (max-width: 520px) {
       .key-grid { grid-template-columns: 1fr; }
-      .overview-row { grid-template-columns:minmax(120px, 1fr) auto; }
+      .overview-row { grid-template-columns:minmax(0,1fr) auto auto; }
     }
+    /* 主要業務3画面の共通UI：会費受付画面のコンパクトな構成に合わせる */
+    body { padding:10px; max-width:920px; margin:auto; }
+    h1 { font-size:19px; margin:0 0 5px; }
+    .role-badge { padding:2px 7px; margin-bottom:4px; }
+    .top-nav { margin-bottom:6px; }
+    .top-nav a { padding:4px 8px; margin-bottom:3px; }
+    .card { padding:9px 11px; margin-bottom:8px; }
+    .key-grid { grid-template-columns:repeat(2,minmax(0,1fr)); background:#edf5ff; }
+    .key { background:transparent; padding:3px 4px; min-width:0; overflow-wrap:anywhere; }
+    .scan-card { background:#f1f7f4; }
+    #reader { max-width:310px; }
+    .diagnostic-card { background:#f5f5f5; }
+    details > summary { cursor:pointer; font-weight:bold; padding:4px 0; }
+    .overview-name { min-width:0; overflow-wrap:anywhere; }
+    .overview-rank { font-size:12px; white-space:nowrap; }
+    .overview-progress { max-width:112px; overflow:hidden; text-overflow:ellipsis; }
+    @media(max-width:520px) { .key-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   </style>
 </head>
 <body>
@@ -92,7 +109,7 @@
     <div id="teacherOverview" class="overview-list"></div>
   </section>
 
-  <section class="card">
+  <section class="card scan-card">
     <div id="reader"></div>
     <button type="button" onclick="startScan()">読み取り開始</button>
     <button type="button" onclick="stopScan()">停止</button>
@@ -111,15 +128,13 @@
     <button type="button" onclick="clearCandidates()">会員一覧をクリア</button>
   </section>
 
-  <section class="card">
-    <span class="label">最新読み取り</span>
+  <details class="card diagnostic-card"><summary>最新読み取りURL</summary>
     <div id="latest" class="latest">なし</div>
-  </section>
+  </details>
 
-  <section class="card">
-    <h2>操作ログ</h2>
+  <details class="card diagnostic-card"><summary>操作ログ</summary>
     <ul id="log"></ul>
-  </section>
+  </details>
 
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
@@ -136,7 +151,7 @@
       const status=document.createElement('span');status.id='firebaseCheckStatus';
       const login=document.createElement('button');login.textContent='Googleログイン';
       login.onclick=()=>firebaseAttendanceAuth.signInWithGoogle().catch(()=>{status.textContent='認証に失敗しました。';});
-      card.append(status,login);document.querySelector('h1').after(card);
+      const title=document.createElement('strong');title.textContent='Firebase DEV 接続';card.append(title,document.createElement('br'),status,login);document.querySelector('.top-nav').after(card);
       firebaseAttendanceAuth.ready.then(()=>{
         const update=user=>{status.textContent=user?'Firebase認証済み（権限はAPIで確認）':'Firebase認証が必要です。';login.hidden=!!user;
           if(user){loadRankOptions();if(currentLocationId)loadAttendanceSessionInfo();}};
@@ -270,38 +285,33 @@
       document.getElementById("latest").textContent = decodedText;
 
       const parsed = parseQrText(decodedText);
-      if (parsed.location_id || parsed.billing_block_id) {
+      // 一つのQRに先生IDと道場IDが共存しても、一度の読み取りで両方を反映する。
+      if (parsed.teacher_id || parsed.location_id || parsed.billing_block_id) {
+        if (parsed.teacher_id) {
+          currentTeacherId = parsed.teacher_id;
+          const currentSession = DojoVirtualSession.get();
+          if (!currentSession || currentSession.role !== "TEACHER" || currentSession.teacher_id !== currentTeacherId) {
+            DojoVirtualSession.loginTeacher(currentTeacherId, "SCREEN_QR");
+          }
+        }
         if (parsed.location_id) currentLocationId = parsed.location_id;
         if (parsed.billing_block_id) currentBillingBlockId = parsed.billing_block_id;
-        currentSlots = [];
+        if (parsed.location_id || parsed.billing_block_id) currentSlots = [];
         persistAttendanceContext();
         renderKeys();
-        if (parsed.location_id && parsed.billing_block_id) {
+        if (parsed.teacher_id && parsed.location_id) {
+          addLog("先生＋道場QRを一括読み取りしました。" + (parsed.billing_block_id ? " 課金枠も設定しました。" : ""));
+        } else if (parsed.teacher_id) {
+          addLog("先生QR読取: " + currentTeacherId);
+        } else if (parsed.location_id && parsed.billing_block_id) {
           addLog("道場・課金枠QRを読み取りました。");
         } else if (parsed.location_id) {
-          addLog(currentBillingBlockId
-            ? "道場QRを読み取りました。設定済みの課金枠と照合します。"
-            : "道場QRを読み取りました。課金枠を自動判定します。");
+          addLog("道場QRを読み取りました。課金枠を確認します。");
         } else {
-          addLog(currentLocationId
-            ? "課金枠QRを読み取りました。設定済みの道場と照合します。"
-            : "課金枠QRを読み取りました。続けて道場QRを読み取ってください。",
-            currentLocationId ? "" : "warn");
+          addLog("課金枠QRを読み取りました。" + (currentLocationId ? "" : " 続けて道場QRを読み取ってください。"));
         }
         beep();
-        if (currentLocationId) loadAttendanceSessionInfo();
-        return;
-      }
-      if (parsed.teacher_id) {
-        currentTeacherId = parsed.teacher_id;
-        const currentSession = DojoVirtualSession.get();
-        if (!currentSession || currentSession.role !== "TEACHER" || currentSession.teacher_id !== currentTeacherId) {
-          DojoVirtualSession.loginTeacher(currentTeacherId, "SCREEN_QR");
-        }
-        persistAttendanceContext();
-        renderKeys();
-        addLog("先生QR読取: " + currentTeacherId);
-        beep();
+        if (currentLocationId && (parsed.location_id || parsed.billing_block_id)) loadAttendanceSessionInfo();
         return;
       }
       if (parsed.member_id) {
@@ -478,12 +488,13 @@
         progress.className = "overview-progress";
         if (item.required_training_count > 0) {
           const target = item.next_rank ? item.next_rank : "次回審査";
-          progress.textContent = item.training_count + "/" + item.required_training_count +
-            (item.examination_ready
-              ? "（" + target + "の必要稽古数到達・先生確認）"
-              : "（" + target + "まであと " + item.remaining_training_count + "回）");
+          progress.textContent = item.training_count + "/" + item.required_training_count;
+          progress.title = item.examination_ready
+            ? target + "の必要稽古数到達・先生確認"
+            : target + "まであと " + item.remaining_training_count + "回";
         } else {
-          progress.textContent = item.training_count + "回（審査基準未設定）";
+          progress.textContent = item.training_count + "回";
+          progress.title = "審査基準未設定";
         }
         row.append(name, rank, progress);
         container.appendChild(row);

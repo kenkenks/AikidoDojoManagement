@@ -8,15 +8,25 @@
   <style>
     :root { color-scheme: light; --green: #176b45; --amber: #9b6100; --red: #b3261e; }
     * { box-sizing: border-box; }
-    body { font-family: sans-serif; margin: 0; padding: 16px; background: #e8f5e9; color: #222; }
+    body { font-family: sans-serif; margin: 0; padding: 16px; background: #FFF8E1; color: #222; }
     .role-badge { display:inline-block; padding:4px 8px; border-radius:999px; background:#d7efe0; color:#176b45; font-size:12px; font-weight:bold; margin-bottom:8px; }
     .top-nav { margin:0 0 12px; }
     .top-nav a { display:inline-block; margin:0 6px 6px 0; padding:7px 10px; border-radius:8px; border:1px solid #b7d8c4; background:#fff; color:#176b45; text-decoration:none; font-size:14px; }
     h1 { font-size: 22px; margin: 0 0 12px; }
     h2 { font-size: 17px; margin: 0 0 10px; }
     .card { background: #fff; padding: 14px; margin-bottom: 12px; border: 1px solid #ddd; border-radius: 10px; }
+    .action-card { border-color: #b7d8c4; }
+    .action-card h2 { margin-bottom: 6px; }
+    .action-card > p { margin: 0 0 12px; color: #555; font-size: 14px; }
+    .registration-status { margin: 12px 0; padding: 16px; border-radius: 10px; border: 2px solid #b7d8c4; background: #f4faf6; }
+    .registration-status strong { display: block; font-size: 20px; margin-bottom: 5px; }
+    .registration-status p { margin: 0; line-height: 1.5; }
+    .registration-status.pending { border-color: #e4bb6b; background: #fff8e6; }
+    .registration-status.success { border-color: #176b45; background: #dff3e6; }
+    .registration-status.failure { border-color: #b3261e; background: #fff0ee; }
+    #sendButton { width: 100%; margin: 4px 0 8px; padding: 14px; font-size: 18px; font-weight: bold; }
+    .secondary-action { width: 100%; margin: 0; }
     .key-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-    .key { padding: 9px; background: #f7f7f7; border-radius: 8px; }
     .label { display: block; color: #666; font-size: 12px; margin-bottom: 3px; }
     .ok { color: var(--green); font-weight: bold; }
     .warn { color: var(--amber); font-weight: bold; }
@@ -43,7 +53,16 @@
     .action-guide { margin: 3px; padding: 10px 12px; border: 1px solid #d6b36a; border-radius: 8px; background: #fff8e6; color: var(--amber); font-weight: bold; }
     .latest { font-size: 13px; word-break: break-all; }
     #log { padding-left: 20px; margin-bottom: 0; }
-    @media (max-width: 420px) { .key-grid { grid-template-columns: 1fr; } }
+    .firebase-access { background: #fff; }
+    .firebase-access strong { display:block; margin-bottom: 4px; }
+    .firebase-access p { margin: 0; line-height: 1.5; font-size: 14px; }
+    .firebase-access .firebase-note { margin-top: 6px; color: #666; font-size: 12px; }
+    .scan-actions { display: flex; flex-wrap: wrap; gap: 4px; }
+    .scan-actions button { padding: 7px 11px; }
+    .action-card { background: #fffdf6; }
+    .diagnostic-card summary { cursor: pointer; font-weight: bold; padding: 4px 0; }
+    .diagnostic-card .latest { padding-top: 7px; }
+    .diagnostic-card #log { padding-top: 7px; }
   </style>
 </head>
 <body>
@@ -51,18 +70,18 @@
   <h1>合気道 出席受付</h1>
   <nav class="top-nav"><a href="member_home.html">会員ホーム</a><a href="paypay_code.html">PayPay決済コード登録</a><a href="index.html">入口</a></nav>
 
-  <section id="firebaseAttendanceNotice" class="card" hidden>
-    <strong>Firebase版：出席情報の確認・登録</strong>
+  <section id="firebaseAttendanceNotice" class="card firebase-access" hidden>
+    <strong>Firebase DEV 接続</strong>
     <p id="firebaseAttendanceStatus">認証状態を確認しています。</p>
     <button id="firebaseAttendanceLogin" type="button" hidden>Googleログイン</button>
-    <p>出席登録・級段位取得・稽古枠取得は未接続です。GASへの代替送信は行いません。</p>
+    <p class="firebase-note">接続状態は利用環境によって異なります。GASへの代替送信は行いません。</p>
   </section>
 
-  <section class="card key-grid">
-    <div class="key"><span class="label">道場</span><span id="locationId" class="warn">未設定</span></div>
-    <div class="key"><span class="label">課金枠</span><span id="billingBlockId" class="warn">未設定</span></div>
-    <div class="key"><span class="label">先生</span><span id="teacherId" class="warn">未設定</span></div>
-    <div class="key"><span class="label">稽古日</span><span id="attendanceDate"></span></div>
+  <section class="card scope-strip" aria-label="出席受付設定">
+    <div class="scope-field"><span class="label">道場</span><span id="locationId" class="warn">未設定</span></div>
+    <div class="scope-field"><span class="label">先生</span><span id="teacherId" class="warn">未設定</span></div>
+    <div class="scope-field"><span class="label">課金枠</span><span id="billingBlockId" class="warn">未設定</span></div>
+    <div class="scope-field"><span class="label">稽古日</span><span id="attendanceDate"></span></div>
   </section>
 
   <section id="blockChoiceCard" class="card" hidden>
@@ -71,14 +90,17 @@
     <select id="blockChoice" onchange="selectBillingBlock(this.value)"></select>
   </section>
 
-  <section class="card">
+  <section class="card scan-card">
     <div id="reader"></div>
-    <button type="button" onclick="startScan()">読み取り開始</button>
-    <button type="button" onclick="stopScan()">停止</button>
+    <div class="scan-actions">
+      <button type="button" onclick="startScan()">読み取り開始</button>
+      <button type="button" onclick="stopScan()">停止</button>
+    </div>
   </section>
 
-  <section class="card">
+  <section class="card action-card">
     <h2>出席する会員と稽古枠</h2>
+    <p>会員と稽古枠を確認してから登録してください。</p>
     <label for="candidateSort">並び順</label>
     <select id="candidateSort" onchange="renderCandidates()">
       <option value="scan">読取順</option>
@@ -87,19 +109,23 @@
     </select>
     <div id="memberCandidates" class="empty">会員QRを読み取ってください。</div>
     <div id="teacherQrGuide" class="action-guide" hidden>先生QRを読み取ってください。</div>
+    <div id="registrationStatus" class="registration-status" role="status" aria-live="polite" aria-atomic="true">
+      <strong id="registrationStatusTitle">出席登録の準備</strong>
+      <p id="registrationStatusDetail">先生QRと会員QRを読み取り、出席内容を確認してください。</p>
+    </div>
     <button id="sendButton" class="primary" type="button" onclick="sendCandidatesToGas()">選択した出席を登録</button>
-    <button type="button" onclick="clearCandidates()">会員一覧をクリア</button>
+    <button class="secondary-action" type="button" onclick="clearCandidates()">会員一覧をクリア</button>
   </section>
 
-  <section class="card">
-    <span class="label">最新読み取り</span>
+  <details class="card diagnostic-card">
+    <summary>最新読み取りURL</summary>
     <div id="latest" class="latest">なし</div>
-  </section>
+  </details>
 
-  <section class="card">
-    <h2>操作ログ</h2>
+  <details class="card diagnostic-card">
+    <summary>操作ログ</summary>
     <ul id="log"></ul>
-  </section>
+  </details>
 
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
@@ -688,6 +714,13 @@
       updateSendButton();
     }
 
+    function showRegistrationStatus(kind, title, detail) {
+      const status = document.getElementById("registrationStatus");
+      status.className = "registration-status" + (kind ? " " + kind : "");
+      document.getElementById("registrationStatusTitle").textContent = title;
+      document.getElementById("registrationStatusDetail").textContent = detail;
+    }
+
     function sendCandidatesToGas() {
       if (submitting) return;
       if (!currentTeacherId || !currentLocationId || !currentBillingBlockId) {
@@ -744,6 +777,7 @@
       });
 
       submitting = true;
+      showRegistrationStatus("pending", "登録処理中…", "送信と保存結果の照合が完了するまでお待ちください。");
       renderCandidates();
       updateSendButton();
       addLog("出席登録を送信しています。");
@@ -762,7 +796,14 @@
           addLog("GASの処理完了を確認しました。保存結果を再確認します。");
           return refreshAllMemberStates(expectedByMember);
         });
+      }).then(function(verified) {
+        if (verified === true) {
+          showRegistrationStatus("success", "✓ 出席登録が完了しました", "保存結果を再取得し、選択した出席内容との一致を確認しました。");
+        } else {
+          showRegistrationStatus("failure", "保存結果を確認できません", "送信済みの可能性があります。再登録する前に登録済み状態を確認してください。");
+        }
       }).catch(function (error) {
+        showRegistrationStatus("failure", "出席登録を確認できません", "通信または保存確認に失敗しました。登録済み状態を確認してから再試行してください。");
         addLog("送信エラー: " + error, "error");
       }).finally(function() {
         submitting = false;
@@ -814,7 +855,10 @@
       memberCandidates = [];
       attendanceSessionId = createSessionId();
       renderCandidates();
-      if (!silent) addLog("会員一覧をクリアしました。");
+      if (!silent) {
+        showRegistrationStatus("", "出席登録の準備", "先生QRと会員QRを読み取り、出席内容を確認してください。");
+        addLog("会員一覧をクリアしました。");
+      }
     }
 
     function renderKeys() {
@@ -837,6 +881,7 @@
 
       teacherQrGuide.hidden = !waitingForTeacher;
       sendButton.hidden = waitingForTeacher;
+      sendButton.textContent = submitting ? "登録処理中…" : "選択した出席を登録";
       sendButton.disabled = !(
         !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
         memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.loaded && item.current_rank; })
