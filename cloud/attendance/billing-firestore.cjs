@@ -1,8 +1,9 @@
 'use strict';
-// Firestore read adapter. Monthly selection collection is deliberately explicit:
+// Firestore read adapter. Fee rows stay in their English Firestore representation;
+// only the screen DTO is mapped by billing-selection.cjs.
+// Monthly selection collection is deliberately explicit:
 // there is no MonthlySelection.yml contract in schema/ as of ZIP116.
 const {createBillingSelectionReader} = require('./billing-selection.cjs');
-const {restoreMasterFields} = require('./master-fields.cjs');
 const {monthlySelectionDocumentId, assertMonthlySelectionIdentity} = require('./monthly-selection-key.cjs');
 const ID = /^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/;
 const MONTH = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -20,10 +21,10 @@ function createBillingFirestoreReader(core, {monthlySelectionCollection, targetM
       if (!page || !Array.isArray(page.documents) || page.documents.length > Math.min(100,maxMasterRows - rows.length)) throw new Error('INVALID_MASTER_PAGE');
       for (const doc of page.documents) {
         if (!doc || !doc.fields || typeof doc.fields !== 'object' || Array.isArray(doc.fields)) throw new Error('INVALID_MASTER_DOCUMENT');
-        const row=collection==='fees'?restoreMasterFields('Fee',doc.fields,doc.id):doc.fields;
-        if(collection==='fees')for(const key of ['回数単価','上限金額']){
+        const row=doc.fields;
+        if(collection==='fees')for(const key of ['unit_price','maximum_amount']){
           if(row[key]!=null && row[key]!=='' &&
-              (!['string','number'].includes(typeof row[key]) || !Number.isFinite(Number(row[key])) || Number(row[key])<0))
+              (typeof row[key] !== 'number' || !Number.isFinite(row[key]) || row[key]<0))
             throw new Error('INVALID_FEE_AMOUNT');
         }
         rows.push(row);

@@ -1,10 +1,10 @@
 'use strict';
-// GAS 04_Attendance.js attendance_getBillingSelectionState_ contract.
+// Firebase Fee fields -> existing attendance screen DTO contract.
 // The caller must distinguish a completed lookup with no selection (null)
 // from a failed/unavailable lookup (throw). Never turn read errors into zero fees.
 const id = value => typeof value === 'string' ? value.trim() : '';
 function active(row) {
-  const state = id(row['状態'] ?? row.status);
+  const state = id(row.status);
   return state === '' || state === '有効' || state === 'TRUE';
 }
 function createBillingSelectionReader({readMonthlySelection, readFees, readPlanSelectionRules, targetMonth}) {
@@ -34,11 +34,11 @@ function createBillingSelectionReader({readMonthlySelection, readFees, readPlanS
     const feeDto = planId => {
       const fee = feeById.get(planId);
       if (!fee) throw new Error('UNKNOWN_OR_INACTIVE_PLAN');
-      const amount = fee['回数単価'] == null || fee['回数単価'] === '' ? 0 : Number(fee['回数単価']);
-      const cap = fee['上限金額'] == null || fee['上限金額'] === '' ? 0 : Number(fee['上限金額']);
+      const amount = fee.unit_price == null ? 0 : fee.unit_price;
+      const cap = fee.maximum_amount == null ? 0 : fee.maximum_amount;
       if (!Number.isFinite(amount) || !Number.isFinite(cap)) throw new Error('INVALID_FEE_AMOUNT');
-      return {plan_id:planId, plan_name:id(fee['表示名']) || planId,
-        fee_type:id(fee['会費タイプ']), amount, cap_amount:cap};
+      return {plan_id:planId, plan_name:id(fee.display_name) || planId,
+        fee_type:id(fee.membership_fee_type), amount, cap_amount:cap};
     };
     if (selection) {
       const planId = id(selection.plan_id);

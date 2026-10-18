@@ -46,7 +46,7 @@ const fee={plan_id:'P001',display_name:'テスト月額',membership_fee_type:'�
 function reader(row){return createBillingFirestoreReader({readById:async()=>null,queryEqual:async()=>[],
   readPage:async({collection})=>({documents:collection==='fees'?[{id:'P001',fields:row}]:[{fields:{member_type:'一般',selectable_plan_id:'P001'}}],nextPageToken:null})
 },{monthlySelectionCollection:'monthly_selections',targetMonth:async()=> '2026-10'});}
-test('Fee physical fields become GAS-compatible display/type/amount/cap DTO',async()=>{
+test('Fee physical fields map directly to the existing display/type/amount/cap DTO',async()=>{
   const result=await reader(fee)(member);
   const sandbox={ensureSheetContext:c=>c,normalizeId_:v=>String(v??'').trim(),sup_targetMonth:()=> '2026-10',
     getFees:()=>[{plan_id:'P001','表示名':'テスト月額','会費タイプ':'月額','回数単価':1000,'上限金額':3000,'状態':'有効'}],
@@ -55,10 +55,9 @@ test('Fee physical fields become GAS-compatible display/type/amount/cap DTO',asy
   assert.deepEqual(result,JSON.parse(JSON.stringify(sandbox.attendance_getBillingSelectionState_(member,{}))));
   assert.equal(result.candidates[0].plan_name,'テスト月額');assert.equal(result.candidates[0].amount,1000);assert.equal(result.candidates[0].cap_amount,3000);
 });
-test('Fee conflicting mapping, nonfinite, negative and malformed amount/cap fail closed',async()=>{
+test('Fee nonfinite, negative and malformed amount/cap fail closed',async()=>{
   for(const field of ['unit_price','maximum_amount'])for(const value of ['bad',Infinity,-1,true])
     await assert.rejects(reader({...fee,[field]:value})(member),/INVALID_FEE_AMOUNT/);
-  await assert.rejects(reader({...fee,'表示名':'conflict'})(member),/CONFLICTING_MASTER_FIELDS/);
 });
 test('Firebase clock change invalidates explicit block, ignores old responses and requests a fresh selection; GAS unchanged',()=>{
   const html=fs.readFileSync('web/qr/attendance.html','utf8');
