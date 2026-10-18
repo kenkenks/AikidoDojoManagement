@@ -1,0 +1,10 @@
+'use strict';
+const assert = require('node:assert/strict');
+const {validatePayPayCodeRecord,validatePayPayPostSelected} = require('../cloud/billing/payment-paypay-command.cjs');
+const record = {request_id:'demo:1',member_id:'M001',evidence_id:'E001',evidence_code:'DEMO123'};
+const post = {request_id:'demo:2',location_id:'L001',billing_block_id:'B001',evidence_items:[{evidence_id:'E001'}]};
+assert.equal(validatePayPayCodeRecord(record).evidence_code,'DEMO123');
+assert.equal(validatePayPayPostSelected(post).evidence_items.length,1);
+for (const v of [{...record,evidence_code:''},{...record,evidence_code:' a '},{...record,member_id:'../x'},{...record,amount:1}]) assert.throws(()=>validatePayPayCodeRecord(v));
+for (const v of [{...post,evidence_items:[]},{...post,evidence_items:[{evidence_id:'E001'},{evidence_id:'E001'}]},{...post,teacher_id:'T001'}]) assert.throws(()=>validatePayPayPostSelected(v));
+console.log('PayPay command contracts: PASS (9 cases)');
