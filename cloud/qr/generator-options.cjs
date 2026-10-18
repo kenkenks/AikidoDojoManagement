@@ -51,7 +51,8 @@ function createQrGeneratorOptions({ masterDao, pageSize = 100, maxPerCollection 
     const plans = feeRows.filter(active).map(row => ({
       plan_id: id(row, 'plan_id'), plan_name: str(row.display_name || row.plan_id || row.__document_id),
       description: str(row.description), fee_type: str(row.membership_fee_type),
-      unit_price: Number(row.unit_price || 0), cap_amount: Number(row.maximum_amount || 0)
+      unit_price: Number(row.unit_price || 0), cap_amount: Number(row.maximum_amount || 0),
+      applicable_member_count: Number(row.applicable_member_count || 0)
     }));
     const plan_selection_rules = ruleRows.map(row => ({
       member_type: str(row.member_type), selectable_plan_id: str(row.selectable_plan_id)

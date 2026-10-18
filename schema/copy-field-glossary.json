@@ -24,6 +24,7 @@
       "会費タイプ": "membership_fee_type",
       "回数単価": "unit_price",
       "上限金額": "maximum_amount",
+      "適用人数": "applicable_member_count",
       "状態": "status",
       "説明": "description"
     },

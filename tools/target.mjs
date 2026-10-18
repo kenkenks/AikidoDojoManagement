@@ -78,7 +78,7 @@ function buildFirebase() {
     copy(join(repoRoot, "cloud", "time-travel", name), join(deployRoot, "cloud", "time-travel", name));
   }
   // Package every runtime module, not a manually maintained subset.
-  for (const dir of ["api", "attendance", "billing"]) {
+  for (const dir of ["api", "attendance", "billing", "member-management"]) {
     for (const name of readdirSync(join(repoRoot, "cloud", dir)).filter(name => name.endsWith(".cjs"))) {
       copy(join(repoRoot, "cloud", dir, name), join(deployRoot, "cloud", dir, name));
     }

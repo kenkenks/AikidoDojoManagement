@@ -21,6 +21,9 @@ fields:
   - name: 上限金額
     type: number
     group: Unclassified
+  - name: 適用人数
+    type: number
+    group: Unclassified
   - name: 状態
     type: string
     group: Unclassified

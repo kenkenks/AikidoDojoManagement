@@ -346,6 +346,13 @@
         "documentId": false
       },
       {
+        "logicalName": "適用人数",
+        "physicalName": "applicable_member_count",
+        "type": "number",
+        "required": false,
+        "documentId": false
+      },
+      {
         "logicalName": "状態",
         "physicalName": "status",
         "type": "string",

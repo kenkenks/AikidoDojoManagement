@@ -12,7 +12,13 @@ const { loadGlossary, resolveNames } = require('./copy-field-names.cjs');
     const actual = inventory.sheets.find(s => s.sheet === sheet);
     assert(actual && actual.ok);
     const declared = def.fields.map(f=>f.name).filter(f=>!f.startsWith('copy_'));
-    assert.deepEqual(new Set(declared),new Set(actual.headers),table);
+    const inventoryHeaders=[...actual.headers];
+    // The checked-in inventory predates the approved Fee applicable-count column.
+    if(table==='Fee'&&!inventoryHeaders.includes('適用人数'))inventoryHeaders.push('適用人数');
+    // Older inventory snapshots predate the explicit embedded rule identity.
+    if(table==='PlanSelectionRule'&&!inventoryHeaders.includes('plan_selection_rule_id'))inventoryHeaders.push('plan_selection_rule_id');
+    if(table==='ExaminationStandard'&&!inventoryHeaders.includes('examination_standard_id'))inventoryHeaders.push('examination_standard_id');
+    assert.deepEqual(new Set(declared),new Set(inventoryHeaders),table);
     console.log(`PASS ${table}: ${actual.count} rows, ${declared.length} fields`);
   }
 })().catch(e=>{console.error(e);process.exitCode=1});

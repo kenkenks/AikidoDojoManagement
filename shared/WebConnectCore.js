@@ -14,6 +14,10 @@ var WebConnectCore = (function () {
     if (action === 'payment_paypay_post_selected') return { operation: 'billing.paypayPostSelected', input: input || {} };
     if (action === 'payment_cash_accept') return { operation: 'billing.cashAccept', input: input || {} };
     if (action === 'members_read') return { operation: 'member.readByIds', input: input || {} };
+    if (action === 'member_management_list') return { operation: 'memberManagement.list', input: input || {} };
+    if (action === 'member_management_save') return { operation: 'memberManagement.save', input: input || {} };
+    if (action === 'member_management_group_save') return { operation: 'memberManagement.groupSave', input: input || {} };
+    if (action === 'member_management_withdraw') return { operation: 'memberManagement.withdraw', input: input || {} };
     if (action === 'attendance_session_info') return { operation: 'attendance.sessionInfo', input: input || {} };
     if (action === 'teacher_attendance_today') return { operation: 'attendance.teacherToday', input: input || {} };
     if (action === 'attendance_rank_options') return { operation: 'attendance.rankOptions', input: input || {} };

@@ -51,6 +51,7 @@ const modules = {
   '../billing/payment-paypay-command.cjs': {validatePayPayPostSelected:input=>input,validatePayPayCodeStart:input=>input,validatePayPayCodeRecordBatch:input=>input},
   '../billing/payment-paypay-post-firestore.cjs': {createPayPayPostFirestoreExecutor:()=>async()=>({ok:true})},
   '../billing/payment-paypay-code-firestore.cjs': {createPayPayCodeFirestoreExecutor:()=>({start:async()=>({ok:true}),record:async()=>({ok:true})})},
+  '../member-management/member-command.cjs': {createMemberManagementCommand:()=>({save:async()=>({ok:true}),withdraw:async()=>({ok:true})})},
   './admin-api.cjs': { createAdminApi: () => handle },
   './webConnect.cjs': { createDispatch },
   '../qr/generator-options.cjs': { createQrGeneratorOptions: () => async () => ({ ok: true }) },

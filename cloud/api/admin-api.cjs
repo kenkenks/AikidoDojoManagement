@@ -4,7 +4,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
 const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readMemberManagementList,saveManagedMember,saveManagedMemberGroup,withdrawManagedMember,readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -37,9 +37,13 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const member = /^\/api\/admin\/members\/([^/?#]+)$/.exec(url);
     const members = url === '/api/admin/members' || operation === 'member.readByIds';
     const memberOperation = operation === 'member.readById';
+    const memberManagementList=operation==='memberManagement.list';
+    const memberManagementSave=operation==='memberManagement.save';
+    const memberManagementGroupSave=operation==='memberManagement.groupSave';
+    const memberManagementWithdraw=operation==='memberManagement.withdraw';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -60,6 +64,18 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
+    if(memberManagementList||memberManagementSave||memberManagementGroupSave||memberManagementWithdraw){
+      if(String(request.method||'').toUpperCase()!==(memberManagementList?'GET':'POST'))return reply(405,{error:'METHOD_NOT_ALLOWED'});
+      if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});
+      const execute=memberManagementList?readMemberManagementList:(memberManagementSave?saveManagedMember:(memberManagementGroupSave?saveManagedMemberGroup:withdrawManagedMember));
+      if(typeof execute!=='function')return reply(503,{error:'MEMBER_MANAGEMENT_UNAVAILABLE'});
+      try{return reply(200,await execute(operationInput||{},user));}
+      catch(error){
+        const code=typeof error?.code==='string'?error.code:'MEMBER_MANAGEMENT_UNAVAILABLE';
+        const status=error?.status||(['INVALID_MEMBER_MANAGEMENT_INPUT','INVALID_MEMBER_GROUP_INPUT'].includes(code)?400:code==='MEMBER_NOT_FOUND'?404:['MEMBER_ALREADY_EXISTS','BILLING_GROUP_ALREADY_EXISTS','INVALID_MEMBER_GROUP_SIZE','MEMBER_GROUP_TYPE_UNAVAILABLE','MEMBER_GROUP_FEE_TYPE_MISMATCH','MEMBER_GROUP_PLAN_COUNT_MISMATCH'].includes(code)?409:503);
+        return reply(status,{error:status===503?'MEMBER_MANAGEMENT_UNAVAILABLE':code});
+      }
+    }
     if(paypayCodeStart||paypayCodeRecord){
       if(String(request.method||'').toUpperCase()!=='POST')return reply(405,{error:'METHOD_NOT_ALLOWED'});
       if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});

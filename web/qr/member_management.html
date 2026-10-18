@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>会員管理</title><link rel="stylesheet" href="common.css">
+<style>
+  .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.toolbar input{flex:1;min-width:180px}.toolbar button{margin:0}
+  .member-row{display:grid;grid-template-columns:minmax(8em,1fr) minmax(10em,2fr) auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid #ddd}
+  .member-row:last-child{border-bottom:0}.member-actions{display:flex;gap:6px;flex-wrap:wrap}.member-actions button{margin:0;padding:7px 9px;font-size:14px}
+  .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.form-grid label{font-size:14px}.form-grid input,.form-grid select,.form-grid textarea{width:100%;padding:10px;border:1px solid #aaa;border-radius:8px;font-size:16px}.full{grid-column:1/-1}
+  .error{color:#b3261e}.ok{color:#176b45}.hidden{display:none!important}
+  .choice-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px;max-height:320px;overflow:auto}.choice-list label{padding:8px;border:1px solid #ddd;border-radius:8px}.choice-list input{width:auto;margin-right:8px}
+</style></head>
+<body class="teacher">
+  <h1>👥 会員管理</h1>
+  <section class="card login-state"><strong id="loginIdentity">先生セッションを確認中</strong><button id="authButton">管理者ログイン</button></section>
+  <section class="card"><div id="message" class="note">初期化しています。</div></section>
+  <section id="listView" class="card">
+    <div class="toolbar"><input id="filter" placeholder="会員ID・氏名・ふりがなで検索"><button id="reloadButton">再読込</button><button id="newButton" class="primary member">新規登録</button></div>
+    <div id="memberList"></div>
+  </section>
+  <section id="editView" class="card hidden">
+    <h2 id="formTitle">会員編集</h2>
+    <form id="memberForm" class="form-grid">
+      <label>会員ID<input name="member_id" required maxlength="128"></label>
+      <label>氏名<input name="member_name" required></label>
+      <label>ふりがな<input name="member_name_kana"></label>
+      <label>会員区分<input name="member_type" required></label>
+      <label>状態<select name="status"><option>在籍</option><option>休会</option><option>退会</option><option>有効</option><option>無効</option></select></label>
+      <input name="billing_group_id" type="hidden">
+      <label>入会日<input name="joined_date" type="date" required></label>
+      <label>退会日<input name="withdrawn_date" type="date"></label>
+      <label>休会開始月<input name="suspension_start_month" type="month"></label>
+      <label>休会終了月<input name="suspension_end_month" type="month"></label>
+      <label>生年月日<input name="birth_date" type="date"></label>
+      <label>保険区分<input name="insurance_type"></label>
+      <label>メール<input name="email" type="email"></label>
+      <label>電話<input name="phone"></label>
+      <label>現在級段位<input name="current_rank"></label>
+      <label class="full">備考<textarea name="remarks" rows="3"></textarea></label>
+      <div class="full toolbar"><button type="submit" class="primary member">保存</button><button type="button" id="cancelButton">一覧へ戻る</button></div>
+    </form>
+  </section>
+  <section id="groupView" class="card hidden">
+    <h2>支払いグループ編成</h2>
+    <p class="note">1〜5人を選択します。プラン候補は料金マスタの適用人数と既存の選択ルールから表示し、ここでは確定・保存しません。</p>
+    <label>編成先<select id="groupTarget"></select></label>
+    <div id="groupMembers" class="choice-list"></div>
+    <label>会費タイプ<select id="groupFeeType"></select></label>
+    <label>料金プラン候補<select id="groupPlan"></select></label>
+    <div id="groupPlanNote" class="note"></div>
+    <div class="toolbar"><button id="groupSaveButton" class="primary member">グループ編成を保存</button><button id="groupCancelButton">一覧へ戻る</button></div>
+  </section>
+  <section id="withdrawView" class="card hidden">
+    <h2>退会手続き</h2><p id="withdrawMember"></p>
+    <label>退会日<input id="withdrawnDate" type="date"></label>
+    <div class="toolbar"><button id="withdrawButton">退会を確定</button><button id="withdrawCancelButton">一覧へ戻る</button></div>
+  </section>
+  <p class="note"><a id="teacherHomeLink" href="teacher_home.html">先生ホームへ戻る</a></p>
+  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script>
+  <script>
+  (function(){
+    "use strict";
+    const cfg=window.DOJO_RUNTIME_CONFIG,isFirebase=cfg&&cfg.runtime==="firebase";
+    const session=window.DojoVirtualSession&&DojoVirtualSession.get();
+    const context=session&&session.role==="TEACHER"?session.context||{}:{};
+    const homeParams=new URLSearchParams();
+    if(session&&session.teacher_id)homeParams.set("teacher_id",session.teacher_id);
+    if(context.location_id)homeParams.set("location_id",context.location_id);
+    document.getElementById("teacherHomeLink").href="teacher_home.html"+(homeParams.toString()?"?"+homeParams:"");
+    document.getElementById("loginIdentity").textContent=session&&session.role==="TEACHER"?"先生 "+session.teacher_id+" の会員管理":"先生セッションがありません";
+    const auth=isFirebase?window.DOJO_FIREBASE_AUTH.create({runtimeConfig:cfg}):null;
+    const api=auth?window.DOJO_API_CLIENT.create({getCurrentUser:auth.getCurrentUser}):null;
+    let members=[],plans=[],rules=[],editing=null,busy=false;
+    const fields=['member_id','member_name','member_name_kana','member_type','status','billing_group_id','joined_date','withdrawn_date','suspension_start_month','suspension_end_month','birth_date','insurance_type','email','phone','current_rank','remarks'];
+    const byId=id=>document.getElementById(id), form=byId('memberForm');
+    function message(text,type){const el=byId('message');el.textContent=text;el.className='note '+(type||'')}
+    function show(name){for(const id of ['listView','editView','groupView','withdrawView'])byId(id).classList.toggle('hidden',id!==name)}
+    function url(action,params){const u=new URL(cfg.apiBaseUrl+'/api/webconnect');u.searchParams.set('action',action);for(const [k,v]of Object.entries(params||{}))u.searchParams.set(k,v);return u.toString()}
+    async function read(action,params){const r=await api.request(url(action,params),{method:'GET',cache:'no-store'});const body=await r.json().catch(()=>({}));if(!r.ok)throw Error(body.error||'HTTP_'+r.status);return body}
+    async function write(action,input){const r=await api.request(cfg.apiBaseUrl+'/api/webconnect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,input})});const body=await r.json().catch(()=>({}));if(!r.ok)throw Error(body.error||'HTTP_'+r.status);return body}
+    function render(){
+      const q=byId('filter').value.trim().toLocaleLowerCase('ja'),root=byId('memberList');root.replaceChildren();
+      members.filter(m=>!q||[m.member_id,m.member_name,m.member_name_kana].some(v=>String(v||'').toLocaleLowerCase('ja').includes(q))).forEach(m=>{
+        const row=document.createElement('div');row.className='member-row';
+        const id=document.createElement('strong');id.textContent=m.member_id;
+        const name=document.createElement('span');name.textContent=(m.member_name||'名称未登録')+' / '+(m.status||'状態未登録')+' / '+(m.billing_group_id||'グループ未登録');
+        const actions=document.createElement('span');actions.className='member-actions';
+        [['編集',()=>openEdit(m)],['支払グループ',()=>openGroup(m)],['退会',()=>openWithdraw(m)]].forEach(([label,fn])=>{const b=document.createElement('button');b.textContent=label;b.onclick=fn;actions.append(b)});
+        row.append(id,name,actions);root.append(row);
+      });
+      if(!root.children.length){const p=document.createElement('p');p.className='note';p.textContent='該当する会員はありません。';root.append(p)}
+    }
+    async function load(){if(!api)return;message('会員一覧を読み込んでいます。');const [data,options]=await Promise.all([read('member_management_list'),read('qr_generator_options')]);members=Array.isArray(data.members)?data.members:[];plans=Array.isArray(options.plans)?options.plans:[];rules=Array.isArray(options.plan_selection_rules)?options.plan_selection_rules:[];render();show('listView');message(members.length+'件の会員を表示しました。','ok')}
+    function nextGroupId(){let max=0;for(const m of members){const hit=/^BG(\d+)$/.exec(String(m.billing_group_id||''));if(hit)max=Math.max(max,Number(hit[1]))}return 'BG'+String(max+1).padStart(3,'0')}
+    function openEdit(member){editing=member||null;byId('formTitle').textContent=member?'会員編集':'会員新規登録';
+      for(const key of fields)form.elements[key].value=member&&member[key]!=null?member[key]:'';
+      if(!member)form.elements.billing_group_id.value=nextGroupId();
+      form.elements.member_id.readOnly=!!member;
+      show('editView');
+    }
+    function groupIds(){return [...new Set(members.map(m=>m.billing_group_id).filter(Boolean))].sort()}
+    function selectedGroupMembers(){return [...byId('groupMembers').querySelectorAll('input:checked')].map(el=>el.value)}
+    function updatePlanCandidates(){
+      const ids=selectedGroupMembers(),target=byId('groupTarget').value;
+      const current=target==='__NEW__'?[]:members.filter(m=>m.billing_group_id===target).map(m=>m.member_id);
+      const all=[...new Set([...current,...ids])],rows=all.map(id=>members.find(m=>m.member_id===id)).filter(Boolean);
+      const allowed=rows.map(m=>new Set(rules.filter(r=>r.member_type===m.member_type).map(r=>r.selectable_plan_id)));
+      const feeType=byId('groupFeeType').value;
+      const eligible=plans.filter(p=>allowed.every(set=>set.has(p.plan_id))),feeTypes=[...new Set(eligible.map(p=>p.fee_type).filter(Boolean))];
+      const feeSelect=byId('groupFeeType'),previous=feeType;feeSelect.replaceChildren();for(const type of feeTypes){const o=document.createElement('option');o.value=type;o.textContent=type;feeSelect.append(o)}if(feeTypes.includes(previous))feeSelect.value=previous;
+      const selectedType=feeSelect.value,candidates=eligible.filter(p=>p.fee_type===selectedType&&Number(p.applicable_member_count)===all.length);
+      const select=byId('groupPlan');select.replaceChildren();for(const p of candidates){const o=document.createElement('option');o.value=p.plan_id;o.textContent=p.plan_name+' / '+p.fee_type+' / '+p.applicable_member_count+'人用';select.append(o)}
+      byId('groupPlanNote').textContent=all.length+'人編成。'+(candidates.length?'候補を初期表示しています。確定は月次会費管理で行います。':'対応する有効な料金プラン候補がありません。料金マスタの適用人数を確認してください。');
+      byId('groupSaveButton').disabled=ids.length<1||all.length>5||!selectedType;
+    }
+    function openGroup(member){
+      const target=byId('groupTarget');target.replaceChildren();
+      const fresh=document.createElement('option');fresh.value='__NEW__';fresh.textContent='新しいグループ（'+nextGroupId()+'）';target.append(fresh);
+      for(const id of groupIds()){const o=document.createElement('option');o.value=id;o.textContent=id+'（現在 '+members.filter(m=>m.billing_group_id===id).length+'人）';target.append(o)}
+      target.value=member&&member.billing_group_id||'__NEW__';
+      const root=byId('groupMembers');root.replaceChildren();for(const m of members){const label=document.createElement('label'),box=document.createElement('input');box.type='checkbox';box.value=m.member_id;box.dataset.group=m.billing_group_id||'';box.onchange=updatePlanCandidates;label.append(box,document.createTextNode((m.member_name||m.member_id)+' / '+m.member_type+' / '+(m.billing_group_id||'未編成')));root.append(label)}
+      const syncTarget=()=>{for(const box of root.querySelectorAll('input')){const fixed=target.value!=='__NEW__'&&box.dataset.group===target.value;box.checked=fixed||box.value===(member&&member.member_id);box.disabled=fixed}updatePlanCandidates()};
+      target.onchange=syncTarget;byId('groupFeeType').onchange=updatePlanCandidates;show('groupView');syncTarget();
+    }
+    function openWithdraw(member){editing=member;byId('withdrawMember').textContent=member.member_id+' '+(member.member_name||'');byId('withdrawnDate').value=new Date().toISOString().slice(0,10);show('withdrawView')}
+    form.addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;try{const member={};for(const key of fields)if(!editing||key!=='billing_group_id')member[key]=String(form.elements[key].value||'').trim();await write('member_management_save',{mode:editing?'update':'create',member});message('会員情報を保存しました。','ok');await load()}catch(err){message('保存できませんでした: '+err.message,'error')}finally{busy=false}});
+    byId('groupSaveButton').onclick=async()=>{if(busy)return;const target=byId('groupTarget').value,createNew=target==='__NEW__',groupId=createNew?nextGroupId():target;busy=true;try{await write('member_management_group_save',{billing_group_id:groupId,member_ids:selectedGroupMembers(),membership_fee_type:byId('groupFeeType').value,plan_id:byId('groupPlan').value||'',create_new:createNew});message('支払いグループを保存しました。料金プランは月次会費管理で確定してください。','ok');await load()}catch(err){message('グループ編成を保存できませんでした: '+err.message,'error')}finally{busy=false}};
+    byId('withdrawButton').onclick=async()=>{if(busy||!editing)return;busy=true;try{await write('member_management_withdraw',{member_id:editing.member_id,withdrawn_date:byId('withdrawnDate').value});message('退会手続きを保存しました。','ok');await load()}catch(err){message('退会手続きを保存できませんでした: '+err.message,'error')}finally{busy=false}};
+    byId('filter').oninput=render;byId('reloadButton').onclick=()=>load().catch(e=>message(e.message,'error'));byId('newButton').onclick=()=>openEdit(null);byId('cancelButton').onclick=byId('groupCancelButton').onclick=byId('withdrawCancelButton').onclick=()=>show('listView');
+    byId('authButton').onclick=()=>auth&&auth.signInWithGoogle().catch(e=>message('ログインできませんでした: '+e.message,'error'));
+    if(!isFirebase){byId('authButton').hidden=true;message('会員管理はFirebase版で利用できます。','error');return}
+    auth.ready.then(()=>{auth.onUserChanged(user=>{byId('authButton').hidden=!!user;if(user)load().catch(e=>message('会員一覧を取得できませんでした: '+e.message,'error'));else message('会員管理には既存のFirebase管理者ログインが必要です。','error')});const user=auth.getCurrentUser();if(user)load().catch(e=>message(e.message,'error'));else message('会員管理には既存のFirebase管理者ログインが必要です。','error')}).catch(e=>message('Firebase認証を初期化できませんでした: '+e.message,'error'));
+  })();
+  </script>
+</body></html>

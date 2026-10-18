@@ -32,6 +32,7 @@ const {createPaymentScreenReader}=require('../billing/payment-screen-firestore.c
 const {createPaymentCashAcceptCommand}=require('../billing/payment-cash-accept-command.cjs');
 const {createPayPayPostFirestoreExecutor}=require('../billing/payment-paypay-post-firestore.cjs');
 const {createPayPayCodeFirestoreExecutor}=require('../billing/payment-paypay-code-firestore.cjs');
+const {createMemberManagementCommand}=require('../member-management/member-command.cjs');
 const {validatePayPayPostSelected,validatePayPayCodeStart,validatePayPayCodeRecordBatch}=require('../billing/payment-paypay-command.cjs');
 const {createPaymentCashAcceptFirestoreExecutor}=require('../billing/payment-cash-accept-firestore.cjs');
 const { createTimeTravelTarget, createAttendanceRegistrationTarget,createTeacherOverviewTarget } = require('../time-travel/target.cjs');
@@ -76,6 +77,18 @@ const memberCore = createFirestoreCore(profile, {
   getAccessToken: async () => (await credential.getAccessToken()).access_token
 });
 const memberDao = createDao(memberCore, 'firestore');
+const memberManagement=createMemberManagementCommand(getFirestore(firebaseApp));
+async function readMemberManagementList(){
+  const members=[];let pageToken=null;
+  do{
+    const page=await memberCore.readPage({collection:'members'},{pageSize:100,pageToken});
+    members.push(...page.documents.map(doc=>({member_id:doc.id,...doc.fields})));
+    pageToken=page.nextPageToken;
+    if(members.length>500)throw new Error('MEMBER_MANAGEMENT_LIMIT');
+  }while(pageToken);
+  members.sort((a,b)=>String(a.member_name||a.member_id).localeCompare(String(b.member_name||b.member_id),'ja'));
+  return {ok:true,members};
+}
 const attendanceCore = createAttendanceCore(getFirestore(firebaseApp),{
   createRegistration:createAttendanceRegistrationTarget
 });
@@ -142,6 +155,10 @@ const readMemberAttendanceState = createFirestoreMemberAttendanceState(memberCor
 });
 
 const handle = createAdminApi({
+  readMemberManagementList,
+  saveManagedMember:(input,user)=>memberManagement.save(input,user),
+  saveManagedMemberGroup:(input,user)=>memberManagement.saveGroup(input,user),
+  withdrawManagedMember:(input,user)=>memberManagement.withdraw(input,user),
   readPaymentScreen:createPaymentScreenReader(getFirestore(firebaseApp),{
     getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
   }),
@@ -248,8 +265,8 @@ createServer(async (req, res) => {
       const action = req.method === 'GET' ? parsed.searchParams.get('action') : body && body.action;
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary','payment_screen_read']);
-      const writeActions = new Set(['time_travel_set', 'members_read', 'attendance_batch','payment_cash_accept','payment_paypay_post_selected','paypay_code_start','paypay_code_record']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read','member_management_list', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary','payment_screen_read']);
+      const writeActions = new Set(['time_travel_set', 'members_read','member_management_save','member_management_group_save','member_management_withdraw', 'attendance_batch','payment_cash_accept','payment_paypay_post_selected','paypay_code_start','paypay_code_record']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {
         res.writeHead(405, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' });
