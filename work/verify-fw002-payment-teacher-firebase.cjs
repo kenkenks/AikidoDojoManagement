@@ -163,15 +163,61 @@ test('Firebase refreshes only the combined payment screen DTO', () => {
   assert.doesNotMatch(screen, /\.sort\s*\(/);
 });
 
-test('Firebase cash uses its Command while unrelated write entry points stay blocked', () => {
-  for (const name of ['sendPaymentsToGas', 'postConfirmedPayments', 'postSelectedConfirmedEvidences']) {
-    assert.match(functionBody(name), /^\s*if \(firebaseWriteBlocked\(/, `${name} must reject Firebase first`);
-  }
+test('Firebase cash and PayPay use their Commands while GAS batch completion stays blocked', () => {
+  assert.match(functionBody('sendPaymentsToGas'), /^\s*if \(firebaseWriteBlocked\(/);
   assert.match(functionBody('confirmPayment'), /^\s*if \(IS_FIREBASE\) return acceptFirebaseCashPayment\(payType\);/);
+  assert.match(functionBody('postConfirmedPayments'), /loadPaymentEvidenceLists\(\)/);
+  assert.match(functionBody('postSelectedConfirmedEvidences'), /if \(IS_FIREBASE\) \{\s*postFirebaseSelectedEvidences\(selected\);\s*return;/);
   const disabled = functionBody('disableFirebaseWriteControls');
-  for (const id of ['completePaymentsButton', 'postConfirmedPaymentsButton', 'postSelectedConfirmedEvidencesButton']) {
-    assert.match(disabled, new RegExp(id));
-  }
+  assert.match(disabled, /completePaymentsButton/);
+  assert.doesNotMatch(disabled, /postSelectedConfirmedEvidencesButton/);
+});
+
+test('Firebase PayPay posts the selected evidence DTO through authenticated WebConnect', () => {
+  const send = functionBody('sendFirebasePayPayPost');
+  assert.match(send, /await firebaseAuthClient\.ready/);
+  assert.match(send, /firebaseAuthClient\.getCurrentUser\(\)/);
+  assert.match(send, /dojoApiClient\.request/);
+  assert.match(send, /\/api\/webconnect/);
+  assert.match(send, /method:"POST"/);
+  assert.match(send, /action:"payment_paypay_post_selected"/);
+  assert.match(send, /body:JSON\.stringify\(\{action:"payment_paypay_post_selected", input:input\}\)/);
+  assert.doesNotMatch(send, /GAS_URL/);
+});
+
+test('Firebase PayPay refreshes the combined payment screen after success', () => {
+  const post = functionBody('postFirebaseSelectedEvidences');
+  assert.match(post, /const result = await sendFirebasePayPayPost\(pendingPayPayPost\.input\)/);
+  assert.match(post, /pendingPayPayPost = null/);
+  assert.match(post, /await loadPaymentScreenRead\(\)/);
+  assert.ok(post.indexOf('await sendFirebasePayPayPost') < post.indexOf('await loadPaymentScreenRead'));
+});
+
+test('Firebase PayPay disables duplicate submission while a request is in flight', () => {
+  const post = functionBody('postFirebaseSelectedEvidences');
+  assert.match(post, /^\s*if \(paypayPostInFlight\) return;/);
+  assert.match(post, /paypayPostInFlight = true/);
+  assert.match(post, /button\.disabled = true/);
+  assert.match(post, /finally \{\s*paypayPostInFlight = false;\s*if \(button\) button\.disabled = false;/);
+});
+
+test('Firebase PayPay keeps the same request id after an unknown outcome', () => {
+  const post = functionBody('postFirebaseSelectedEvidences');
+  const send = functionBody('sendFirebasePayPayPost');
+  assert.match(post, /if \(!pendingPayPayPost\) \{/);
+  assert.match(post, /request_id:makePayPayRequestId\(\)/);
+  assert.match(post, /if \(!error\.outcomeUnknown\) pendingPayPayPost = null/);
+  assert.match(send, /unknown\.outcomeUnknown = true/);
+  assert.match(post, /同じ選択内容で再試行してください/);
+});
+
+test('GAS PayPay keeps the existing no-cors evidence posting path', () => {
+  const post = functionBody('postSelectedConfirmedEvidences');
+  assert.match(post, /mode: "payment_evidence_post_selected"/);
+  assert.match(post, /teacher_id: currentTeacherId/);
+  assert.match(post, /fetch\(GAS_URL/);
+  assert.match(post, /mode: "no-cors"/);
+  assert.match(post, /loadPaymentEvidenceLists\(\)/);
 });
 
 test('Firebase cash POST uses existing WebConnect and refreshes member and screen DTOs',()=>{
@@ -194,7 +240,8 @@ test('Firebase cannot fall through to GAS member reads or GAS POST', () => {
   const batch = functionBody('sendPaymentsToGas');
   const evidencePost = functionBody('postSelectedConfirmedEvidences');
   assert.ok(batch.indexOf('firebaseWriteBlocked') < batch.indexOf('fetch(GAS_URL'));
-  assert.ok(evidencePost.indexOf('firebaseWriteBlocked') < evidencePost.indexOf('fetch(GAS_URL'));
+  assert.ok(evidencePost.indexOf('if (IS_FIREBASE)') < evidencePost.indexOf('fetch(GAS_URL'));
+  assert.ok(evidencePost.indexOf('postFirebaseSelectedEvidences(selected)') < evidencePost.indexOf('fetch(GAS_URL'));
   assert.match(batch, /mode: "no-cors"/);
   assert.match(evidencePost, /mode: "no-cors"/);
 });

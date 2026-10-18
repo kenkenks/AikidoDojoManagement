@@ -391,9 +391,7 @@
     function disableFirebaseWriteControls() {
       if (!IS_FIREBASE) return;
       [
-        "completePaymentsButton",
-        "postConfirmedPaymentsButton",
-        "postSelectedConfirmedEvidencesButton"
+        "completePaymentsButton"
       ].forEach(function(id) {
         const button = document.getElementById(id);
         if (button) {
@@ -1184,7 +1182,6 @@
     }
 
     function postConfirmedPayments() {
-      if (firebaseWriteBlocked("決済更新")) return;
       loadPaymentEvidenceLists();
     }
 
@@ -1315,8 +1312,101 @@
       return selected;
     }
 
+    // A pending request retains its ID when the response is lost, preventing duplicate posting.
+    let pendingPayPayPost = null;
+    let paypayPostInFlight = false;
+    function makePayPayRequestId() {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return "paypay-" + window.crypto.randomUUID();
+      }
+      const bytes = new Uint8Array(16);
+      window.crypto.getRandomValues(bytes);
+      return "paypay-" + Array.from(bytes, function(value) {
+        return value.toString(16).padStart(2, "0");
+      }).join("");
+    }
+
+    async function sendFirebasePayPayPost(input) {
+      await firebaseAuthClient.ready;
+      if (!firebaseAuthClient.getCurrentUser()) {
+        const error = new Error("Firebase認証が必要です。管理者としてログインしてください。");
+        error.outcomeUnknown = false;
+        throw error;
+      }
+      const controller = new AbortController();
+      const timer = window.setTimeout(function() { controller.abort(); }, 15000);
+      let response;
+      try {
+        response = await dojoApiClient.request(
+          String(RUNTIME_CONFIG.apiBaseUrl || "").replace(/\/+$/, "") + "/api/webconnect",
+          { method:"POST", cache:"no-store", headers:{"Content-Type":"application/json"},
+            body:JSON.stringify({action:"payment_paypay_post_selected", input:input}),
+            signal:controller.signal }
+        );
+      } catch (error) {
+        const unknown = new Error("通信結果が不明です。同じ選択内容で再試行してください。");
+        unknown.outcomeUnknown = true;
+        throw unknown;
+      } finally {
+        window.clearTimeout(timer);
+      }
+      let body = null;
+      try { body = await response.json(); } catch (error) {
+        if (response.ok) {
+          const unknown = new Error("決済更新結果が不明です。同じ選択内容で再試行してください。");
+          unknown.outcomeUnknown = true;
+          throw unknown;
+        }
+      }
+      if (!response.ok || !body || body.ok !== true) {
+        const code = body && (body.error || body.message);
+        const error = new Error("PayPay決済更新に失敗しました（HTTP " + response.status +
+          (code ? " / " + code : "") + "）。");
+        error.outcomeUnknown = response.status >= 500;
+        throw error;
+      }
+      return body;
+    }
+
+    async function postFirebaseSelectedEvidences(selected) {
+      if (paypayPostInFlight) return;
+      const ids = selected.map(function(e) { return e.evidence_id; }).sort();
+      const scope = [currentLocationId, currentBillingBlockId, receptionSessionId || ""];
+      if (pendingPayPayPost && (JSON.stringify(ids) !== JSON.stringify(pendingPayPayPost.ids) ||
+          JSON.stringify(scope) !== JSON.stringify(pendingPayPayPost.scope))) {
+        addLog("前回の決済更新結果が未確定です。同じ選択内容で再試行してください。");
+        setFirebaseAccessStatus("前回の決済更新結果が未確定です。同じ選択内容で再試行してください。", "error");
+        return;
+      }
+      if (!pendingPayPayPost) {
+        pendingPayPayPost = {ids:ids, scope:scope, input:{
+          request_id:makePayPayRequestId(), location_id:currentLocationId,
+          billing_block_id:currentBillingBlockId,
+          reception_session_id:receptionSessionId || "",
+          evidence_items:ids.map(function(id) { return {evidence_id:id}; })
+        }};
+      }
+      paypayPostInFlight = true;
+      const button = document.getElementById("postSelectedConfirmedEvidencesButton");
+      if (button) button.disabled = true;
+      setFirebaseAccessStatus("PayPay決済更新中です。", "loading");
+      try {
+        const result = await sendFirebasePayPayPost(pendingPayPayPost.input);
+        pendingPayPayPost = null;
+        addLog("PayPay決済更新完了: " + (result.results || result.posted || []).length + "件");
+        setFirebaseAccessStatus("PayPay決済更新が完了しました。", "");
+        await loadPaymentScreenRead();
+      } catch (error) {
+        if (!error.outcomeUnknown) pendingPayPayPost = null;
+        addLog("PayPay決済更新失敗: " + error.message);
+        setFirebaseAccessStatus(error.message, "error");
+      } finally {
+        paypayPostInFlight = false;
+        if (button) button.disabled = false;
+      }
+    }
+
     function postSelectedConfirmedEvidences() {
-      if (firebaseWriteBlocked("選択分の決済更新")) return;
       if (!currentTeacherId) {
         addLog("決済更新スキップ: teacher_id未設定");
         return;
@@ -1330,6 +1420,11 @@
       const selected = getSelectedConfirmedEvidences();
       if (selected.length === 0) {
         addLog("決済更新スキップ: 選択されたCONFIRMEDがありません。 ");
+        return;
+      }
+
+      if (IS_FIREBASE) {
+        postFirebaseSelectedEvidences(selected);
         return;
       }
 
