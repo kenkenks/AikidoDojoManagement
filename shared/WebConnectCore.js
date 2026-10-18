@@ -9,6 +9,7 @@ var WebConnectCore = (function () {
     if (action === 'getMemberInfo') return { operation: 'billing.memberInfo', input: input || {} };
     if (action === 'payment_reception_summary') return { operation: 'billing.receptionSummary', input: input || {} };
     if (action === 'payment_screen_read') return { operation: 'billing.screenRead', input: input || {} };
+    if (action === 'payment_paypay_post_selected') return { operation: 'billing.paypayPostSelected', input: input || {} };
     if (action === 'payment_cash_accept') return { operation: 'billing.cashAccept', input: input || {} };
     if (action === 'members_read') return { operation: 'member.readByIds', input: input || {} };
     if (action === 'attendance_session_info') return { operation: 'attendance.sessionInfo', input: input || {} };

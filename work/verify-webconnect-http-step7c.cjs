@@ -48,6 +48,8 @@ const modules = {
   '../billing/payment-screen-firestore.cjs': { createPaymentScreenReader: () => async () => ({}) },
   '../billing/payment-cash-accept-command.cjs': {createPaymentCashAcceptCommand:()=>({execute:async input=>({ok:true,request_id:input.request_id})})},
   '../billing/payment-cash-accept-firestore.cjs': {createPaymentCashAcceptFirestoreExecutor:()=>async()=>({ok:true})},
+  '../billing/payment-paypay-command.cjs': {validatePayPayPostSelected:input=>input},
+  '../billing/payment-paypay-post-firestore.cjs': {createPayPayPostFirestoreExecutor:()=>async()=>({ok:true})},
   './admin-api.cjs': { createAdminApi: () => handle },
   './webConnect.cjs': { createDispatch },
   '../qr/generator-options.cjs': { createQrGeneratorOptions: () => async () => ({ ok: true }) },

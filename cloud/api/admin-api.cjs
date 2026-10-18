@@ -4,7 +4,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
 const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -27,6 +27,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const receptionSummary = operation === 'billing.receptionSummary';
     const paymentScreen = operation === 'billing.screenRead';
     const cashAccept = operation === 'billing.cashAccept';
+    const paypayPost = operation === 'billing.paypayPostSelected';
     const teacherToday=operation==='attendance.teacherToday';
     const qrOptions = operation === 'qrGenerator.options';
     const rankOptions = operation === 'attendance.rankOptions';
@@ -36,7 +37,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberOperation = operation === 'member.readById';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -57,6 +58,18 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
+    if(paypayPost){
+      if(String(request.method||'').toUpperCase()!=='POST')return reply(405,{error:'METHOD_NOT_ALLOWED'});
+      if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});
+      if(typeof postPayPayPayment!=='function')return reply(403,{error:'PAYPAY_POST_DEV_ONLY'});
+      try{return reply(200,await postPayPayPayment(operationInput,user));}
+      catch(error){
+        const code=typeof error?.code==='string'&&/^[A-Z][A-Z0-9_]{2,80}$/.test(error.code)?error.code:'PAYPAY_POST_UNAVAILABLE';
+        const status=error?.status===400?400:error?.status===403?403:error?.status===409?409:code==='INVALID_PAYPAY_POST_SELECTED'?400:503;
+        if(status===503)console.error('[PAYPAY_POST_ERROR]',{code});
+        return reply(status,{error:status===503?'PAYPAY_POST_UNAVAILABLE':code});
+      }
+    }
     if(cashAccept){
       if(String(request.method||'').toUpperCase()!=='POST')return reply(405,{error:'METHOD_NOT_ALLOWED'});
       if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});
