@@ -17,7 +17,9 @@
     let loginScanning = false;
 
     applyLocationContextFromUrl();
+    const urlIdentityApplied = applyIdentityFromUrl();
     renderLoginState();
+    if (urlIdentityApplied) continueLogin();
 
 
     function applyLocationContextFromUrl() {
@@ -25,6 +27,21 @@
       const locationId = String(params.get("location_id") || "").trim();
       if (!locationId) return;
       DojoVirtualSession.setEntryContext({ location_id: locationId });
+    }
+
+    function applyIdentityFromUrl() {
+      const params = new URLSearchParams(location.search);
+      const teacherId = String(params.get("teacher_id") || "").trim();
+      const memberId = String(params.get("member_id") || "").trim();
+      if (teacherId) {
+        DojoVirtualSession.loginTeacher(teacherId, "PAGE_URL");
+        return true;
+      }
+      if (memberId) {
+        DojoVirtualSession.loginMember(memberId, "PAGE_URL");
+        return true;
+      }
+      return false;
     }
 
     function startLoginScan() {

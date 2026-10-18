@@ -28,10 +28,17 @@
   <script src="runtime_config.js"></script>
   <script>
     const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
+    const loginQuery=new URLSearchParams(location.search);
+    const queryTeacherId=String(loginQuery.get("teacher_id")||"").trim();
+    const queryLocationId=String(loginQuery.get("location_id")||"").trim();
+    if(queryTeacherId){
+      DojoVirtualSession.loginTeacher(queryTeacherId,"PAGE_URL");
+      DojoVirtualSession.setContext({teacher_id:queryTeacherId,location_id:queryLocationId});
+    }
     const session=DojoVirtualSession.get();
     let teacherId=session&&session.role==="TEACHER"?session.teacher_id:"";
-    let locationId=new URLSearchParams(location.search).get("location_id")||"";
-    let billingBlockId=new URLSearchParams(location.search).get("billing_block_id")||"";
+    let locationId=queryLocationId||(session&&session.context&&session.context.location_id)||"";
+    let billingBlockId=loginQuery.get("billing_block_id")||(session&&session.context&&session.context.billing_block_id)||"";
     let slots=[],selected=[],scanner=null,scanning=false,initialized=false;
     renderKeys();
     window.addEventListener("dojo-system-context",function(){initializeWithSystemContext()});
