@@ -3,8 +3,17 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>会員管理</title><link rel="stylesheet" href="common.css">
 <style>
   .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}.toolbar input{flex:1;min-width:180px}.toolbar button{margin:0}
-  .member-row{display:grid;grid-template-columns:minmax(8em,1fr) minmax(10em,2fr) auto;gap:8px;align-items:center;padding:10px 0;border-bottom:1px solid #ddd}
-  .member-row:last-child{border-bottom:0}.member-actions{display:flex;gap:6px;flex-wrap:wrap}.member-actions button{margin:0;padding:7px 9px;font-size:14px}
+  .member-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:9px 2px;border-bottom:1px solid #e5e7eb;min-width:0}
+  .member-row:last-child{border-bottom:0}
+  .member-summary{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;min-width:0;flex:1}
+  .member-name{font-weight:700;overflow-wrap:anywhere}
+  .member-meta{font-size:13px;color:#596579;overflow-wrap:anywhere}
+  .member-actions{display:flex;gap:6px;flex:0 0 auto;align-items:center}
+  .member-actions button{margin:0;padding:7px 10px;font-size:13px;white-space:nowrap}
+  .withdraw-entry{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid #e5e7eb}
+  .withdraw-entry input{min-width:0;flex:1 1 190px;padding:9px;border:1px solid #aaa;border-radius:8px;font-size:16px}
+  .withdraw-entry button{margin:0}
+  @media(max-width:520px){.member-row{align-items:flex-start;flex-direction:column;gap:6px}.member-summary{gap:5px 10px}.member-actions{align-self:flex-end}.member-actions button{padding:6px 10px}}
   .form-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}.form-grid label{font-size:14px}.form-grid input,.form-grid select,.form-grid textarea{width:100%;padding:10px;border:1px solid #aaa;border-radius:8px;font-size:16px}.full{grid-column:1/-1}
   .error{color:#b3261e}.ok{color:#176b45}.hidden{display:none!important}
   .choice-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:6px;max-height:320px;overflow:auto}.choice-list label{padding:8px;border:1px solid #ddd;border-radius:8px}.choice-list input{width:auto;margin-right:8px}
@@ -16,6 +25,7 @@
   <section id="listView" class="card">
     <div class="toolbar"><input id="filter" placeholder="会員ID・氏名・ふりがなで検索"><button id="reloadButton">再読込</button><button id="newButton" class="primary member">新規登録</button></div>
     <div id="memberList"></div>
+    <div class="withdraw-entry"><label for="withdrawMemberId">退会手続き（会員ID指定）</label><input id="withdrawMemberId" placeholder="会員IDを入力" autocomplete="off"><button id="withdrawLookupButton" type="button">会員を確認</button></div>
   </section>
   <section id="editView" class="card hidden">
     <h2 id="formTitle">会員編集</h2>
@@ -81,11 +91,13 @@
       const q=byId('filter').value.trim().toLocaleLowerCase('ja'),root=byId('memberList');root.replaceChildren();
       members.filter(m=>!q||[m.member_id,m.member_name,m.member_name_kana].some(v=>String(v||'').toLocaleLowerCase('ja').includes(q))).forEach(m=>{
         const row=document.createElement('div');row.className='member-row';
-        const id=document.createElement('strong');id.textContent=m.member_id;
-        const name=document.createElement('span');name.textContent=(m.member_name||'名称未登録')+' / '+(m.status||'状態未登録')+' / '+(m.billing_group_id||'グループ未登録');
-        const actions=document.createElement('span');actions.className='member-actions';
-        [['編集',()=>openEdit(m)],['支払グループ',()=>openGroup(m)],['退会',()=>openWithdraw(m)]].forEach(([label,fn])=>{const b=document.createElement('button');b.textContent=label;b.onclick=fn;actions.append(b)});
-        row.append(id,name,actions);root.append(row);
+        const summary=document.createElement('div');summary.className='member-summary';
+        const name=document.createElement('span');name.className='member-name';name.textContent=m.member_name||'名称未登録';
+        const meta=document.createElement('span');meta.className='member-meta';meta.textContent=[m.member_type,m.current_rank].filter(Boolean).join(' · ')||m.status||'区分未登録';
+        summary.append(name,meta);
+        const actions=document.createElement('div');actions.className='member-actions';
+        [['編集',()=>openEdit(m)],['支払設定',()=>openGroup(m)]].forEach(([label,fn])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;actions.append(b)});
+        row.append(summary,actions);root.append(row);
       });
       if(!root.children.length){const p=document.createElement('p');p.className='note';p.textContent='該当する会員はありません。';root.append(p)}
     }
@@ -124,7 +136,14 @@
     function openWithdraw(member){editing=member;byId('withdrawMember').textContent=member.member_id+' '+(member.member_name||'');byId('withdrawnDate').value=new Date().toISOString().slice(0,10);show('withdrawView')}
     form.addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;try{const member={};for(const key of fields)if(!editing||key!=='billing_group_id')member[key]=String(form.elements[key].value||'').trim();await write('member_management_save',{mode:editing?'update':'create',member});message('会員情報を保存しました。','ok');await load()}catch(err){message('保存できませんでした: '+err.message,'error')}finally{busy=false}});
     byId('groupSaveButton').onclick=async()=>{if(busy)return;const target=byId('groupTarget').value,createNew=target==='__NEW__',groupId=createNew?nextGroupId():target;busy=true;try{await write('member_management_group_save',{billing_group_id:groupId,member_ids:selectedGroupMembers(),membership_fee_type:byId('groupFeeType').value,plan_id:byId('groupPlan').value||'',create_new:createNew});message('支払いグループを保存しました。料金プランは月次会費管理で確定してください。','ok');await load()}catch(err){message('グループ編成を保存できませんでした: '+err.message,'error')}finally{busy=false}};
-    byId('withdrawButton').onclick=async()=>{if(busy||!editing)return;busy=true;try{await write('member_management_withdraw',{member_id:editing.member_id,withdrawn_date:byId('withdrawnDate').value});message('退会手続きを保存しました。','ok');await load()}catch(err){message('退会手続きを保存できませんでした: '+err.message,'error')}finally{busy=false}};
+    byId('withdrawButton').onclick=async()=>{if(busy||!editing)return;if(!window.confirm(editing.member_id+' '+(editing.member_name||'')+' を退会処理します。よろしいですか？'))return;busy=true;try{await write('member_management_withdraw',{member_id:editing.member_id,withdrawn_date:byId('withdrawnDate').value});message('退会手続きを保存しました。','ok');await load()}catch(err){message('退会手続きを保存できませんでした: '+err.message,'error')}finally{busy=false}};
+    byId('withdrawLookupButton').onclick=()=>{
+      const memberId=byId('withdrawMemberId').value.trim();
+      if(!memberId){message('退会対象の会員IDを入力してください。','error');return}
+      const matches=members.filter(m=>String(m.member_id)===memberId);
+      if(matches.length!==1){message(matches.length?'会員IDが重複しています。管理者に確認してください。':'該当する会員IDが見つかりません。','error');return}
+      openWithdraw(matches[0]);
+    };
     byId('filter').oninput=render;byId('reloadButton').onclick=()=>load().catch(e=>message(e.message,'error'));byId('newButton').onclick=()=>openEdit(null);byId('cancelButton').onclick=byId('groupCancelButton').onclick=byId('withdrawCancelButton').onclick=()=>show('listView');
     byId('authButton').onclick=()=>auth&&auth.signInWithGoogle().catch(e=>message('ログインできませんでした: '+e.message,'error'));
     if(!isFirebase){byId('authButton').hidden=true;message('会員管理はFirebase版で利用できます。','error');return}
