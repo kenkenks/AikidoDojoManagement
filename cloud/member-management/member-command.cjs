@@ -78,7 +78,8 @@ function createMemberManagementCommand(db){
       const all=new Map(existingDocs.map(doc=>[doc.id,doc.data()]));
       selected.forEach((snap,index)=>all.set(memberIds[index],snap.data()));
       if(all.size<1||all.size>5)fail('INVALID_MEMBER_GROUP_SIZE',409);
-      const types=[...new Set([...all.values()].map(row=>String(row.member_type||'').trim()))];
+      const familyType=all.size>=2?'家族'+all.size:null;
+      const types=familyType?[familyType]:[...new Set([...all.values()].map(row=>String(row.member_type||'').trim()))];
       if(types.some(v=>!v))fail('MEMBER_GROUP_TYPE_UNAVAILABLE',409);
       for(const type of types){
         const rules=await tx.get(db.collection('plan_selection_rules').where('member_type','==',type));
@@ -91,7 +92,11 @@ function createMemberManagementCommand(db){
         if(!allowed)fail('MEMBER_GROUP_FEE_TYPE_MISMATCH',409);
       }
       if(planId){const candidate=await tx.get(db.collection('fees').doc(planId));if(!candidate.exists||String(candidate.data().membership_fee_type||'').trim()!==feeType||Number(candidate.data().applicable_member_count)!==all.size)fail('MEMBER_GROUP_PLAN_COUNT_MISMATCH',409);}
-      refs.forEach(ref=>tx.update(ref,{billing_group_id:groupId}));
+      for(const memberId of all.keys()){
+        const values={billing_group_id:groupId};
+        if(familyType)values.member_type=familyType;
+        tx.update(db.collection('members').doc(memberId),values);
+      }
       return {ok:true,billing_group_id:groupId,member_ids:memberIds,plan_id:planId,membership_fee_type:feeType,group_size:all.size};
     });
   }

@@ -115,13 +115,15 @@
       const ids=selectedGroupMembers(),target=byId('groupTarget').value;
       const current=target==='__NEW__'?[]:members.filter(m=>m.billing_group_id===target).map(m=>m.member_id);
       const all=[...new Set([...current,...ids])],rows=all.map(id=>members.find(m=>m.member_id===id)).filter(Boolean);
-      const allowed=rows.map(m=>new Set(rules.filter(r=>r.member_type===m.member_type).map(r=>r.selectable_plan_id)));
+      const familyType=all.length>=2?'家族'+all.length:null;
+      const effectiveTypes=familyType?[familyType]:rows.map(m=>m.member_type);
+      const allowed=effectiveTypes.map(type=>new Set(rules.filter(r=>r.member_type===type).map(r=>r.selectable_plan_id)));
       const feeType=byId('groupFeeType').value;
       const eligible=plans.filter(p=>allowed.every(set=>set.has(p.plan_id))),feeTypes=[...new Set(eligible.map(p=>p.fee_type).filter(Boolean))];
       const feeSelect=byId('groupFeeType'),previous=feeType;feeSelect.replaceChildren();for(const type of feeTypes){const o=document.createElement('option');o.value=type;o.textContent=type;feeSelect.append(o)}if(feeTypes.includes(previous))feeSelect.value=previous;
       const selectedType=feeSelect.value,candidates=eligible.filter(p=>p.fee_type===selectedType&&Number(p.applicable_member_count)===all.length);
       const select=byId('groupPlan');select.replaceChildren();for(const p of candidates){const o=document.createElement('option');o.value=p.plan_id;o.textContent=p.plan_name+' / '+p.fee_type+' / '+p.applicable_member_count+'人用';select.append(o)}
-      byId('groupPlanNote').textContent=all.length+'人編成。'+(candidates.length?'候補を初期表示しています。確定は月次会費管理で行います。':'対応する有効な料金プラン候補がありません。料金マスタの適用人数を確認してください。');
+      byId('groupPlanNote').textContent=all.length+'人編成。'+(familyType?'全員の会員区分を「'+familyType+'」、グループIDを「'+(target==='__NEW__'?nextGroupId():target)+'」に更新します。':'')+(candidates.length?'候補を初期表示しています。確定は月次会費管理で行います。':'対応する有効な料金プラン候補がありません。会員区分の選択ルール・会費タイプ・適用人数を確認してください。');
       byId('groupSaveButton').disabled=ids.length<1||all.length>5||!selectedType;
     }
     function openGroup(member){
