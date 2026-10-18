@@ -115,7 +115,7 @@
       const ids=selectedGroupMembers(),target=byId('groupTarget').value;
       const current=target==='__NEW__'?[]:members.filter(m=>m.billing_group_id===target).map(m=>m.member_id);
       const all=[...new Set([...current,...ids])],rows=all.map(id=>members.find(m=>m.member_id===id)).filter(Boolean);
-      const familyType=all.length>=2?'家族'+all.length:null;
+      const familyType=all.length>=2?'家族'+String(all.length).replace(/[0-9]/g,n=>String.fromCharCode(0xFF10+Number(n))):null;
       const effectiveTypes=familyType?[familyType]:rows.map(m=>m.member_type);
       const allowed=effectiveTypes.map(type=>new Set(rules.filter(r=>r.member_type===type).map(r=>r.selectable_plan_id)));
       const feeType=byId('groupFeeType').value;

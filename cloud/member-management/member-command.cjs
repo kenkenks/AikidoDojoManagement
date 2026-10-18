@@ -78,7 +78,7 @@ function createMemberManagementCommand(db){
       const all=new Map(existingDocs.map(doc=>[doc.id,doc.data()]));
       selected.forEach((snap,index)=>all.set(memberIds[index],snap.data()));
       if(all.size<1||all.size>5)fail('INVALID_MEMBER_GROUP_SIZE',409);
-      const familyType=all.size>=2?'家族'+all.size:null;
+      const familyType=all.size>=2?'家族'+String(all.size).replace(/[0-9]/g,n=>String.fromCharCode(0xFF10+Number(n))):null;
       const types=familyType?[familyType]:[...new Set([...all.values()].map(row=>String(row.member_type||'').trim()))];
       if(types.some(v=>!v))fail('MEMBER_GROUP_TYPE_UNAVAILABLE',409);
       for(const type of types){
