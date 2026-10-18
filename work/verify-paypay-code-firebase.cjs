@@ -1,0 +1,17 @@
+'use strict';
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const path=require('node:path');
+const html=fs.readFileSync(path.join(__dirname,'..','web','qr','paypay_code.html'),'utf8');
+assert.match(html,/firebase_auth\.js/);
+assert.match(html,/dojo_api_client\.js/);
+assert.match(html,/firebasePayPayPost\("paypay_code_start", input\)/);
+assert.match(html,/firebasePayPayPost\("paypay_code_record", input\)/);
+assert.match(html,/body:JSON\.stringify\(\{action:action,input:input\}\)/);
+assert.match(html,/DEV_AUTH_REQUIRED/);
+assert.match(html,/memberId \+ "-" \+ date\.replace\(\/-\/g, ""\) \+ "-" \+ amount/);
+assert.match(html,/jsonp\(GAS_URL, \{/);
+assert.match(html,/mode: "no-cors"/);
+assert.match(html,/pendingRecordRequestId \|\|/);
+assert.doesNotMatch(html,/signInWithGoogle\(/);
+console.log('PayPay code Firebase UI contract: PASS (12 checks)');

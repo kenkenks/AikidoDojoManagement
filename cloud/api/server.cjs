@@ -31,7 +31,8 @@ const {createReceptionSummaryReader}=require('../billing/reception-summary-fires
 const {createPaymentScreenReader}=require('../billing/payment-screen-firestore.cjs');
 const {createPaymentCashAcceptCommand}=require('../billing/payment-cash-accept-command.cjs');
 const {createPayPayPostFirestoreExecutor}=require('../billing/payment-paypay-post-firestore.cjs');
-const {validatePayPayPostSelected}=require('../billing/payment-paypay-command.cjs');
+const {createPayPayCodeFirestoreExecutor}=require('../billing/payment-paypay-code-firestore.cjs');
+const {validatePayPayPostSelected,validatePayPayCodeStart,validatePayPayCodeRecordBatch}=require('../billing/payment-paypay-command.cjs');
 const {createPaymentCashAcceptFirestoreExecutor}=require('../billing/payment-cash-accept-firestore.cjs');
 const { createTimeTravelTarget, createAttendanceRegistrationTarget,createTeacherOverviewTarget } = require('../time-travel/target.cjs');
 
@@ -94,6 +95,22 @@ const postPayPayPayment=paymentPayPayExecutor?((input,user)=>paymentPayPayExecut
   request:validatePayPayPostSelected(input),
   actor:{authenticated_uid:user.uid,receptionist_id:user.uid,receptionist_type:'ADMIN',teacher_id:''}
 })):null;
+const billingMemberReader=createBillingMemberInfoReader(getFirestore(firebaseApp),{
+  getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
+});
+const paypayCodeExecutor=paypayDevOnly?createPayPayCodeFirestoreExecutor(getFirestore(firebaseApp),{
+  getSystemContext:()=>application.getSystemContext(),
+  createProjection:()=>createAttendanceRegistrationTarget({daoCore:{},timezone:'Asia/Tokyo',cache:{}},{uuid:()=>{throw Error('UUID_FORBIDDEN');}}),
+  serverTimestamp:()=>FieldValue.serverTimestamp()
+}):null;
+const startPayPayCode=paypayCodeExecutor?async(input,user)=>{
+  const request=validatePayPayCodeStart(input);
+  const paymentInfo=await billingMemberReader(request.member_id);
+  return paypayCodeExecutor.start({request,paymentInfo,actor:{authenticated_uid:user.uid,admin:user.admin===true}});
+}:null;
+const recordPayPayCode=paypayCodeExecutor?((input,user)=>paypayCodeExecutor.record({
+  request:validatePayPayCodeRecordBatch(input),actor:{authenticated_uid:user.uid,admin:user.admin===true}
+})):null;
 
 const readAttendanceSavedState = createAttendanceSavedState({
   memberDao,
@@ -130,12 +147,12 @@ const handle = createAdminApi({
   }),
   acceptCashPayment:(input,user)=>paymentCashCommand.execute(input,user),
   postPayPayPayment,
+  startPayPayCode,
+  recordPayPayCode,
   readPaymentReceptionSummary:createReceptionSummaryReader(getFirestore(firebaseApp),{
     getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
   }),
-  readBillingMemberInfo: createBillingMemberInfoReader(getFirestore(firebaseApp), {
-    getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
-  }),
+  readBillingMemberInfo: billingMemberReader,
   readAttendanceProgressSummary: createFirestoreProgressReader(memberCore),
   isActiveTeacher:async id=>{
     const row=await memberCore.readById({collection:'teachers'},id);
@@ -232,7 +249,7 @@ createServer(async (req, res) => {
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
       // The transport method cannot be used to invoke a different operation's method.
       const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary','payment_screen_read']);
-      const writeActions = new Set(['time_travel_set', 'members_read', 'attendance_batch','payment_cash_accept','payment_paypay_post_selected']);
+      const writeActions = new Set(['time_travel_set', 'members_read', 'attendance_batch','payment_cash_accept','payment_paypay_post_selected','paypay_code_start','paypay_code_record']);
       if ((req.method === 'GET' && writeActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {
         res.writeHead(405, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' });

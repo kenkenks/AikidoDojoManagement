@@ -25,7 +25,9 @@ function makeApi({enabled=true, executor=async()=>({ok:true}), reads={}}={}) {
       const request=validatePayPayPostSelected(input);
       calls.push({request,user});
       return executor(request,user);
-    }:null
+    }:null,
+    startPayPayCode:enabled ? async(input)=>({ok:true,memberId:input.member_id}) : null,
+    recordPayPayCode:enabled ? async(input)=>({ok:true,evidenceCode:input.evidence_code}) : null
   }));
   return {dispatch,calls};
 }
@@ -88,4 +90,13 @@ test('existing cash POST and billing GET routing remain intact',async()=>{
   const member=await call(dispatch,{action:'getMemberInfo',input:{member_id:'M1'},method:'GET'});
   assert.equal(member.status,200);
   assert.equal(member.body.memberId,'M1');
+});
+test('member PayPay start and record use authenticated POST WebConnect actions',async()=>{
+  const {dispatch}=makeApi();
+  const start=await call(dispatch,{action:'paypay_code_start',input:{request_id:'S1',member_id:'M1'},method:'POST'});
+  assert.equal(start.status,200);assert.equal(start.body.memberId,'M1');
+  const record=await call(dispatch,{action:'paypay_code_record',input:{request_id:'R1',member_id:'M1',evidence_code:'M1-20261018-1500',evidence_items:[{evidence_id:'E1'}]},method:'POST'});
+  assert.equal(record.status,200);assert.equal(record.body.evidenceCode,'M1-20261018-1500');
+  assert.equal((await call(dispatch,{action:'paypay_code_start',method:'GET',token:null})).status,405);
+  assert.equal((await call(dispatch,{action:'paypay_code_record',method:'POST',token:'teacher',input:{}})).status,403);
 });

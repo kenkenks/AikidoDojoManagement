@@ -61,12 +61,56 @@
 
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
+  <script src="firebase_auth.js"></script>
+  <script src="dojo_api_client.js"></script>
   <script src="system_context.js"></script>
   <script>
-    const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
+    const RUNTIME_CONFIG = window.DOJO_RUNTIME_CONFIG;
+    const GAS_URL = RUNTIME_CONFIG.apiBaseUrl;
+    const IS_FIREBASE = RUNTIME_CONFIG.runtime === "firebase";
+    const firebaseAuthClient = IS_FIREBASE ? window.DOJO_FIREBASE_AUTH.create({ runtimeConfig:RUNTIME_CONFIG }) : null;
+    const dojoApiClient = IS_FIREBASE ? window.DOJO_API_CLIENT.create({ getCurrentUser:function() { return firebaseAuthClient.getCurrentUser(); } }) : null;
 
     let currentPayPay = null;
     let paypayRecordSending = false;
+    let pendingStartRequestId = "";
+    let pendingRecordRequestId = "";
+
+    function createRequestId(prefix) {
+      if (window.crypto && typeof window.crypto.randomUUID === "function") {
+        return prefix + "_" + window.crypto.randomUUID();
+      }
+      return prefix + "_" + Date.now() + "_" + Math.random().toString(16).slice(2);
+    }
+
+    async function firebasePayPayPost(action, input) {
+      await firebaseAuthClient.ready;
+      if (!firebaseAuthClient.getCurrentUser()) {
+        throw new Error("DEV_AUTH_REQUIRED");
+      }
+      const response = await dojoApiClient.request(GAS_URL + "/api/webconnect", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({action:action,input:input})
+      });
+      const body = await response.json().catch(function() { return {}; });
+      if (!response.ok) {
+        const error = new Error(body.error || ("HTTP_" + response.status));
+        error.status = response.status;
+        throw error;
+      }
+      return body;
+    }
+
+    function setDevTestCode(info) {
+      if (!IS_FIREBASE || !RUNTIME_CONFIG.firebase || RUNTIME_CONFIG.firebase.projectId !== "dojo-management-dev") return;
+      const amount = Number(info && info.amount);
+      const memberId = String(info && info.memberId || "").trim();
+      const date = String(info && info.receptionDate || getReceptionDate() || "").slice(0,10);
+      const input = document.getElementById("paypayCode");
+      if (!input.value.trim() && memberId && /^\d{4}-\d{2}-\d{2}$/.test(date) && Number.isFinite(amount) && amount > 0) {
+        input.value = memberId + "-" + date.replace(/-/g, "") + "-" + amount;
+      }
+    }
 
     function getReceptionDate() {
       const systemContext = window.DOJO_SYSTEM_CONTEXT || null;
@@ -180,7 +224,7 @@
       }
     }
 
-    function startPayPayCode() {
+    async function startPayPayCode() {
       const memberId = document.getElementById("memberId").value.trim();
       const legacyPlanId = document.getElementById("planId").value.trim();
 
@@ -208,7 +252,13 @@
 
       // paypay_code_start 自身が会費情報取得・plan_id解決・REQUESTED作成まで行う。
       // 事前の getPaymentInfo は同じ請求情報を二重取得するため呼ばない。
-      jsonp(GAS_URL, {
+      const input = {
+        request_id: pendingStartRequestId || (pendingStartRequestId = createRequestId("PAYPAY_START")),
+        member_id: memberId,
+        plan_id: legacyPlanId || "",
+        reception_date: receptionDate
+      };
+      const request = IS_FIREBASE ? firebasePayPayPost("paypay_code_start", input) : jsonp(GAS_URL, {
         action: "paypay_code_start",
         member_id: memberId,
         plan_id: legacyPlanId || "",
@@ -216,8 +266,9 @@
         location_id: locationId,
         billing_block_id: billingBlockId,
         teacher_id: teacherId
-      }).then(function(result) {
-        addLog("GAS応答(paypay_code_start): " + JSON.stringify(result));
+      });
+      request.then(function(result) {
+        addLog((IS_FIREBASE ? "Firebase" : "GAS") + "応答(paypay_code_start): " + JSON.stringify(result));
 
         if (!result || result.ok !== true) {
           setMessage("startResult", (result && result.message) || "PayPay情報を取得できませんでした。", "error");
@@ -227,10 +278,15 @@
         document.getElementById("planId").value = result.planId || legacyPlanId || "";
         currentPayPay = result;
         renderPaymentInfo(result);
+        setDevTestCode(result);
+        pendingStartRequestId = "";
         setMessage("startResult", "会費情報を取得しました。", "ok");
       }).catch(function(error) {
         addLog("PayPay開始失敗: " + (error.message || String(error)));
-        setMessage("startResult", "会費情報取得に失敗しました。", "error");
+        const message = error.message === "DEV_AUTH_REQUIRED"
+          ? "DEV端末の事前認証が必要です。管理者画面でログインしてから再度お試しください。"
+          : "会費情報取得に失敗しました: " + (error.message || String(error));
+        setMessage("startResult", message, "error");
       });
     }
 
@@ -302,6 +358,35 @@
         teacher_id: currentPayPay.teacherId || "PAYPAY_MEMBER",
         source: "paypay_code.html"
       };
+
+      if (IS_FIREBASE) {
+        const input = {
+          request_id: pendingRecordRequestId || (pendingRecordRequestId = createRequestId("PAYPAY_RECORD")),
+          member_id: currentPayPay.memberId,
+          evidence_code: code,
+          evidence_items: recordItems.map(function(item) { return {evidence_id:item.evidence_id}; })
+        };
+        paypayRecordSending = true;
+        setRecordControlState(currentPayPay);
+        setMessage("recordResult", "決済コードを送信しています...", "note");
+        firebasePayPayPost("paypay_code_record", input).then(function(result) {
+          currentPayPay.evidenceItems = result.evidenceItems || currentPayPay.evidenceItems;
+          pendingRecordRequestId = "";
+          paypayRecordSending = false;
+          renderPaymentInfo(currentPayPay);
+          setMessage("recordResult", result.message || "決済コードを登録しました。", "ok");
+          addLog("Firebase PayPayコード登録完了");
+        }).catch(function(error) {
+          paypayRecordSending = false;
+          setRecordControlState(currentPayPay);
+          const unknown = !error.status || error.status >= 500;
+          setMessage("recordResult", unknown
+            ? "登録結果を確認できませんでした。同じ内容で再送できます。"
+            : "決済コード登録に失敗しました: " + error.message, "error");
+          addLog("Firebase PayPayコード登録エラー: " + error.message);
+        });
+        return;
+      }
 
       paypayRecordSending = true;
       setRecordControlState(currentPayPay);

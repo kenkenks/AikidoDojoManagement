@@ -4,7 +4,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
 const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -28,6 +28,8 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const paymentScreen = operation === 'billing.screenRead';
     const cashAccept = operation === 'billing.cashAccept';
     const paypayPost = operation === 'billing.paypayPostSelected';
+    const paypayCodeStart = operation === 'billing.paypayCodeStart';
+    const paypayCodeRecord = operation === 'billing.paypayCodeRecord';
     const teacherToday=operation==='attendance.teacherToday';
     const qrOptions = operation === 'qrGenerator.options';
     const rankOptions = operation === 'attendance.rankOptions';
@@ -37,7 +39,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberOperation = operation === 'member.readById';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -58,6 +60,19 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
+    if(paypayCodeStart||paypayCodeRecord){
+      if(String(request.method||'').toUpperCase()!=='POST')return reply(405,{error:'METHOD_NOT_ALLOWED'});
+      if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});
+      const execute=paypayCodeStart?startPayPayCode:recordPayPayCode;
+      if(typeof execute!=='function')return reply(403,{error:'PAYPAY_CODE_DEV_ONLY'});
+      try{return reply(200,await execute(operationInput,user));}
+      catch(error){
+        const code=typeof error?.code==='string'&&/^[A-Z][A-Z0-9_]{2,80}$/.test(error.code)?error.code:'PAYPAY_CODE_UNAVAILABLE';
+        const status=error?.status===400?400:error?.status===403?403:error?.status===409?409:503;
+        if(status===503)console.error('[PAYPAY_CODE_ERROR]',{code});
+        return reply(status,{error:status===503?'PAYPAY_CODE_UNAVAILABLE':code});
+      }
+    }
     if(paypayPost){
       if(String(request.method||'').toUpperCase()!=='POST')return reply(405,{error:'METHOD_NOT_ALLOWED'});
       if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});

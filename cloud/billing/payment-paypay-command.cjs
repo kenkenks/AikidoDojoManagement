@@ -26,6 +26,30 @@ function validatePayPayCodeRecord(input) {
       input.evidence_code.trim() !== input.evidence_code) fail('INVALID_PAYPAY_CODE_RECORD');
   return Object.freeze({...input});
 }
+function validatePayPayCodeStart(input) {
+  keys(input, new Set(['request_id','member_id','plan_id','reception_date']), 'INVALID_PAYPAY_CODE_START');
+  if (!REQUEST_ID.test(input.request_id || '') || !id(input.member_id) ||
+      (input.plan_id !== undefined && input.plan_id !== '' && !id(input.plan_id)) ||
+      (input.reception_date !== undefined && input.reception_date !== '' && !/^\d{4}-\d{2}-\d{2}$/.test(input.reception_date))) {
+    fail('INVALID_PAYPAY_CODE_START');
+  }
+  return Object.freeze({...input});
+}
+function validatePayPayCodeRecordBatch(input) {
+  keys(input, new Set(['request_id','member_id','evidence_code','evidence_items']), 'INVALID_PAYPAY_CODE_RECORD');
+  if (!REQUEST_ID.test(input.request_id || '') || !id(input.member_id) ||
+      typeof input.evidence_code !== 'string' || !CODE.test(input.evidence_code) ||
+      input.evidence_code.trim() !== input.evidence_code || !Array.isArray(input.evidence_items) ||
+      input.evidence_items.length < 1 || input.evidence_items.length > 20) fail('INVALID_PAYPAY_CODE_RECORD');
+  const seen = new Set();
+  const evidence_items = input.evidence_items.map(item => {
+    keys(item, new Set(['evidence_id']), 'INVALID_PAYPAY_CODE_RECORD');
+    if (!id(item.evidence_id) || seen.has(item.evidence_id)) fail('INVALID_PAYPAY_CODE_RECORD');
+    seen.add(item.evidence_id);
+    return Object.freeze({evidence_id:item.evidence_id});
+  });
+  return Object.freeze({...input,evidence_items:Object.freeze(evidence_items)});
+}
 function validatePayPayPostSelected(input) {
   keys(input, new Set(['request_id','location_id','billing_block_id','reception_session_id','evidence_items']), 'INVALID_PAYPAY_POST_SELECTED');
   if (!REQUEST_ID.test(input.request_id || '') || !id(input.location_id) || !id(input.billing_block_id) ||
@@ -40,4 +64,4 @@ function validatePayPayPostSelected(input) {
   });
   return Object.freeze({...input, evidence_items:Object.freeze(items)});
 }
-module.exports = {PayPayCommandContractError,validatePayPayCodeRecord,validatePayPayPostSelected};
+module.exports = {PayPayCommandContractError,validatePayPayCodeRecord,validatePayPayCodeStart,validatePayPayCodeRecordBatch,validatePayPayPostSelected};
