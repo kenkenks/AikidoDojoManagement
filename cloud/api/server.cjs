@@ -18,10 +18,12 @@ const { createFirestoreCore } = require('../member-read/DAO_Core_Firestore.cjs')
 const { createAdminApi } = require('./admin-api.cjs');
 const { createFirestoreDojoPrincipalResolver } = require('./dojo-account-firestore.cjs');
 const { createDispatch } = require('./webConnect.cjs');
+const {readJsonBody,STANDARD_JSON_LIMIT,PAPER_OCR_JSON_LIMIT}=require('./request-body.cjs');
 const { createQrGeneratorOptions } = require('../qr/generator-options.cjs');
 const { createAttendanceRankOptions } = require('../attendance/rank-options.cjs');
 const { createSessionMasterReader } = require('../attendance/session-masters.cjs');
 const {createTeacherTodayReader}=require('../attendance/teacher-today-firestore.cjs');
+const {createPaperOcrDocumentAi}=require('../attendance/paper-ocr-document-ai.cjs');
 const { createSystemSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createFirestoreMemberAttendanceState } = require('../attendance/member-state-firestore.cjs');
@@ -98,6 +100,11 @@ const paymentCashExecutor=createPaymentCashAcceptFirestoreExecutor(getFirestore(
   serverTimestamp:()=>FieldValue.serverTimestamp()
 });
 const paymentCashCommand=createPaymentCashAcceptCommand({executeAtomic:paymentCashExecutor});
+const paperOcrConfig=profile.paperAttendanceOcr||{};
+const readPaperAttendanceOcr=createPaperOcrDocumentAi({
+  processor:paperOcrConfig.processor,version:paperOcrConfig.version,
+  getAccessToken:async()=>(await credential.getAccessToken()).access_token
+});
 const paypayDevOnly=profile.mode==='development' && profile.projectId==='dojo-management-dev' && profile.confirmedDevelopmentProject==='dojo-management-dev';
 const paymentPayPayExecutor=paypayDevOnly?createPayPayPostFirestoreExecutor(getFirestore(firebaseApp),{
   getSystemContext:()=>application.getSystemContext(),
@@ -155,6 +162,7 @@ const readMemberAttendanceState = createFirestoreMemberAttendanceState(memberCor
 });
 
 const handle = createAdminApi({
+  readPaperAttendanceOcr,
   readMemberManagementList,
   saveManagedMember:(input,user)=>memberManagement.save(input,user),
   saveManagedMemberGroup:(input,user)=>memberManagement.saveGroup(input,user),
@@ -196,21 +204,11 @@ const handle = createAdminApi({
 
 const dispatch = createDispatch(handle);
 
-async function readJsonBody(req) {
-  const chunks = [];
-  let size = 0;
-  for await (const chunk of req) {
-    size += chunk.length;
-    if (size > 64 * 1024) throw new Error('BODY_TOO_LARGE');
-    chunks.push(chunk);
-  }
-  if (!chunks.length) return null;
-  return JSON.parse(Buffer.concat(chunks).toString('utf8'));
-}
-
 createServer(async (req, res) => {
   try {
     const corsHeaders = getCorsHeaders(req.headers.origin);
+    const parsed = new URL(req.url, 'http://localhost');
+    const paperOcrTransport=req.method==='POST'&&parsed.pathname==='/api/webconnect'&&parsed.searchParams.get('action')==='paper_attendance_ocr';
 
     if (req.method === 'OPTIONS') {
       if (req.headers.origin && !allowedOrigins.has(req.headers.origin)) {
@@ -242,32 +240,35 @@ createServer(async (req, res) => {
     let body = null;
     if (req.method === 'POST') {
       try {
-        body = await readJsonBody(req);
-      } catch {
-        res.writeHead(400, {
+        body = await readJsonBody(req,paperOcrTransport?PAPER_OCR_JSON_LIMIT:STANDARD_JSON_LIMIT);
+      } catch(error) {
+        res.writeHead(error?.code==='BODY_TOO_LARGE'?413:400, {
           ...corsHeaders,
           'Content-Type': 'application/json; charset=utf-8',
           'Cache-Control': 'no-store'
         });
-        res.end(JSON.stringify({ error: 'INVALID_JSON' }));
+        res.end(JSON.stringify({ error: error?.code==='BODY_TOO_LARGE'?'BODY_TOO_LARGE':'INVALID_JSON' }));
         return;
       }
     }
 
     // Shared WebConnect transport entry; authentication is enforced by existing handlers.
-    const parsed = new URL(req.url, 'http://localhost');
     if (parsed.pathname === '/api/webconnect') {
       if (req.method !== 'GET' && req.method !== 'POST') {
         res.writeHead(405, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: 'METHOD_NOT_ALLOWED' }));
         return;
       }
-      const action = req.method === 'GET' ? parsed.searchParams.get('action') : body && body.action;
+      const action = req.method === 'GET' ? parsed.searchParams.get('action') : (paperOcrTransport?parsed.searchParams.get('action'):body && body.action);
       const input = req.method === 'GET' ? Object.fromEntries(parsed.searchParams) : body && body.input;
+      if(paperOcrTransport&&body?.action!=='paper_attendance_ocr'){
+        res.writeHead(400,{...corsHeaders,'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'});
+        res.end(JSON.stringify({error:'INVALID_PAPER_OCR_ENVELOPE'}));return;
+      }
       // The transport method cannot be used to invoke a different operation's method.
       const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read','member_management_list', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary','payment_screen_read']);
-      const writeActions = new Set(['time_travel_set', 'members_read','member_management_save','member_management_group_save','member_management_withdraw', 'attendance_batch','payment_cash_accept','payment_paypay_post_selected','paypay_code_start','paypay_code_record']);
-      if ((req.method === 'GET' && writeActions.has(action)) ||
+      const postOnlyActions = new Set(['time_travel_set', 'members_read','member_management_save','member_management_group_save','member_management_withdraw', 'attendance_batch','payment_cash_accept','payment_paypay_post_selected','paypay_code_start','paypay_code_record','paper_attendance_ocr']);
+      if ((req.method === 'GET' && postOnlyActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {
         res.writeHead(405, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' });
         res.end(JSON.stringify({ error: 'METHOD_NOT_ALLOWED' }));

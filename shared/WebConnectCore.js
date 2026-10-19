@@ -25,6 +25,7 @@ var WebConnectCore = (function () {
     if (action === 'attendance_progress_summary') return { operation: 'attendance.progressSummary', input: input || {} };
     if (action === 'attendance_saved_state') return { operation: 'attendance.savedState', input: input || {} };
     if (action === 'attendance_batch') return { operation: 'attendance.registerBatch', input: input || {} };
+    if (action === 'paper_attendance_ocr') return { operation: 'attendance.paperOcr', input: input || {} };
     if (action === 'time_travel_set') {
       var data = input || {};
       return { operation: 'timeTravel.save', input: {

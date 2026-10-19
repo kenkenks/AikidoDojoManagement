@@ -4,7 +4,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
 const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readMemberManagementList,saveManagedMember,saveManagedMemberGroup,withdrawManagedMember,readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readMemberManagementList,saveManagedMember,saveManagedMemberGroup,withdrawManagedMember,readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode,readPaperAttendanceOcr }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -31,6 +31,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const paypayCodeStart = operation === 'billing.paypayCodeStart';
     const paypayCodeRecord = operation === 'billing.paypayCodeRecord';
     const teacherToday=operation==='attendance.teacherToday';
+    const paperOcr=operation==='attendance.paperOcr';
     const qrOptions = operation === 'qrGenerator.options';
     const rankOptions = operation === 'attendance.rankOptions';
     const attendance = url.split('?')[0] === '/api/admin/attendance/saved-state' || operation === 'attendance.savedState';
@@ -43,7 +44,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberManagementWithdraw=operation==='memberManagement.withdraw';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!paperOcr&&!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -64,6 +65,17 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
+    if(paperOcr){
+      if(String(request.method||'').toUpperCase()!=='POST')return reply(405,{error:'METHOD_NOT_ALLOWED'});
+      let allowed=user.admin===true;
+      if(!allowed&&typeof resolveDojoPrincipal==='function'&&typeof isActiveTeacher==='function'){
+        try{const principal=await resolveDojoPrincipal(user);allowed=!!principal?.teacher_id&&await isActiveTeacher(principal.teacher_id)===true;}catch{allowed=false;}
+      }
+      if(!allowed)return reply(403,{error:'FORBIDDEN'});
+      if(typeof readPaperAttendanceOcr!=='function')return reply(503,{error:'PAPER_OCR_UNAVAILABLE'});
+      try{return reply(200,await readPaperAttendanceOcr(operationInput));}
+      catch(error){const status=[400,413].includes(error?.status)?error.status:503,code=status===503?'PAPER_OCR_UNAVAILABLE':error.code||'INVALID_PAPER_OCR_INPUT';return reply(status,{error:code});}
+    }
     if(memberManagementList||memberManagementSave||memberManagementGroupSave||memberManagementWithdraw){
       if(String(request.method||'').toUpperCase()!==(memberManagementList?'GET':'POST'))return reply(405,{error:'METHOD_NOT_ALLOWED'});
       if(user.admin!==true)return reply(403,{error:'FORBIDDEN'});

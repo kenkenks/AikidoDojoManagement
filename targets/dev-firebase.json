@@ -5,6 +5,10 @@
   "projectId": "dojo-management-dev",
   "confirmedDevelopmentProject": "dojo-management-dev",
   "apiBaseUrl": "https://dojo-time-travel-admin-374758850136.asia-northeast1.run.app",
+  "paperAttendanceOcr": {
+    "processor": "projects/374758850136/locations/asia-southeast1/processors/ddd2ebdc689bfb82",
+    "version": "pretrained-ocr-v2.1.1-2025-01-31"
+  },
   "firebaseWeb": {
     "apiKey": "AIzaSyCXPQYBV78lExcmyBP02YZoLp9KpeFR2Vs",
     "authDomain": "dojo-management-dev.firebaseapp.com",
