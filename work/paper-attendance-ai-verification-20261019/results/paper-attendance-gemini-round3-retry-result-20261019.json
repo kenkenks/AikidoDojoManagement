@@ -1,0 +1,1186 @@
+{
+  "experiment": {
+    "date": "2026-10-19",
+    "round": 3,
+    "project": "dojo-management-dev",
+    "location": "global",
+    "model": "gemini-2.5-flash",
+    "requests": 1,
+    "image_bytes": 3884233,
+    "elapsed_ms": 19231,
+    "coordinate_contract": "printed row number: top=20, bottom=1; columns left-to-right"
+  },
+  "prompt_conditions": {
+    "retained_from_round2": {
+      "target_area": "central-left 20x20 attendance grid only",
+      "privacy_exclusions": [
+        "member name",
+        "rank",
+        "acquisition date",
+        "examination requirement table"
+      ],
+      "coordinates": [
+        "row is the number printed at the left edge",
+        "top row=20",
+        "bottom row=1",
+        "columns left-to-right 1..20"
+      ],
+      "business_rules": [
+        "one cell equals one one-hour attendance",
+        "duplicate dates remain separate",
+        "entries normally progress bottom-to-top within a column",
+        "after a column fills entries continue from bottom of next column",
+        "dates normally progress past-to-future",
+        "same-date consecutive entries are allowed",
+        "month boundaries and entry-order exceptions are allowed"
+      ],
+      "uncertainty_rules": [
+        "image evidence takes priority over sequence",
+        "do not invent attendance or dates",
+        "ambiguous, invalid, or sequence-conflicting readings require review",
+        "confidence is not an acceptance criterion",
+        "lines, shadows, folds, and stains alone are blank"
+      ]
+    },
+    "added_in_round3": {
+      "separate_visual_from_inference": true,
+      "visual_reading_rule": "transcribe image first and never rewrite it to fit chronology",
+      "neighbor_analysis": "use previous and next entries only to propose candidates",
+      "invalid_date_rule": "invalid dates such as 10/0 must be needs_review",
+      "output_changes": [
+        "visual_reading",
+        "candidate_dates",
+        "reason",
+        "unclear_parts",
+        "needs_review",
+        "sequence_assessment"
+      ],
+      "confidence_removed": true,
+      "program_review": "independent validation of date validity and chronology after model output"
+    },
+    "schedule_reference": {
+      "used": false,
+      "reason": "No repository evidence identified this sheet with a specific dojo and weekday."
+    },
+    "ground_truth_leakage": {
+      "used_in_prompt": false,
+      "reason": "Correct dates and example answer sequences were excluded."
+    }
+  },
+  "usage": {
+    "promptTokenCount": 3859,
+    "candidatesTokenCount": 2804,
+    "totalTokenCount": 6663,
+    "trafficType": "ON_DEMAND",
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 505
+      },
+      {
+        "modality": "IMAGE",
+        "tokenCount": 3354
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 2804
+      }
+    ]
+  },
+  "model_result": {
+    "grid": {
+      "rows": 20,
+      "columns": 20,
+      "row_top": 20,
+      "row_bottom": 1
+    },
+    "suspected_cells": [
+      {
+        "row": 20,
+        "col": 1,
+        "visual_reading": "10/9",
+        "candidate_dates": [
+          "10/9"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entries if month changes from 9 to 10."
+      },
+      {
+        "row": 19,
+        "col": 1,
+        "visual_reading": "10/9",
+        "candidate_dates": [
+          "10/9"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 18,
+        "col": 1,
+        "visual_reading": "9/28",
+        "candidate_dates": [
+          "9/28"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Inconsistent with previous entries (10/9), but consistent with subsequent entries. This suggests a non-sequential entry or a month change."
+      },
+      {
+        "row": 17,
+        "col": 1,
+        "visual_reading": "9/28",
+        "candidate_dates": [
+          "9/28"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 16,
+        "col": 1,
+        "visual_reading": "9/26",
+        "candidate_dates": [
+          "9/26"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 15,
+        "col": 1,
+        "visual_reading": "9/26",
+        "candidate_dates": [
+          "9/26"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 14,
+        "col": 1,
+        "visual_reading": "9/25",
+        "candidate_dates": [
+          "9/25"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 13,
+        "col": 1,
+        "visual_reading": "9/25",
+        "candidate_dates": [
+          "9/25"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 12,
+        "col": 1,
+        "visual_reading": "9/23",
+        "candidate_dates": [
+          "9/23"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 11,
+        "col": 1,
+        "visual_reading": "9/23",
+        "candidate_dates": [
+          "9/23"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 10,
+        "col": 1,
+        "visual_reading": "9/21",
+        "candidate_dates": [
+          "9/21"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 9,
+        "col": 1,
+        "visual_reading": "9/21",
+        "candidate_dates": [
+          "9/21"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 8,
+        "col": 1,
+        "visual_reading": "9/19",
+        "candidate_dates": [
+          "9/19"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 7,
+        "col": 1,
+        "visual_reading": "9/19",
+        "candidate_dates": [
+          "9/19"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 7,
+        "col": 2,
+        "visual_reading": "10/6",
+        "candidate_dates": [
+          "10/6"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry in column 1 if month changes from 9 to 10. This is the start of a new column, so it can be a new sequence."
+      },
+      {
+        "row": 6,
+        "col": 1,
+        "visual_reading": "9/18",
+        "candidate_dates": [
+          "9/18"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 6,
+        "col": 2,
+        "visual_reading": "10/6",
+        "candidate_dates": [
+          "10/6"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry in column 2."
+      },
+      {
+        "row": 5,
+        "col": 1,
+        "visual_reading": "9/14",
+        "candidate_dates": [
+          "9/14"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 5,
+        "col": 2,
+        "visual_reading": "10/2",
+        "candidate_dates": [
+          "10/2"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry in column 2 if month changes from 9 to 10."
+      },
+      {
+        "row": 4,
+        "col": 1,
+        "visual_reading": "9/14",
+        "candidate_dates": [
+          "9/14"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 4,
+        "col": 2,
+        "visual_reading": "10/2",
+        "candidate_dates": [
+          "10/2"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry in column 2."
+      },
+      {
+        "row": 3,
+        "col": 1,
+        "visual_reading": "9/14",
+        "candidate_dates": [
+          "9/14"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 3,
+        "col": 2,
+        "visual_reading": "10/2",
+        "candidate_dates": [
+          "10/2"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry in column 2."
+      },
+      {
+        "row": 2,
+        "col": 1,
+        "visual_reading": "9/12",
+        "candidate_dates": [
+          "9/12"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 2,
+        "col": 2,
+        "visual_reading": "10/0",
+        "candidate_dates": [],
+        "reason": "The day '0' is invalid for a date.",
+        "unclear_parts": "0 in 10/0",
+        "needs_review": true,
+        "sequence_assessment": "Inconsistent with previous entry in column 2 (10/2) as it's an invalid date. Could be 10/1 or 10/6 based on other entries."
+      },
+      {
+        "row": 1,
+        "col": 1,
+        "visual_reading": "9/12",
+        "candidate_dates": [
+          "9/12"
+        ],
+        "reason": "Visually clear.",
+        "unclear_parts": "",
+        "needs_review": false,
+        "sequence_assessment": "Consistent with previous entry."
+      },
+      {
+        "row": 1,
+        "col": 2,
+        "visual_reading": "10/0",
+        "candidate_dates": [],
+        "reason": "The day '0' is invalid for a date.",
+        "unclear_parts": "0 in 10/0",
+        "needs_review": true,
+        "sequence_assessment": "Inconsistent with previous entry in column 2 (10/0) as it's an invalid date. Could be 10/1 or 10/6 based on other entries."
+      }
+    ],
+    "notes": [
+      "The entries in column 1 generally follow an ascending date order, with some instances of the same date appearing twice.",
+      "The entries in column 2 also generally follow an ascending date order, but start with 10/6, then 10/2, then 10/0, which is problematic.",
+      "There are instances where the month appears to change from 9 to 10 within the same column, or between columns, which is acceptable given the rules.",
+      "Cells (2,2) and (1,2) contain '10/0', which is an invalid date and requires review."
+    ]
+  },
+  "program_review": {
+    "algorithm": [
+      "invalid or missing M/D",
+      "local chronology regression in column-major, bottom-to-top order; both cells in a conflicting pair are flagged"
+    ],
+    "cells": [
+      {
+        "cell": "1,2",
+        "reasons": [
+          "invalid_or_missing_date"
+        ]
+      },
+      {
+        "cell": "2,2",
+        "reasons": [
+          "invalid_or_missing_date"
+        ]
+      }
+    ]
+  },
+  "metrics": {
+    "ground_truth_written": 27,
+    "ground_truth_blank": 373,
+    "detected_cells": 27,
+    "correct_written_detected": 27,
+    "missed_written": 0,
+    "false_positive_blank": 0,
+    "detection_recall": 1,
+    "date_exact": 15,
+    "date_exact_rate": 0.5555555555555556,
+    "invalid_visual_dates": 2,
+    "model_review_cells": 2,
+    "program_review_cells": 2,
+    "wrong_cells": 12,
+    "wrong_cells_flagged_by_model": 2,
+    "wrong_cells_flagged_by_program": 2,
+    "correct_cells_unnecessarily_flagged_by_model": 0,
+    "correct_cells_unnecessarily_flagged_by_program": 0,
+    "human_correction_or_confirmation_cells": 12
+  },
+  "truth_details": [
+    {
+      "cell": "20,1",
+      "expected": "10/5",
+      "detected": true,
+      "visual_reading": "10/9",
+      "actual": "10/9",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "10/9"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entries if month changes from 9 to 10."
+    },
+    {
+      "cell": "19,1",
+      "expected": "10/3",
+      "detected": true,
+      "visual_reading": "10/9",
+      "actual": "10/9",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "10/9"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "18,1",
+      "expected": "9/30",
+      "detected": true,
+      "visual_reading": "9/28",
+      "actual": "9/28",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/28"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Inconsistent with previous entries (10/9), but consistent with subsequent entries. This suggests a non-sequential entry or a month change."
+    },
+    {
+      "cell": "17,1",
+      "expected": "9/28",
+      "detected": true,
+      "visual_reading": "9/28",
+      "actual": "9/28",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/28"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "16,1",
+      "expected": "9/26",
+      "detected": true,
+      "visual_reading": "9/26",
+      "actual": "9/26",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/26"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "15,1",
+      "expected": "9/26",
+      "detected": true,
+      "visual_reading": "9/26",
+      "actual": "9/26",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/26"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "14,1",
+      "expected": "9/15",
+      "detected": true,
+      "visual_reading": "9/25",
+      "actual": "9/25",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/25"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "13,1",
+      "expected": "9/25",
+      "detected": true,
+      "visual_reading": "9/25",
+      "actual": "9/25",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/25"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "12,1",
+      "expected": "9/23",
+      "detected": true,
+      "visual_reading": "9/23",
+      "actual": "9/23",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/23"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "11,1",
+      "expected": "9/23",
+      "detected": true,
+      "visual_reading": "9/23",
+      "actual": "9/23",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/23"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "10,1",
+      "expected": "9/21",
+      "detected": true,
+      "visual_reading": "9/21",
+      "actual": "9/21",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/21"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "9,1",
+      "expected": "9/21",
+      "detected": true,
+      "visual_reading": "9/21",
+      "actual": "9/21",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/21"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "8,1",
+      "expected": "9/19",
+      "detected": true,
+      "visual_reading": "9/19",
+      "actual": "9/19",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/19"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "7,1",
+      "expected": "9/19",
+      "detected": true,
+      "visual_reading": "9/19",
+      "actual": "9/19",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/19"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "7,2",
+      "expected": "10/16",
+      "detected": true,
+      "visual_reading": "10/6",
+      "actual": "10/6",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "10/6"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry in column 1 if month changes from 9 to 10. This is the start of a new column, so it can be a new sequence."
+    },
+    {
+      "cell": "6,1",
+      "expected": "9/18",
+      "detected": true,
+      "visual_reading": "9/18",
+      "actual": "9/18",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/18"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "6,2",
+      "expected": "10/16",
+      "detected": true,
+      "visual_reading": "10/6",
+      "actual": "10/6",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "10/6"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry in column 2."
+    },
+    {
+      "cell": "5,1",
+      "expected": "9/16",
+      "detected": true,
+      "visual_reading": "9/14",
+      "actual": "9/14",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/14"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "5,2",
+      "expected": "10/12",
+      "detected": true,
+      "visual_reading": "10/2",
+      "actual": "10/2",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "10/2"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry in column 2 if month changes from 9 to 10."
+    },
+    {
+      "cell": "4,1",
+      "expected": "9/14",
+      "detected": true,
+      "visual_reading": "9/14",
+      "actual": "9/14",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/14"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "4,2",
+      "expected": "10/12",
+      "detected": true,
+      "visual_reading": "10/2",
+      "actual": "10/2",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "10/2"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry in column 2."
+    },
+    {
+      "cell": "3,1",
+      "expected": "9/14",
+      "detected": true,
+      "visual_reading": "9/14",
+      "actual": "9/14",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/14"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "3,2",
+      "expected": "10/1",
+      "detected": true,
+      "visual_reading": "10/2",
+      "actual": "10/2",
+      "exact": false,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "10/2"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry in column 2."
+    },
+    {
+      "cell": "2,1",
+      "expected": "9/12",
+      "detected": true,
+      "visual_reading": "9/12",
+      "actual": "9/12",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/12"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "2,2",
+      "expected": "10/10",
+      "detected": true,
+      "visual_reading": "10/0",
+      "actual": "10/0",
+      "exact": false,
+      "model_needs_review": true,
+      "program_needs_review": true,
+      "program_review_reasons": [
+        "invalid_or_missing_date"
+      ],
+      "candidate_dates": [],
+      "reason": "The day '0' is invalid for a date.",
+      "unclear_parts": "0 in 10/0",
+      "sequence_assessment": "Inconsistent with previous entry in column 2 (10/2) as it's an invalid date. Could be 10/1 or 10/6 based on other entries."
+    },
+    {
+      "cell": "1,1",
+      "expected": "9/12",
+      "detected": true,
+      "visual_reading": "9/12",
+      "actual": "9/12",
+      "exact": true,
+      "model_needs_review": false,
+      "program_needs_review": false,
+      "program_review_reasons": [],
+      "candidate_dates": [
+        "9/12"
+      ],
+      "reason": "Visually clear.",
+      "unclear_parts": "",
+      "sequence_assessment": "Consistent with previous entry."
+    },
+    {
+      "cell": "1,2",
+      "expected": "10/10",
+      "detected": true,
+      "visual_reading": "10/0",
+      "actual": "10/0",
+      "exact": false,
+      "model_needs_review": true,
+      "program_needs_review": true,
+      "program_review_reasons": [
+        "invalid_or_missing_date"
+      ],
+      "candidate_dates": [],
+      "reason": "The day '0' is invalid for a date.",
+      "unclear_parts": "0 in 10/0",
+      "sequence_assessment": "Inconsistent with previous entry in column 2 (10/0) as it's an invalid date. Could be 10/1 or 10/6 based on other entries."
+    }
+  ],
+  "missed_cells": [],
+  "false_positive_cells": [],
+  "invalid_date_cells": [
+    {
+      "cell": "2,2",
+      "visual_reading": "10/0"
+    },
+    {
+      "cell": "1,2",
+      "visual_reading": "10/0"
+    }
+  ],
+  "round2_comparison": [
+    {
+      "cell": "20,1",
+      "expected": "10/5",
+      "round2": "10/5",
+      "round3": "10/9",
+      "round2_exact": true,
+      "round3_exact": false,
+      "change": "worsened"
+    },
+    {
+      "cell": "19,1",
+      "expected": "10/3",
+      "round2": "10/3",
+      "round3": "10/9",
+      "round2_exact": true,
+      "round3_exact": false,
+      "change": "worsened"
+    },
+    {
+      "cell": "18,1",
+      "expected": "9/30",
+      "round2": "9/28",
+      "round3": "9/28",
+      "round2_exact": false,
+      "round3_exact": false,
+      "change": "wrong_unchanged"
+    },
+    {
+      "cell": "17,1",
+      "expected": "9/28",
+      "round2": "9/28",
+      "round3": "9/28",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "16,1",
+      "expected": "9/26",
+      "round2": "9/26",
+      "round3": "9/26",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "15,1",
+      "expected": "9/26",
+      "round2": "9/26",
+      "round3": "9/26",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "14,1",
+      "expected": "9/15",
+      "round2": "9/25",
+      "round3": "9/25",
+      "round2_exact": false,
+      "round3_exact": false,
+      "change": "wrong_unchanged"
+    },
+    {
+      "cell": "13,1",
+      "expected": "9/25",
+      "round2": "9/25",
+      "round3": "9/25",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "12,1",
+      "expected": "9/23",
+      "round2": "9/23",
+      "round3": "9/23",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "11,1",
+      "expected": "9/23",
+      "round2": "9/23",
+      "round3": "9/23",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "10,1",
+      "expected": "9/21",
+      "round2": "9/21",
+      "round3": "9/21",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "9,1",
+      "expected": "9/21",
+      "round2": "9/21",
+      "round3": "9/21",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "8,1",
+      "expected": "9/19",
+      "round2": "9/19",
+      "round3": "9/19",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "7,1",
+      "expected": "9/19",
+      "round2": "9/19",
+      "round3": "9/19",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "7,2",
+      "expected": "10/16",
+      "round2": "10/6",
+      "round3": "10/6",
+      "round2_exact": false,
+      "round3_exact": false,
+      "change": "wrong_unchanged"
+    },
+    {
+      "cell": "6,1",
+      "expected": "9/18",
+      "round2": "9/18",
+      "round3": "9/18",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "6,2",
+      "expected": "10/16",
+      "round2": "10/6",
+      "round3": "10/6",
+      "round2_exact": false,
+      "round3_exact": false,
+      "change": "wrong_unchanged"
+    },
+    {
+      "cell": "5,1",
+      "expected": "9/16",
+      "round2": "9/16",
+      "round3": "9/14",
+      "round2_exact": true,
+      "round3_exact": false,
+      "change": "worsened"
+    },
+    {
+      "cell": "5,2",
+      "expected": "10/12",
+      "round2": "10/2",
+      "round3": "10/2",
+      "round2_exact": false,
+      "round3_exact": false,
+      "change": "wrong_unchanged"
+    },
+    {
+      "cell": "4,1",
+      "expected": "9/14",
+      "round2": "9/14",
+      "round3": "9/14",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "4,2",
+      "expected": "10/12",
+      "round2": "10/2",
+      "round3": "10/2",
+      "round2_exact": false,
+      "round3_exact": false,
+      "change": "wrong_unchanged"
+    },
+    {
+      "cell": "3,1",
+      "expected": "9/14",
+      "round2": "9/14",
+      "round3": "9/14",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "3,2",
+      "expected": "10/1",
+      "round2": "10/2",
+      "round3": "10/2",
+      "round2_exact": false,
+      "round3_exact": false,
+      "change": "wrong_unchanged"
+    },
+    {
+      "cell": "2,1",
+      "expected": "9/12",
+      "round2": "9/12",
+      "round3": "9/12",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "2,2",
+      "expected": "10/10",
+      "round2": "10/0",
+      "round3": "10/0",
+      "round2_exact": false,
+      "round3_exact": false,
+      "change": "wrong_unchanged"
+    },
+    {
+      "cell": "1,1",
+      "expected": "9/12",
+      "round2": "9/12",
+      "round3": "9/12",
+      "round2_exact": true,
+      "round3_exact": true,
+      "change": "correct_unchanged"
+    },
+    {
+      "cell": "1,2",
+      "expected": "10/10",
+      "round2": "10/0",
+      "round3": "10/0",
+      "round2_exact": false,
+      "round3_exact": false,
+      "change": "wrong_unchanged"
+    }
+  ]
+}

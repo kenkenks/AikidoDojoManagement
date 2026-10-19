@@ -1,0 +1,883 @@
+{
+  "experiment": {
+    "date": "2026-10-19",
+    "project": "dojo-management-dev",
+    "location": "global",
+    "model": "gemini-2.5-flash",
+    "requests": 1,
+    "image_bytes": 3884233,
+    "elapsed_ms": 12654
+  },
+  "usage": {
+    "promptTokenCount": 3747,
+    "candidatesTokenCount": 1585,
+    "totalTokenCount": 5332,
+    "trafficType": "ON_DEMAND",
+    "promptTokensDetails": [
+      {
+        "modality": "IMAGE",
+        "tokenCount": 3354
+      },
+      {
+        "modality": "TEXT",
+        "tokenCount": 393
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 1585
+      }
+    ]
+  },
+  "model_result": {
+    "grid": {
+      "rows": 20,
+      "columns": 20,
+      "row_direction": "top_to_bottom",
+      "column_direction": "left_to_right"
+    },
+    "suspected_cells": [
+      {
+        "row": 20,
+        "column": 1,
+        "status": "recognized",
+        "date": "10/9",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 19,
+        "column": 1,
+        "status": "recognized",
+        "date": "10/9",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 18,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/28",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 17,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/28",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 16,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/26",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 15,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/26",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 14,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/25",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 13,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/25",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 12,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/23",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 11,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/23",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 10,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/21",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 9,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/21",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 8,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/19",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 7,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/19",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 7,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/6",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 6,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/18",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 6,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/6",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 5,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/14",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 5,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/2",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 4,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/14",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 4,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/2",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 3,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/14",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 3,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/2",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 2,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/12",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 2,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/0",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 1,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/12",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      },
+      {
+        "row": 1,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/0",
+        "candidate_dates": [],
+        "confidence": 0.99,
+        "reason": "Handwritten date recognized clearly."
+      }
+    ],
+    "notes": [
+      "The grid is 20 rows by 20 columns. Row direction is top to bottom, column direction is left to right.",
+      "Dates are primarily in M/D format. Year is not included.",
+      "All cells with visible handwriting are returned, even if the date is uncertain.",
+      "Cells with uncertain dates have status 'review', empty 'date', and populated 'candidate_dates' and 'reason'.",
+      "Cells with only print lines, smudges, or shadows are not returned.",
+      "Only cells with entries or requiring review are listed in 'suspected_cells'."
+    ]
+  },
+  "metrics": {
+    "ground_truth_written": 27,
+    "ground_truth_blank": 373,
+    "detected_cells": 27,
+    "correct_written_detected": 20,
+    "missed_written": 7,
+    "false_positive_blank": 7,
+    "detection_recall": 0.7407407407407407,
+    "date_exact": 0,
+    "date_exact_rate": 0,
+    "review_cells": 0,
+    "human_correction_or_confirmation_cells": 34
+  },
+  "truth_details": [
+    {
+      "cell": "1,1",
+      "expected": "10/5",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/12",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "2,1",
+      "expected": "10/3",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/12",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "3,1",
+      "expected": "9/30",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/14",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "4,1",
+      "expected": "9/28",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/14",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "5,1",
+      "expected": "9/26",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/14",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "6,1",
+      "expected": "9/26",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/18",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "7,1",
+      "expected": "9/15",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/19",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "8,1",
+      "expected": "9/25",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/19",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "9,1",
+      "expected": "9/23",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/21",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "10,1",
+      "expected": "9/23",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/21",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "11,1",
+      "expected": "9/21",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/23",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "12,1",
+      "expected": "9/21",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/23",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "13,1",
+      "expected": "9/19",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/25",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "14,1",
+      "expected": "9/19",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/25",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "14,2",
+      "expected": "10/16",
+      "detected": false,
+      "status": "missing",
+      "actual": "",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": ""
+    },
+    {
+      "cell": "15,1",
+      "expected": "9/18",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/26",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "15,2",
+      "expected": "10/16",
+      "detected": false,
+      "status": "missing",
+      "actual": "",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": ""
+    },
+    {
+      "cell": "16,1",
+      "expected": "9/16",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/26",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "16,2",
+      "expected": "10/12",
+      "detected": false,
+      "status": "missing",
+      "actual": "",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": ""
+    },
+    {
+      "cell": "17,1",
+      "expected": "9/14",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/28",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "17,2",
+      "expected": "10/12",
+      "detected": false,
+      "status": "missing",
+      "actual": "",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": ""
+    },
+    {
+      "cell": "18,1",
+      "expected": "9/14",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/28",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "18,2",
+      "expected": "10/1",
+      "detected": false,
+      "status": "missing",
+      "actual": "",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": ""
+    },
+    {
+      "cell": "19,1",
+      "expected": "9/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/9",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "19,2",
+      "expected": "10/10",
+      "detected": false,
+      "status": "missing",
+      "actual": "",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": ""
+    },
+    {
+      "cell": "20,1",
+      "expected": "9/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/9",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "20,2",
+      "expected": "10/10",
+      "detected": false,
+      "status": "missing",
+      "actual": "",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": ""
+    }
+  ],
+  "false_positive_cells": [
+    {
+      "cell": "7,2",
+      "row": 7,
+      "column": 2,
+      "status": "recognized",
+      "date": "10/6",
+      "candidate_dates": [],
+      "confidence": 0.99,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "6,2",
+      "row": 6,
+      "column": 2,
+      "status": "recognized",
+      "date": "10/6",
+      "candidate_dates": [],
+      "confidence": 0.99,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "5,2",
+      "row": 5,
+      "column": 2,
+      "status": "recognized",
+      "date": "10/2",
+      "candidate_dates": [],
+      "confidence": 0.99,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "4,2",
+      "row": 4,
+      "column": 2,
+      "status": "recognized",
+      "date": "10/2",
+      "candidate_dates": [],
+      "confidence": 0.99,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "3,2",
+      "row": 3,
+      "column": 2,
+      "status": "recognized",
+      "date": "10/2",
+      "candidate_dates": [],
+      "confidence": 0.99,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "2,2",
+      "row": 2,
+      "column": 2,
+      "status": "recognized",
+      "date": "10/0",
+      "candidate_dates": [],
+      "confidence": 0.99,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "1,2",
+      "row": 1,
+      "column": 2,
+      "status": "recognized",
+      "date": "10/0",
+      "candidate_dates": [],
+      "confidence": 0.99,
+      "reason": "Handwritten date recognized clearly."
+    }
+  ],
+  "missed_cells": [
+    {
+      "cell": "14,2",
+      "expected": "10/16"
+    },
+    {
+      "cell": "15,2",
+      "expected": "10/16"
+    },
+    {
+      "cell": "16,2",
+      "expected": "10/12"
+    },
+    {
+      "cell": "17,2",
+      "expected": "10/12"
+    },
+    {
+      "cell": "18,2",
+      "expected": "10/1"
+    },
+    {
+      "cell": "19,2",
+      "expected": "10/10"
+    },
+    {
+      "cell": "20,2",
+      "expected": "10/10"
+    }
+  ],
+  "wrong_or_uncertain_cells": [
+    {
+      "cell": "1,1",
+      "expected": "10/5",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/12",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "2,1",
+      "expected": "10/3",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/12",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "3,1",
+      "expected": "9/30",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/14",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "4,1",
+      "expected": "9/28",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/14",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "5,1",
+      "expected": "9/26",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/14",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "6,1",
+      "expected": "9/26",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/18",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "7,1",
+      "expected": "9/15",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/19",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "8,1",
+      "expected": "9/25",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/19",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "9,1",
+      "expected": "9/23",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/21",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "10,1",
+      "expected": "9/23",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/21",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "11,1",
+      "expected": "9/21",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/23",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "12,1",
+      "expected": "9/21",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/23",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "13,1",
+      "expected": "9/19",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/25",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "14,1",
+      "expected": "9/19",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/25",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "15,1",
+      "expected": "9/18",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/26",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "16,1",
+      "expected": "9/16",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/26",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "17,1",
+      "expected": "9/14",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/28",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "18,1",
+      "expected": "9/14",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/28",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "19,1",
+      "expected": "9/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/9",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    },
+    {
+      "cell": "20,1",
+      "expected": "9/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/9",
+      "candidate_dates": [],
+      "exact": false,
+      "reason": "Handwritten date recognized clearly."
+    }
+  ]
+}

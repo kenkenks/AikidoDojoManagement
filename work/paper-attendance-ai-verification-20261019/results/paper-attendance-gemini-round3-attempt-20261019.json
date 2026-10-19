@@ -1,0 +1,53 @@
+{
+  "experiment": {
+    "date": "2026-10-19",
+    "round": 3,
+    "project": "dojo-management-dev",
+    "location": "global",
+    "model": "gemini-2.5-flash",
+    "api_attempts": 1,
+    "completed_analyses": 0,
+    "status": "failed_before_model_result",
+    "http_status": 429,
+    "error": "RESOURCE_EXHAUSTED",
+    "billed": false
+  },
+  "retained_from_round2": {
+    "target_area": "central-left 20x20 attendance grid only",
+    "privacy_exclusions": ["member name", "rank", "acquisition date", "examination requirement table"],
+    "coordinates": ["row is the printed number", "top row=20", "bottom row=1", "columns left-to-right 1..20"],
+    "business_rules": [
+      "one cell equals one one-hour attendance",
+      "duplicate dates remain separate",
+      "entries normally progress bottom-to-top within a column",
+      "after a column fills, entries continue from the bottom of the next column",
+      "dates normally progress from past to future",
+      "same-date consecutive entries are allowed",
+      "month boundaries and entry-order exceptions are allowed"
+    ],
+    "uncertainty_rules": [
+      "image evidence takes priority over sequence",
+      "do not invent attendance or dates",
+      "ambiguous, invalid, or sequence-conflicting readings require review",
+      "confidence is not an acceptance criterion",
+      "lines, shadows, folds, and stains alone are blank"
+    ]
+  },
+  "added_in_round3": {
+    "separate_visual_from_inference": true,
+    "visual_reading_rule": "transcribe image first and never rewrite it to fit chronology",
+    "neighbor_analysis": "use previous and next entries only to propose candidates",
+    "invalid_date_rule": "invalid dates such as 10/0 must be needs_review",
+    "output_fields": ["row", "col", "visual_reading", "candidate_dates", "reason", "unclear_parts", "needs_review", "sequence_assessment"],
+    "confidence_removed": true,
+    "program_review": "independent validation of date validity and chronology after model output"
+  },
+  "information_not_given_to_model": {
+    "ground_truth_dates": true,
+    "concrete_example_answer_sequence": true,
+    "dojo_schedule": true,
+    "dojo_schedule_reason": "No repository evidence identified this sheet with a specific dojo and weekday."
+  },
+  "evaluation": null,
+  "note": "No model result was returned. No accuracy comparison is possible without another explicitly approved API attempt."
+}

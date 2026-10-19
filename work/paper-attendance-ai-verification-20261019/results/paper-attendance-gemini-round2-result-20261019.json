@@ -1,0 +1,808 @@
+{
+  "experiment": {
+    "date": "2026-10-19",
+    "round": 2,
+    "project": "dojo-management-dev",
+    "location": "global",
+    "model": "gemini-2.5-flash",
+    "requests": 1,
+    "image_bytes": 3884233,
+    "elapsed_ms": 12606,
+    "coordinate_contract": "printed row number: top=20, bottom=1; column left-to-right=1..20"
+  },
+  "prompt_conditions": {
+    "target_area": "central-left 20x20 attendance grid only",
+    "privacy_exclusions": [
+      "member name",
+      "rank",
+      "acquisition date",
+      "examination requirement table"
+    ],
+    "coordinates": [
+      "printed_row is the number printed at the left edge",
+      "top printed_row=20",
+      "bottom printed_row=1",
+      "columns are left-to-right 1..20"
+    ],
+    "business_rules": [
+      "one cell equals one one-hour practice attendance",
+      "duplicate dates in separate cells remain separate",
+      "entries normally progress bottom-to-top within a column",
+      "after a column fills, entries continue from the bottom of the next column",
+      "dates normally progress from past to future",
+      "same-date consecutive entries are allowed for two practice slots",
+      "month boundaries are allowed",
+      "actual entry order can have exceptions"
+    ],
+    "uncertainty_rules": [
+      "image evidence takes priority over sequence",
+      "do not invent attendance or dates",
+      "ambiguous, invalid, or sequence-conflicting readings must be review",
+      "review cells use empty date plus candidates and reason",
+      "confidence is not an acceptance criterion",
+      "lines, shadows, folds, and stains alone are blank"
+    ],
+    "schedule_reference": {
+      "used": false,
+      "reason": "The repository did not provide evidence that identifies this sheet with a specific dojo and weekday; no schedule was invented."
+    },
+    "ground_truth_leakage": {
+      "used_in_prompt": false,
+      "reason": "Concrete correct date sequences were excluded so recognition accuracy could be evaluated."
+    }
+  },
+  "usage": {
+    "promptTokenCount": 3903,
+    "candidatesTokenCount": 1612,
+    "totalTokenCount": 5515,
+    "trafficType": "ON_DEMAND",
+    "promptTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 549
+      },
+      {
+        "modality": "IMAGE",
+        "tokenCount": 3354
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 1612
+      }
+    ]
+  },
+  "model_result": {
+    "grid": {
+      "rows": 20,
+      "columns": 20,
+      "printed_row_top": 20,
+      "printed_row_bottom": 1,
+      "column_direction": "bottom_to_top"
+    },
+    "suspected_cells": [
+      {
+        "printed_row": 20,
+        "column": 1,
+        "status": "recognized",
+        "date": "10/5",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 19,
+        "column": 1,
+        "status": "recognized",
+        "date": "10/3",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 18,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/28",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 17,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/28",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 16,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/26",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 15,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/26",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 14,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/25",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 13,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/25",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 12,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/23",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 11,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/23",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 10,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/21",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 9,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/21",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 8,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/19",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 7,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/19",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 7,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/6",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 6,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/18",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 6,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/6",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 5,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/16",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 5,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/2",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 4,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/14",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 4,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/2",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 3,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/14",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 3,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/2",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 2,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/12",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 2,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/0",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 1,
+        "column": 1,
+        "status": "recognized",
+        "date": "9/12",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      },
+      {
+        "printed_row": 1,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/0",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "sequence_check": "ok"
+      }
+    ],
+    "notes": []
+  },
+  "metrics": {
+    "ground_truth_written": 27,
+    "ground_truth_blank": 373,
+    "detected_cells": 27,
+    "correct_written_detected": 27,
+    "missed_written": 0,
+    "false_positive_blank": 0,
+    "detection_recall": 1,
+    "date_exact": 18,
+    "date_exact_rate": 0.6666666666666666,
+    "invalid_recognized_dates": 2,
+    "review_cells": 0,
+    "human_correction_or_confirmation_cells": 9
+  },
+  "truth_details": [
+    {
+      "cell": "20,1",
+      "expected": "10/5",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/5",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "19,1",
+      "expected": "10/3",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/3",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "18,1",
+      "expected": "9/30",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/28",
+      "candidate_dates": [],
+      "exact": false,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "17,1",
+      "expected": "9/28",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/28",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "16,1",
+      "expected": "9/26",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/26",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "15,1",
+      "expected": "9/26",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/26",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "14,1",
+      "expected": "9/15",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/25",
+      "candidate_dates": [],
+      "exact": false,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "13,1",
+      "expected": "9/25",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/25",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "12,1",
+      "expected": "9/23",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/23",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "11,1",
+      "expected": "9/23",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/23",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "10,1",
+      "expected": "9/21",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/21",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "9,1",
+      "expected": "9/21",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/21",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "8,1",
+      "expected": "9/19",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/19",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "7,1",
+      "expected": "9/19",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/19",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "7,2",
+      "expected": "10/16",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/6",
+      "candidate_dates": [],
+      "exact": false,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "6,1",
+      "expected": "9/18",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/18",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "6,2",
+      "expected": "10/16",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/6",
+      "candidate_dates": [],
+      "exact": false,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "5,1",
+      "expected": "9/16",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/16",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "5,2",
+      "expected": "10/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/2",
+      "candidate_dates": [],
+      "exact": false,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "4,1",
+      "expected": "9/14",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/14",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "4,2",
+      "expected": "10/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/2",
+      "candidate_dates": [],
+      "exact": false,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "3,1",
+      "expected": "9/14",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/14",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "3,2",
+      "expected": "10/1",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/2",
+      "candidate_dates": [],
+      "exact": false,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "2,1",
+      "expected": "9/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/12",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "2,2",
+      "expected": "10/10",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/0",
+      "candidate_dates": [],
+      "exact": false,
+      "valid_date": false,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "1,1",
+      "expected": "9/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "9/12",
+      "candidate_dates": [],
+      "exact": true,
+      "valid_date": true,
+      "reason": "",
+      "sequence_check": "ok"
+    },
+    {
+      "cell": "1,2",
+      "expected": "10/10",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/0",
+      "candidate_dates": [],
+      "exact": false,
+      "valid_date": false,
+      "reason": "",
+      "sequence_check": "ok"
+    }
+  ],
+  "missed_cells": [],
+  "false_positive_cells": [],
+  "invalid_date_cells": [
+    {
+      "cell": "2,2",
+      "date": "10/0"
+    },
+    {
+      "cell": "1,2",
+      "date": "10/0"
+    }
+  ],
+  "previous_12_error_comparison": [
+    {
+      "cell": "20,1",
+      "expected": "10/5",
+      "before": "10/9",
+      "after": "10/5",
+      "status": "recognized",
+      "change": "improved"
+    },
+    {
+      "cell": "19,1",
+      "expected": "10/3",
+      "before": "10/9",
+      "after": "10/3",
+      "status": "recognized",
+      "change": "improved"
+    },
+    {
+      "cell": "18,1",
+      "expected": "9/30",
+      "before": "9/28",
+      "after": "9/28",
+      "status": "recognized",
+      "change": "unchanged"
+    },
+    {
+      "cell": "14,1",
+      "expected": "9/15",
+      "before": "9/25",
+      "after": "9/25",
+      "status": "recognized",
+      "change": "unchanged"
+    },
+    {
+      "cell": "7,2",
+      "expected": "10/16",
+      "before": "10/6",
+      "after": "10/6",
+      "status": "recognized",
+      "change": "unchanged"
+    },
+    {
+      "cell": "6,2",
+      "expected": "10/16",
+      "before": "10/6",
+      "after": "10/6",
+      "status": "recognized",
+      "change": "unchanged"
+    },
+    {
+      "cell": "5,1",
+      "expected": "9/16",
+      "before": "9/14",
+      "after": "9/16",
+      "status": "recognized",
+      "change": "improved"
+    },
+    {
+      "cell": "5,2",
+      "expected": "10/12",
+      "before": "10/2",
+      "after": "10/2",
+      "status": "recognized",
+      "change": "unchanged"
+    },
+    {
+      "cell": "4,2",
+      "expected": "10/12",
+      "before": "10/2",
+      "after": "10/2",
+      "status": "recognized",
+      "change": "unchanged"
+    },
+    {
+      "cell": "3,2",
+      "expected": "10/1",
+      "before": "10/2",
+      "after": "10/2",
+      "status": "recognized",
+      "change": "unchanged"
+    },
+    {
+      "cell": "2,2",
+      "expected": "10/10",
+      "before": "10/0",
+      "after": "10/0",
+      "status": "recognized",
+      "change": "unchanged"
+    },
+    {
+      "cell": "1,2",
+      "expected": "10/10",
+      "before": "10/0",
+      "after": "10/0",
+      "status": "recognized",
+      "change": "unchanged"
+    }
+  ]
+}

@@ -1,0 +1,227 @@
+{
+  "experiment": {
+    "date": "2026-10-19",
+    "round": 5,
+    "project": "dojo-management-dev",
+    "location": "global",
+    "model": "gemini-2.5-flash",
+    "requests": 1,
+    "image_bytes": 889164,
+    "elapsed_ms": 21958,
+    "target": "printed rows 1-7, column 2, enlarged crops"
+  },
+  "prompt_conditions": {
+    "baseline": "Round 2 recognition and uncertainty rules adapted to seven labeled crops",
+    "added_knowledge": [
+      "consider a thin vertical stroke immediately after the slash as a possible tens digit 1",
+      "slash and 1 may be separate even when close",
+      "do not force all days to two digits",
+      "use character shape and sequence, and keep multiple candidates when ambiguous"
+    ],
+    "ground_truth_leakage": {
+      "used_in_prompt": false
+    }
+  },
+  "usage": {
+    "promptTokenCount": 1749,
+    "candidatesTokenCount": 700,
+    "totalTokenCount": 2449,
+    "trafficType": "ON_DEMAND",
+    "promptTokensDetails": [
+      {
+        "modality": "IMAGE",
+        "tokenCount": 1290
+      },
+      {
+        "modality": "TEXT",
+        "tokenCount": 459
+      }
+    ],
+    "candidatesTokensDetails": [
+      {
+        "modality": "TEXT",
+        "tokenCount": 700
+      }
+    ]
+  },
+  "model_result": {
+    "cells": [
+      {
+        "printed_row": 1,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/10",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "shape_observation": "The '10' for the month is clear. The day '10' is also clear, with the slash separating them.",
+        "sequence_check": "Consistent with the following date."
+      },
+      {
+        "printed_row": 2,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/10",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "shape_observation": "The '10' for the month is clear. The day '10' is also clear, with the slash separating them.",
+        "sequence_check": "Consistent with the previous and following dates."
+      },
+      {
+        "printed_row": 3,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/12",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "shape_observation": "The '10' for the month is clear. The day '12' is also clear, with the slash separating them.",
+        "sequence_check": "Consistent with the previous and following dates."
+      },
+      {
+        "printed_row": 4,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/12",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "shape_observation": "The '10' for the month is clear. The day '12' is also clear, with the slash separating them.",
+        "sequence_check": "Consistent with the previous and following dates."
+      },
+      {
+        "printed_row": 5,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/12",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "shape_observation": "The '10' for the month is clear. The day '12' is also clear, with the slash separating them.",
+        "sequence_check": "Consistent with the previous and following dates."
+      },
+      {
+        "printed_row": 6,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/16",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "shape_observation": "The '10' for the month is clear. The day '16' is also clear, with the slash separating them.",
+        "sequence_check": "Consistent with the previous and following dates."
+      },
+      {
+        "printed_row": 7,
+        "column": 2,
+        "status": "recognized",
+        "date": "10/16",
+        "candidate_dates": [],
+        "confidence": 0.9,
+        "review_reason": "",
+        "shape_observation": "The '10' for the month is clear. The day '16' is also clear, with the slash separating them.",
+        "sequence_check": "Consistent with the previous date."
+      }
+    ],
+    "notes": [
+      "All dates are clearly written and follow a logical sequence. No ambiguities were found."
+    ]
+  },
+  "metrics": {
+    "target_cells": 7,
+    "detected_cells": 7,
+    "missed_cells": 0,
+    "date_exact": 6,
+    "date_exact_rate": 0.8571428571428571,
+    "review_cells": 0,
+    "human_correction_or_confirmation_cells": 1
+  },
+  "truth_details": [
+    {
+      "cell": "1,2",
+      "expected": "10/10",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/10",
+      "candidate_dates": [],
+      "exact": true,
+      "review_reason": "",
+      "shape_observation": "The '10' for the month is clear. The day '10' is also clear, with the slash separating them.",
+      "sequence_check": "Consistent with the following date."
+    },
+    {
+      "cell": "2,2",
+      "expected": "10/10",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/10",
+      "candidate_dates": [],
+      "exact": true,
+      "review_reason": "",
+      "shape_observation": "The '10' for the month is clear. The day '10' is also clear, with the slash separating them.",
+      "sequence_check": "Consistent with the previous and following dates."
+    },
+    {
+      "cell": "3,2",
+      "expected": "10/1",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/12",
+      "candidate_dates": [],
+      "exact": false,
+      "review_reason": "",
+      "shape_observation": "The '10' for the month is clear. The day '12' is also clear, with the slash separating them.",
+      "sequence_check": "Consistent with the previous and following dates."
+    },
+    {
+      "cell": "4,2",
+      "expected": "10/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/12",
+      "candidate_dates": [],
+      "exact": true,
+      "review_reason": "",
+      "shape_observation": "The '10' for the month is clear. The day '12' is also clear, with the slash separating them.",
+      "sequence_check": "Consistent with the previous and following dates."
+    },
+    {
+      "cell": "5,2",
+      "expected": "10/12",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/12",
+      "candidate_dates": [],
+      "exact": true,
+      "review_reason": "",
+      "shape_observation": "The '10' for the month is clear. The day '12' is also clear, with the slash separating them.",
+      "sequence_check": "Consistent with the previous and following dates."
+    },
+    {
+      "cell": "6,2",
+      "expected": "10/16",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/16",
+      "candidate_dates": [],
+      "exact": true,
+      "review_reason": "",
+      "shape_observation": "The '10' for the month is clear. The day '16' is also clear, with the slash separating them.",
+      "sequence_check": "Consistent with the previous and following dates."
+    },
+    {
+      "cell": "7,2",
+      "expected": "10/16",
+      "detected": true,
+      "status": "recognized",
+      "actual": "10/16",
+      "candidate_dates": [],
+      "exact": true,
+      "review_reason": "",
+      "shape_observation": "The '10' for the month is clear. The day '16' is also clear, with the slash separating them.",
+      "sequence_check": "Consistent with the previous date."
+    }
+  ],
+  "missed_cells": []
+}
