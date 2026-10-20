@@ -133,7 +133,9 @@ const recordPayPayCode=paypayCodeExecutor?((input,user)=>paypayCodeExecutor.reco
 })):null;
 
 const readAttendanceSavedState = createAttendanceSavedState({
-  memberDao,
+  // saved-state works with physical Firestore sources; the business DAO above
+  // expects a logical DAO name and therefore cannot be used at this boundary.
+  memberDao: { readById: (source, id) => memberCore.readById(source, id) },
   attendanceDao: { queryEqual: (source, filters) => memberCore.queryEqual(source, filters) }
 });
 

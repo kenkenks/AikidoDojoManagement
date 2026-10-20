@@ -18,6 +18,8 @@ test('Cloud Run deployment unit contains attendance module and resolves server i
   const serverPath = path.join(deployRoot, 'cloud', 'api', 'server.cjs');
   const server = fs.readFileSync(serverPath, 'utf8');
   assert.match(server, /require\(['"]\.\.\/attendance\/saved-state\.cjs['"]\)/);
+  assert.match(server, /memberDao:\s*\{\s*readById:\s*\(source, id\)\s*=>\s*memberCore\.readById\(source, id\)\s*\}/,
+    'saved-state must receive the physical Firestore DAO contract');
   assert.equal(typeof require(attendancePath).createAttendanceSavedState, 'function');
   const syntax = spawnSync(process.execPath, ['--check', serverPath], {encoding: 'utf8'});
   assert.equal(syntax.status, 0, syntax.stderr);
