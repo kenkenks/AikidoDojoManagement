@@ -20,14 +20,14 @@
   <h1>📷 紙の出席記録取込</h1>
   <section class="card login-state"><strong id="loginIdentity">先生セッションを確認中</strong><button id="authButton" type="button">管理者ログイン</button></section>
   <section class="card">
-    <h2>画像とOCR結果</h2>
+    <h2>画像とAI読み取り結果</h2>
     <p class="note">画像と認識結果はこの画面のメモリ内だけで扱います。Firestoreへの登録・送信は行いません。</p>
-    <div class="toolbar"><label>帳票画像 <input id="imageFile" type="file" accept="image/*"></label><label>最大辺 <input id="maxDimension" type="number" min="1200" max="4000" step="200" value="2400" style="width:90px">px</label><label>JPEG品質 <input id="jpegQuality" type="number" min="0.55" max="0.98" step="0.01" value="0.86" style="width:75px"></label><button id="runOcrButton" type="button" disabled>OCRを実行</button><button id="clearButton" type="button">画面をクリア</button></div>
+    <div class="toolbar"><label>帳票画像 <input id="imageFile" type="file" accept="image/*"></label><label>最大辺 <input id="maxDimension" type="number" min="1200" max="4000" step="200" value="2400" style="width:90px">px</label><label>JPEG品質 <input id="jpegQuality" type="number" min="0.55" max="0.98" step="0.01" value="0.86" style="width:75px"></label><button id="runOcrButton" type="button" disabled>AI読み取りを実行</button><button id="clearButton" type="button">画面をクリア</button></div>
     <details><summary>OCR JSONを貼り付ける</summary><textarea id="ocrText" rows="5" style="width:100%" placeholder="paper-attendance-ocr-prototype.cjs のJSON出力"></textarea><button id="applyOcrButton" type="button">認識結果を反映</button></details>
-    <div id="message" class="note">帳票画像とOCR結果を選択してください。</div>
+    <div id="message" class="note">帳票画像とAI読み取り結果を選択してください。</div>
   </section>
   <section class="card source-layout">
-    <div><h2>元画像・四隅補正</h2><div id="imageStage" class="image-stage"><img id="sheetImage" class="sheet-image" alt="選択した出席管理表"><svg id="cornerLayer" class="corner-layer hidden" viewBox="0 0 1000 1000" preserveAspectRatio="none"><polygon id="cornerPolygon"></polygon><circle data-corner="0" r="18"></circle><circle data-corner="1" r="18"></circle><circle data-corner="2" r="18"></circle><circle data-corner="3" r="18"></circle></svg></div><p class="note">赤い四隅を表の外周へ合わせると、OCR結果を再割付します。手動修正済みセルは保持されます。</p></div>
+    <div><h2>元画像・四隅補正</h2><div id="imageStage" class="image-stage"><img id="sheetImage" class="sheet-image" alt="選択した出席管理表"><svg id="cornerLayer" class="corner-layer hidden" viewBox="0 0 1000 1000" preserveAspectRatio="none"><polygon id="cornerPolygon"></polygon><circle data-corner="0" r="18"></circle><circle data-corner="1" r="18"></circle><circle data-corner="2" r="18"></circle><circle data-corner="3" r="18"></circle></svg></div><p class="note">赤い四隅を表の外周へ合わせると、画像差分のセル判定を再計算します。AI結果と手動修正済みセルは保持されます。</p></div>
     <div><h2>確認状況</h2><p id="progress"></p><div class="legend"><span class="recognized">認識済み</span><span class="detected">日付不明</span><span class="review">読み取り注意</span><span class="empty">空白</span></div><p class="toolbar"><button id="nextReviewButton" type="button">次の未確認マスへ</button><button id="confirmBlankButton" type="button">空白セルを一括確認</button></p><p class="note">日付は同じ値でもセルごとに保持します。</p></div>
   </section>
   <section class="card"><h2>20×20 認識結果</h2><div class="cell-grid-wrap"><div id="cellGrid" class="cell-grid"></div></div></section>

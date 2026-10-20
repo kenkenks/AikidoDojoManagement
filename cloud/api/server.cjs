@@ -23,7 +23,7 @@ const { createQrGeneratorOptions } = require('../qr/generator-options.cjs');
 const { createAttendanceRankOptions } = require('../attendance/rank-options.cjs');
 const { createSessionMasterReader } = require('../attendance/session-masters.cjs');
 const {createTeacherTodayReader}=require('../attendance/teacher-today-firestore.cjs');
-const {createPaperOcrDocumentAi}=require('../attendance/paper-ocr-document-ai.cjs');
+const {createPaperOcrGemini}=require('../attendance/paper-ocr-gemini.cjs');
 const { createSystemSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createFirestoreMemberAttendanceState } = require('../attendance/member-state-firestore.cjs');
@@ -101,8 +101,8 @@ const paymentCashExecutor=createPaymentCashAcceptFirestoreExecutor(getFirestore(
 });
 const paymentCashCommand=createPaymentCashAcceptCommand({executeAtomic:paymentCashExecutor});
 const paperOcrConfig=profile.paperAttendanceOcr||{};
-const readPaperAttendanceOcr=createPaperOcrDocumentAi({
-  processor:paperOcrConfig.processor,version:paperOcrConfig.version,
+const readPaperAttendanceOcr=createPaperOcrGemini({
+  project:paperOcrConfig.project,location:paperOcrConfig.location,model:paperOcrConfig.model,
   getAccessToken:async()=>(await credential.getAccessToken()).access_token
 });
 const paypayDevOnly=profile.mode==='development' && profile.projectId==='dojo-management-dev' && profile.confirmedDevelopmentProject==='dojo-management-dev';

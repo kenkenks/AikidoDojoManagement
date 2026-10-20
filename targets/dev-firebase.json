@@ -7,8 +7,9 @@
   "apiBaseUrl": "https://dojo-time-travel-admin-374758850136.asia-northeast1.run.app",
   "paperAttendanceOcr": {
     "apiBaseUrl": "https://candidate---dojo-time-travel-admin-q6ujypei6a-an.a.run.app",
-    "processor": "projects/374758850136/locations/asia-southeast1/processors/ddd2ebdc689bfb82",
-    "version": "pretrained-ocr-v2.1.1-2025-01-31"
+    "project": "dojo-management-dev",
+    "location": "global",
+    "model": "gemini-2.5-flash"
   },
   "firebaseWeb": {
     "apiKey": "AIzaSyCXPQYBV78lExcmyBP02YZoLp9KpeFR2Vs",
