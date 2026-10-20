@@ -21,7 +21,7 @@
   <section class="card login-state"><strong id="loginIdentity">先生セッションを確認中</strong><button id="authButton" type="button">管理者ログイン</button></section>
   <section class="card">
     <h2>画像とAI読み取り結果</h2>
-    <p class="note">画像と認識結果はこの画面のメモリ内だけで扱います。Firestoreへの登録・送信は行いません。</p>
+    <p class="note">画像と認識結果はこの画面のメモリ内だけで扱います。下部で先生が確定操作を行うまではFirestoreへ出席を送信しません。</p>
     <div class="toolbar"><label>帳票画像 <input id="imageFile" type="file" accept="image/*"></label><label>最大辺 <input id="maxDimension" type="number" min="1200" max="4000" step="200" value="2400" style="width:90px">px</label><label>JPEG品質 <input id="jpegQuality" type="number" min="0.55" max="0.98" step="0.01" value="0.86" style="width:75px"></label><button id="runOcrButton" type="button" disabled>AI読み取りを実行</button><button id="clearButton" type="button">画面をクリア</button></div>
     <details><summary>OCR JSONを貼り付ける</summary><textarea id="ocrText" rows="5" style="width:100%" placeholder="paper-attendance-ocr-prototype.cjs のJSON出力"></textarea><button id="applyOcrButton" type="button">認識結果を反映</button></details>
     <div id="message" class="note">帳票画像とAI読み取り結果を選択してください。</div>
@@ -36,6 +36,19 @@
     <div class="editor"><h2 id="cellTitle">セルを選択してください</h2><label>読み取り<input id="rawText" type="text" readonly></label><label>正しい日付<input id="dateValue" type="text" inputmode="numeric" placeholder="YYYY-MM-DD または M/D"></label><label><input id="confirmed" type="checkbox"> このセルを確認済みにする</label><div class="toolbar"><button id="saveCellButton" type="button">確定</button><button id="clearCellButton" type="button">空白にする</button><button id="nextReviewButtonDetail" type="button">次の未確認マスへ</button></div></div>
   </section>
   <section id="attendanceSummary" class="card hidden"><h2>日付別の出席回数</h2><table class="summary-table"><thead><tr><th>日付</th><th>稽古回数</th></tr></thead><tbody id="summaryBody"></tbody></table></section>
+  <section id="registrationPanel" class="card">
+    <h2>確認済み出席の登録</h2>
+    <p class="note">既存の出席登録処理へ1枠ずつ順番に送信します。既存出席は保持し、同じ日・同じ会員で既に同数以上ある記録は送信しません。紙取込では月次選択・請求・会費Viewを更新しません。</p>
+    <div class="toolbar">
+      <label>対象会員 <select id="registrationMember"><option value="">会員を選択</option></select></label>
+      <label>記録年 <input id="registrationYear" type="number" min="1900" max="2200" step="1" style="width:88px"></label>
+      <button id="prepareRegistrationButton" type="button" disabled>登録内容を確認</button>
+      <button id="executeRegistrationButton" type="button" disabled>確認済みデータを登録</button>
+    </div>
+    <div id="registrationScope" class="note">先生・道場・課金枠・稽古枠を確認中です。</div>
+    <div id="registrationPreview" class="note">会員を選択し、400セルの確認を完了してください。</div>
+    <div id="registrationResult" class="note"></div>
+  </section>
   <p class="note"><a id="teacherHomeLink" href="teacher_home.html">先生ホームへ戻る</a></p>
-  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script><script src="paper_attendance_review.js"></script>
+  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script><script src="attendance_firebase_read.js"></script><script src="paper_attendance_review.js"></script>
 </body></html>

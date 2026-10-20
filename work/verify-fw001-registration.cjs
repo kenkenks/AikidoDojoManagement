@@ -5,7 +5,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const {createHash}=require('node:crypto');
-const {createAttendanceCore}=require('../adapters/firestore/DAO_Core.js');
+const {createAttendanceCore,validateAttendanceInput}=require('../adapters/firestore/DAO_Core.js');
 const {createAttendanceRegistrationTarget}=require('../cloud/time-travel/target.cjs');
 const {createAttendanceSavedState}=require('../cloud/attendance/saved-state.cjs');
 const {createAdminApi}=require('../cloud/api/admin-api.cjs');
@@ -91,6 +91,27 @@ test('repeat batch retains slots and does not duplicate attendance or billing',a
   assert.equal(result.registered_count,0);assert.equal(result.retained_count,1);
   assert.equal(rows(db,'attendances').length,1);assert.equal(rows(db,'invoices').length,1);
 });
+test('authorized paper import writes attendance only and derives historical target month',async()=>{
+  const data=seed();
+  data['monthly_selections/KEEP']={billing_group_id:'BG1',target_month:'2099-07',plan_id:'P1','状態':'有効'};
+  data['invoices/KEEP']={invoice_id:'KEEP',billing_group_id:'BG1',target_month:'2099-07','請求予定額':777};
+  data['payment_status_views/KEEP']={member_id:'M1',target_month:'2099-07','請求額':777};
+  const db=memoryFirestore(data),core=createAttendanceCore(db,{createRegistration:createAttendanceRegistrationTarget});
+  const before=db.records(),result=await core.register(input(['S1'],{attendance_date:'2098-06-15',source:'paper_attendance_review',skip_billing:true,paper_import_authorized:true}));
+  assert.equal(result.ok,true);assert.equal(result.billing_skipped,true);
+  const after=db.records(),attendance=rows(db,'attendances');
+  assert.equal(attendance.length,1);assert.equal(attendance[0].target_month,'2098-06');
+  for(const key of Object.keys(before).filter(key=>/^(monthly_selections|invoices|payments|paymentEvidences|payment_status_views)\//.test(key)))assert.deepEqual(after[key],before[key],key);
+  assert.equal(Object.keys(after).filter(key=>key.startsWith('monthly_selections/')).length,Object.keys(before).filter(key=>key.startsWith('monthly_selections/')).length);
+  assert.equal(Object.keys(after).filter(key=>key.startsWith('invoices/')).length,Object.keys(before).filter(key=>key.startsWith('invoices/')).length);
+  assert.equal(Object.keys(after).filter(key=>key.startsWith('payment_status_views/')).length,Object.keys(before).filter(key=>key.startsWith('payment_status_views/')).length);
+});
+test('paper billing skip is rejected without trusted server authorization',async()=>{
+  const {db,core}=fixture(),before=db.records();
+  await assert.rejects(core.register(input(['S1'],{source:'paper_attendance_review',skip_billing:true})),/PAPER_ATTENDANCE_BILLING_SKIP_FORBIDDEN/);
+  assert.deepEqual(db.records(),before);
+  assert.throws(()=>validateAttendanceInput(input(['S1'],{source:'paper_attendance_review',skip_billing:true,paper_import_authorized:true})),/INVALID_ATTENDANCE_INPUT/);
+});
 test('clear, cancelled-state readback and re-registration follow the GAS core',async()=>{
   const {db,core}=fixture();await core.register(input());
   const result=await core.register(input([]));assert.equal(result.cancelled_count,1);
@@ -150,7 +171,9 @@ test('existing WebConnect dispatch authorizes every batch item before writing',a
   const dispatch=createDispatch(createAdminApi({verifyIdToken:async token=>({uid:token,admin:token==='admin'}),
     getTimeTravel:async()=>({}),saveTimeTravel:async()=>({}),getSystemContext:async()=>({}),
     readMember:async()=>null,readMembers:async()=>[],
+    readQrGeneratorOptions:async()=>({ok:true,members:[{member_id:'M1',member_name:'会員1',member_type:'一般'}],plans:[{plan_id:'SECRET'}],teachers:[{teacher_id:'SECRET'}]}),
     resolveDojoPrincipal:async user=>user.uid==='member'?{member_id:'M1'}:user.uid==='teacher'?{teacher_id:'T1'}:null,
+    isActiveTeacher:async id=>id==='T1',
     registerAttendanceBatch:async data=>{calls++;return core.register(data);}}));
   const send=(token,data)=>dispatch({action:'attendance_batch',input:data,context:{authorization:token&&'Bearer '+token}});
   assert.equal((await send(null,input())).status,401);
@@ -160,6 +183,13 @@ test('existing WebConnect dispatch authorizes every batch item before writing',a
   assert.equal((await send('member',input())).status,200);
   assert.equal((await send('teacher',input([],{teacher_id:'BAD'}))).status,403);
   assert.equal((await send('admin',input())).status,200);
-  assert.equal(rows(db,'attendances').length,1);
+  const paper=input(['S1'],{attendance_date:'2098-06-15',source:'paper_attendance_review',skip_billing:true});
+  assert.equal((await send('teacher',paper)).status,200);
+  assert.equal((await send('member',paper)).status,403);
+  const teacherOptions=await dispatch({action:'attendance_member_options',input:{action:'attendance_member_options'},method:'GET',context:{authorization:'Bearer teacher'}});
+  assert.equal(teacherOptions.status,200);assert.deepEqual(teacherOptions.body,{ok:true,members:[{member_id:'M1',member_name:'会員1'}]});
+  assert.equal((await dispatch({action:'attendance_member_options',input:{action:'attendance_member_options'},method:'GET',context:{authorization:'Bearer member'}})).status,403);
+  assert.equal((await dispatch({action:'qr_generator_options',input:{},method:'GET',context:{authorization:'Bearer teacher'}})).status,403);
+  assert.equal(rows(db,'attendances').length,2);
 });
 module.exports={memoryFirestore,seed,input};

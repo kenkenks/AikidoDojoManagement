@@ -14,11 +14,17 @@ const SOURCES = Object.freeze({members:'members',fees:'fees',planSelectionRules:
   paymentEvidences:definitions.paymentEvidence.sources.firestore.collection,paymentStatusView:'payment_status_views'});
 const MASTERS = {fees:'Fee',planSelectionRules:'PlanSelectionRule',teachers:'Teacher',
   locations:'Dojo',billingBlocks:'BillingBlock',trainingSlots:'TrainingSlot'};
-function validateAttendanceInput(input) {
+function validateAttendanceInput(input, options = {}) {
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
       !['teacher_id','location_id','billing_block_id'].every(key => ID.test(input[key] || '')) ||
       !Array.isArray(input.attendance_items) || input.attendance_items.length < 1 ||
       input.attendance_items.length > 50) throw new Error('INVALID_ATTENDANCE_INPUT');
+  if (input.skip_billing !== undefined && typeof input.skip_billing !== 'boolean')
+    throw new Error('INVALID_ATTENDANCE_INPUT');
+  if (input.skip_billing === true && input.source !== 'paper_attendance_review')
+    throw new Error('INVALID_ATTENDANCE_INPUT');
+  if (input.paper_import_authorized !== undefined && options.trusted !== true)
+    throw new Error('INVALID_ATTENDANCE_INPUT');
   if (input.attendance_date !== undefined && (typeof input.attendance_date !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}$/.test(input.attendance_date) ||
       !Number.isFinite(Date.parse(input.attendance_date+'T00:00:00Z')) ||
@@ -46,7 +52,10 @@ function createAttendanceCore(db, {createRegistration, clock = () => new Date(),
   if (!db || typeof db.runTransaction !== 'function' || typeof db.collection !== 'function' ||
       typeof createRegistration !== 'function') throw new Error('ATTENDANCE_TRANSACTION_REQUIRED');
   async function register(input) {
-    validateAttendanceInput(input);
+    validateAttendanceInput(input,{trusted:true});
+    const skipBilling=input.skip_billing===true;
+    if(skipBilling && (input.source!=='paper_attendance_review'||input.paper_import_authorized!==true))
+      throw new Error('PAPER_ATTENDANCE_BILLING_SKIP_FORBIDDEN');
     return db.runTransaction(async tx => {
       const tables = Object.fromEntries(Object.keys(SOURCES).map(name=>[name,[]]));
       const rowRefs = new WeakMap();
@@ -83,9 +92,9 @@ function createAttendanceCore(db, {createRegistration, clock = () => new Date(),
           ctx.settings[key]=value.value;
         }
       }
-      const month=time.targetMonth(ctx);
-      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('INVALID_TARGET_MONTH');
       const date=input.attendance_date || time.today(ctx);
+      const month=skipBilling?date.slice(0,7):time.targetMonth(ctx);
+      if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month)) throw new Error('INVALID_TARGET_MONTH');
       for (const table of Object.keys(MASTERS)) await query(table);
       for (const item of input.attendance_items) {
         const doc=await tx.get(ref('members',item.member_id));
@@ -95,17 +104,19 @@ function createAttendanceCore(db, {createRegistration, clock = () => new Date(),
         await query('attendances',[['member_id',item.member_id],['target_month',month]]);
         // Scope cancellation uses the requested date, including TimeTrip month overrides.
         await query('attendances',[['member_id',item.member_id],['稽古日',date]]);
-        const viewId='view_'+monthlySelectionDocumentId(item.member_id,month);
-        const viewRef=ref('paymentStatusView',viewId);
-        const view=await tx.get(viewRef);
-        if (view.exists) {
-          const value=add('paymentStatusView',view);
-          if (value.member_id !== item.member_id || value.target_month !== month)
-            throw new Error('ATTENDANCE_VIEW_IDENTITY_CONFLICT');
+        if(!skipBilling){
+          const viewId='view_'+monthlySelectionDocumentId(item.member_id,month);
+          const viewRef=ref('paymentStatusView',viewId);
+          const view=await tx.get(viewRef);
+          if (view.exists) {
+            const value=add('paymentStatusView',view);
+            if (value.member_id !== item.member_id || value.target_month !== month)
+              throw new Error('ATTENDANCE_VIEW_IDENTITY_CONFLICT');
+          }
+          viewRefs.set(month+'|'+item.member_id,{ref:viewRef,exists:view.exists});
         }
-        viewRefs.set(month+'|'+item.member_id,{ref:viewRef,exists:view.exists});
       }
-      const groups=[...new Set(tables.members.map(row=>row.billing_group_id).filter(Boolean))];
+      const groups=skipBilling?[]:[...new Set(tables.members.map(row=>row.billing_group_id).filter(Boolean))];
       for (const group of groups) {
         if (!ID.test(group)) throw new Error('INVALID_BILLING_GROUP_ID');
         const selectionId=monthlySelectionDocumentId(group,month);
@@ -121,7 +132,7 @@ function createAttendanceCore(db, {createRegistration, clock = () => new Date(),
         await query('payments',[['billing_group_id',group],['target_month',month]]);
         await query('paymentEvidences',[['billing_group_id',group]]);
       }
-      for (const item of input.attendance_items) await query('paymentEvidences',[['member_id',item.member_id]]);
+      if(!skipBilling)for (const item of input.attendance_items) await query('paymentEvidences',[['member_id',item.member_id]]);
       function serialize(value) {
         if (value instanceof Date) return value.toISOString();
         if (typeof value==='string' || typeof value==='boolean' || (typeof value==='number' && Number.isFinite(value))) return value;
@@ -192,6 +203,8 @@ function createAttendanceCore(db, {createRegistration, clock = () => new Date(),
       if (result?.ok !== true || result.results?.some(row=>row.errors?.length)) {
         return {...result,ok:false};
       }
+      if(skipBilling&&[...pending.keys()].some(path=>!path.startsWith(SOURCES.attendances+'/')))
+        throw new Error('PAPER_ATTENDANCE_NON_ATTENDANCE_WRITE');
       for (const write of pending.values()) {
         if (write.create) tx.create(write.ref,write.fields);
         else tx.set(write.ref,write.fields,{merge:true});

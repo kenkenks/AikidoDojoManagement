@@ -19,6 +19,7 @@ var WebConnectCore = (function () {
     if (action === 'member_management_group_save') return { operation: 'memberManagement.groupSave', input: input || {} };
     if (action === 'member_management_withdraw') return { operation: 'memberManagement.withdraw', input: input || {} };
     if (action === 'attendance_session_info') return { operation: 'attendance.sessionInfo', input: input || {} };
+    if (action === 'attendance_member_options') return { operation: 'attendance.memberOptions', input: input || {} };
     if (action === 'teacher_attendance_today') return { operation: 'attendance.teacherToday', input: input || {} };
     if (action === 'attendance_rank_options') return { operation: 'attendance.rankOptions', input: input || {} };
     if (action === 'member_attendance_state') return { operation: 'attendance.memberState', input: input || {} };
@@ -43,6 +44,7 @@ var WebConnectCore = (function () {
     // Attendance contract: routing only. Backend handlers must implement each operation.
     var attendanceReads = {
       attendance_session_info: 'attendance.sessionInfo',
+      attendance_member_options: 'attendance.memberOptions',
       member_attendance_state: 'attendance.memberState',
       attendance_saved_state: 'attendance.savedState',
       teacher_attendance_today: 'attendance.teacherToday',

@@ -317,13 +317,19 @@ function registerAttendanceBatchLocked_(data, ctx) {
   const teacherId = normalizeId_(data.teacher_id);
   const locationId = normalizeId_(data.location_id);
   const billingBlockId = normalizeId_(data.billing_block_id);
+  const skipBilling = data.skip_billing === true;
+  const paperImportAuthorized = data.paper_import_authorized === true &&
+    String(data.source || "") === "paper_attendance_review";
+  if (skipBilling && !paperImportAuthorized) {
+    return { ok: false, message: "紙取込の請求スキップ権限を確認できません。" };
+  }
 
   // 04_月次選択の正規確定点を出席登録へ置く。
   // 既存の同一planは billingMonthlyAccept() が冪等にSKIPする。
   // slot_ids が空の項目は出席取消・同期解除なので、新しい月次選択は作らない。
   const billingResults = [];
   const attendanceItems = Array.isArray(data.attendance_items) ? data.attendance_items : [];
-  for (let i = 0; i < attendanceItems.length; i++) {
+  for (let i = 0; !skipBilling && i < attendanceItems.length; i++) {
     const item = attendanceItems[i] || {};
     const slotIds = Array.isArray(item.slot_ids) ? item.slot_ids.filter(Boolean) : [];
     if (slotIds.length === 0) continue;
@@ -373,12 +379,15 @@ function registerAttendanceBatchLocked_(data, ctx) {
     location_id: locationId,
     billing_block_id: billingBlockId,
     attendance_date: data.attendance_date,
+    target_month: skipBilling && /^\d{4}-\d{2}-\d{2}$/.test(String(data.attendance_date || ""))
+      ? String(data.attendance_date).slice(0, 7) : undefined,
     attendance_session_id: data.attendance_session_id,
     attendance_items: data.attendance_items,
     source: data.source || ATTENDANCE_SOURCE_QR,
     require_teacher: true,
     initial_status: "有効",
     sync_unselected: true,
+    skip_payment_view: skipBilling,
     allow_duplicate_members: false,
     remarks: "",
     cancel_reason: "出席確認画面との同期による選択解除",
@@ -387,12 +396,13 @@ function registerAttendanceBatchLocked_(data, ctx) {
 
   if (result && result.ok) {
     result.billing_selections = billingResults;
+    result.billing_skipped = skipBilling;
 
     // 出席登録後の確定した07を根拠に、回数料金の累積請求を同期する。
     // 04が既存P002でSKIPされても、都度課金はここで継続する。
     result.usage_billing = [];
     const syncedMembers = {};
-    attendanceItems.forEach(function(item) {
+    if (!skipBilling) attendanceItems.forEach(function(item) {
       const memberId = normalizeId_(item && item.member_id);
       const slotIds = Array.isArray(item && item.slot_ids) ? item.slot_ids.filter(Boolean) : [];
       if (!memberId || slotIds.length === 0 || syncedMembers[memberId]) return;
@@ -413,8 +423,10 @@ function registerAttendanceBatchLocked_(data, ctx) {
       };
     }
 
-    result.rank_updates = attendanceProgress_updateSelfDeclaredRanks_(data.attendance_items, ctx);
-    result.post_event = attendance_postEvent(result, data, ctx);
+    if (!skipBilling) {
+      result.rank_updates = attendanceProgress_updateSelfDeclaredRanks_(data.attendance_items, ctx);
+      result.post_event = attendance_postEvent(result, data, ctx);
+    }
   }
   return result;
 }

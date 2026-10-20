@@ -57,6 +57,7 @@ function attendanceCore_registerBatch_(options, ctx) {
   const remarks = String(options.remarks || "");
   const syncUnselected = options.sync_unselected === true;
   const allowDuplicateMembers = options.allow_duplicate_members === true;
+  const skipPaymentView = options.skip_payment_view === true;
 
   if (requireTeacher) {
     if (!teacherId || !locationId || !billingBlockId) {
@@ -204,7 +205,7 @@ function attendanceCore_registerBatch_(options, ctx) {
 
   // 07へ保存した同じ出席事実を、その場で20 Read Modelへ投影する。
   // 取消対象も同時に渡し、View側の明細から除外する。
-  paymentStatusView_projectAttendances_(rowsToAppend, rowsToCancel, ctx);
+  if (!skipPaymentView) paymentStatusView_projectAttendances_(rowsToAppend, rowsToCancel, ctx);
 
   return {
     ok: true,

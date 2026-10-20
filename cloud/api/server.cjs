@@ -266,7 +266,7 @@ createServer(async (req, res) => {
         res.end(JSON.stringify({error:'INVALID_PAPER_OCR_ENVELOPE'}));return;
       }
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_rank_options', 'member_attendance_state', 'member_read','member_management_list', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary','payment_screen_read']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_member_options', 'attendance_rank_options', 'member_attendance_state', 'member_read','member_management_list', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary','payment_screen_read']);
       const postOnlyActions = new Set(['time_travel_set', 'members_read','member_management_save','member_management_group_save','member_management_withdraw', 'attendance_batch','payment_cash_accept','payment_paypay_post_selected','paypay_code_start','paypay_code_record','paper_attendance_ocr']);
       if ((req.method === 'GET' && postOnlyActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {

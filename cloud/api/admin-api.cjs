@@ -20,6 +20,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const operationInput = request.input || null;
     const systemContext = url === '/api/system/context' || operation === 'systemContext.read';
     const attendanceSession = operation === 'attendance.sessionInfo';
+    const attendanceMemberOptions = operation === 'attendance.memberOptions';
     const registration = operation === 'attendance.registerBatch';
     const memberState = operation === 'attendance.memberState';
     const progressSummary = operation === 'attendance.progressSummary';
@@ -44,7 +45,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberManagementWithdraw=operation==='memberManagement.withdraw';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!paperOcr&&!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!paperOcr&&!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !attendanceMemberOptions && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -164,16 +165,22 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
       // Authorize the whole batch before any DAO access or mutation.
       try { validateAttendanceInput(operationInput); }
       catch { return reply(400,{error:'INVALID_ATTENDANCE_INPUT'}); }
+      let principal=null;
       if (user.admin !== true) {
         if (typeof resolveDojoPrincipal !== 'function') return reply(403,{error:'FORBIDDEN'});
-        const principal = await resolveDojoPrincipal(user);
+        principal = await resolveDojoPrincipal(user);
         const ownMember = operationInput.attendance_items.every(item=>canAccessMember(principal,item.member_id));
         const ownTeacher = principal?.teacher_id && principal.teacher_id === operationInput.teacher_id;
         if (!ownMember && !ownTeacher) return reply(403,{error:'FORBIDDEN'});
       }
+      const paperSkip=operationInput.skip_billing===true;
+      if(paperSkip&&user.admin!==true){
+        if(!principal?.teacher_id||principal.teacher_id!==operationInput.teacher_id||typeof isActiveTeacher!=='function')return reply(403,{error:'FORBIDDEN'});
+        try{if(await isActiveTeacher(principal.teacher_id)!==true)return reply(403,{error:'FORBIDDEN'});}catch{return reply(403,{error:'FORBIDDEN'});}
+      }
       if (typeof registerAttendanceBatch !== 'function') return reply(503,{error:'ATTENDANCE_WRITE_UNAVAILABLE'});
       try {
-        const result = await registerAttendanceBatch(operationInput);
+        const result = await registerAttendanceBatch(paperSkip?{...operationInput,paper_import_authorized:true}:operationInput);
         return reply(result?.ok === true ? 200 : 400,result);
       } catch (error) {
         console.error('[ATTENDANCE_WRITE_ERROR]',{code:/^[A-Z][A-Z0-9_]{2,80}$/.test(error?.message || '') ? error.message : 'UNCLASSIFIED_EXCEPTION'});
@@ -183,13 +190,14 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     // Only a verified, server-resolved member can read their own saved attendance.
     // All other operations retain their existing admin-only boundary.
     if (user.admin !== true) {
-      if ((!progressSummary && !teacherToday && !attendance && !attendanceSession && !rankOptions && !memberState) || typeof resolveDojoPrincipal !== 'function') return reply(403, { error: 'FORBIDDEN' });
+      if ((!progressSummary && !teacherToday && !attendance && !attendanceSession && !attendanceMemberOptions && !rankOptions && !memberState) || typeof resolveDojoPrincipal !== 'function') return reply(403, { error: 'FORBIDDEN' });
       const principal = await resolveDojoPrincipal(user);
       let teacher=false;
       if(principal?.teacher_id && typeof isActiveTeacher==='function'){
         try{teacher=await isActiveTeacher(principal.teacher_id)===true;}catch{return reply(403,{error:'FORBIDDEN'});}
       }
       if(teacherToday&&!teacher)return reply(403,{error:'FORBIDDEN'});
+      if(attendanceMemberOptions&&!teacher)return reply(403,{error:'FORBIDDEN'});
       if (attendance || memberState || progressSummary) {
         const requestedMember = operation ? operationInput?.member_id : new URL(url, 'http://localhost').searchParams.get('member_id');
         if (!teacher&&!canAccessMember(principal, requestedMember)) return reply(403, { error: 'FORBIDDEN' });
@@ -252,6 +260,17 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
       if (typeof readQrGeneratorOptions !== 'function') return reply(503, { error: 'QR_OPTIONS_UNAVAILABLE' });
       try { return reply(200, await readQrGeneratorOptions()); }
       catch { return reply(503, { error: 'QR_OPTIONS_UNAVAILABLE' }); }
+    }
+    if (attendanceMemberOptions) {
+      if (operationInput && Object.keys(operationInput).some(key => key !== 'action')) return reply(400,{error:'INVALID_MEMBER_OPTIONS_PARAMS'});
+      if (typeof readQrGeneratorOptions !== 'function') return reply(503,{error:'MEMBER_OPTIONS_UNAVAILABLE'});
+      try {
+        const options=await readQrGeneratorOptions();
+        const members=Array.isArray(options?.members)?options.members.map(row=>({
+          member_id:String(row.member_id||''),member_name:String(row.member_name||'')
+        })).filter(row=>row.member_id):[];
+        return reply(200,{ok:true,members});
+      } catch { return reply(503,{error:'MEMBER_OPTIONS_UNAVAILABLE'}); }
     }
     if (attendanceSession) {
       if (typeof operationInput?.location_id !== 'string' || !operationInput.location_id ||

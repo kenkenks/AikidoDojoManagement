@@ -33,6 +33,7 @@ test('Cloud Run TimeTrip uses shared WebConnect route, preserves auth and legacy
 test('Attendance GET WebConnect contracts cover existing GAS actions', () => {
   const cases = {
     attendance_session_info:'attendance.sessionInfo',
+    attendance_member_options:'attendance.memberOptions',
     member_attendance_state:'attendance.memberState',
     attendance_saved_state:'attendance.savedState',
     teacher_attendance_today:'attendance.teacherToday',
