@@ -262,6 +262,9 @@ function renderFirebaseRuntimeConfig() {
     target: targetName,
     runtime: profile.runtime,
     apiBaseUrl: profile.apiBaseUrl,
+    paperAttendance: profile.paperAttendance?.apiBaseUrl
+      ? { apiBaseUrl: profile.paperAttendance.apiBaseUrl }
+      : undefined,
     paperAttendanceOcr: profile.paperAttendanceOcr?.apiBaseUrl
       ? { apiBaseUrl: profile.paperAttendanceOcr.apiBaseUrl }
       : undefined,

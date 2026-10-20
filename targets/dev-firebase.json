@@ -5,6 +5,9 @@
   "projectId": "dojo-management-dev",
   "confirmedDevelopmentProject": "dojo-management-dev",
   "apiBaseUrl": "https://dojo-time-travel-admin-374758850136.asia-northeast1.run.app",
+  "paperAttendance": {
+    "apiBaseUrl": "https://candidate---dojo-time-travel-admin-q6ujypei6a-an.a.run.app"
+  },
   "paperAttendanceOcr": {
     "apiBaseUrl": "https://candidate---dojo-time-travel-admin-q6ujypei6a-an.a.run.app",
     "project": "dojo-management-dev",

@@ -60,10 +60,18 @@ test('screen uses the existing normal attendance action and exposes preview/resu
   const js=fs.readFileSync(path.join(__dirname,'../web/qr/paper_attendance_review.js'),'utf8');
   for(const id of ['registrationMember','registrationYear','prepareRegistrationButton','executeRegistrationButton','registrationResult'])assert.match(html,new RegExp('id="'+id+'"'));
   assert.match(html,/attendance_firebase_read\.js/);
-  assert.match(js,/DOJO_RUNTIME_CONFIG\.apiBaseUrl/);
+  assert.match(js,/paperRuntimeConfig\(\)/);
   assert.match(js,/member_attendance_state/);
   assert.match(js,/attendance_member_options/);
+  assert.match(js,/paperAttendance\?\.apiBaseUrl/);
+  assert.match(js,/runtimeConfig=paperRuntimeConfig\(\)/);
   assert.doesNotMatch(js,/registrationRead\("qr_generator_options"\)/);
   assert.match(js,/DOJO_ATTENDANCE_FIREBASE_WRITE\.register/);
-  assert.doesNotMatch(js,/paperAttendanceOcr\?\.apiBaseUrl[^\n]+attendance_batch/);
+  assert.doesNotMatch(js,/runtimeConfig=root\.DOJO_RUNTIME_CONFIG/);
+});
+
+test('DEV target scopes every paper attendance request to the candidate without changing the shared API URL',()=>{
+  const target=JSON.parse(fs.readFileSync(path.join(__dirname,'../targets/dev-firebase.json'),'utf8'));
+  assert.equal(target.apiBaseUrl,'https://dojo-time-travel-admin-374758850136.asia-northeast1.run.app');
+  assert.equal(target.paperAttendance.apiBaseUrl,'https://candidate---dojo-time-travel-admin-q6ujypei6a-an.a.run.app');
 });
