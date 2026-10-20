@@ -63,6 +63,8 @@ test('screen uses the existing normal attendance action and exposes preview/resu
   assert.match(js,/paperRuntimeConfig\(\)/);
   assert.match(js,/member_attendance_state/);
   assert.match(js,/attendance_member_options/);
+  assert.match(js,/sessionInfo\.billing_block_id/);
+  assert.match(js,/requires_selection===true/);
   assert.match(js,/paperAttendance\?\.apiBaseUrl/);
   assert.match(js,/runtimeConfig=paperRuntimeConfig\(\)/);
   assert.doesNotMatch(js,/registrationRead\("qr_generator_options"\)/);
