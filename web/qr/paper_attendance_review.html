@@ -33,7 +33,7 @@
   <section class="card"><h2>20×20 認識結果</h2><div class="cell-grid-wrap"><div id="cellGrid" class="cell-grid"></div></div></section>
   <section class="card detail-grid">
     <div class="crop"><canvas id="cropCanvas" width="440" height="300"></canvas></div>
-    <div class="editor"><h2 id="cellTitle">セルを選択してください</h2><label>読み取り<input id="rawText" type="text" readonly></label><label>正しい日付<input id="dateValue" type="text" inputmode="numeric" placeholder="YYYY-MM-DD または M/D"></label><label><input id="confirmed" type="checkbox"> このセルを確認済みにする</label><div class="toolbar"><button id="saveCellButton" type="button">確定</button><button id="clearCellButton" type="button">空白にする</button><button id="nextReviewButtonDetail" type="button">次の未確認マスへ</button></div></div>
+    <div class="editor"><h2 id="cellTitle">セルを選択してください</h2><label>読み取り<input id="rawText" type="text" readonly></label><label>正しい日付<input id="dateValue" type="text" inputmode="numeric" placeholder="YYYY-MM-DD、M/D、またはMMDD"></label><label><input id="confirmed" type="checkbox"> このセルを確認済みにする</label><div class="toolbar"><button id="saveCellButton" type="button">確定</button><button id="clearCellButton" type="button">空白にする</button><button id="nextReviewButtonDetail" type="button">次の未確認マスへ</button></div></div>
   </section>
   <section id="attendanceSummary" class="card hidden"><h2>日付別の出席回数</h2><table class="summary-table"><thead><tr><th>日付</th><th>稽古回数</th></tr></thead><tbody id="summaryBody"></tbody></table></section>
   <section id="registrationPanel" class="card">
@@ -50,5 +50,5 @@
     <div id="registrationResult" class="note"></div>
   </section>
   <p class="note"><a id="teacherHomeLink" href="teacher_home.html">先生ホームへ戻る</a></p>
-  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script><script src="attendance_firebase_read.js"></script><script src="paper_attendance_review.js"></script>
+  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script><script src="attendance_firebase_read.js"></script><script src="paper_attendance_scope.js"></script><script src="paper_attendance_review.js"></script>
 </body></html>

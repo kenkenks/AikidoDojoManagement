@@ -4,12 +4,12 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
 const review=require('../web/qr/paper_attendance_review.js');
+const paper=require('../web/qr/paper_attendance_scope.js');
 
 const confirmedCells=(values=[])=>review.blankCells().map((cell,index)=>({
   ...cell,confirmed:true,date:values[index]||'',status:values[index]?'recognized':'empty'
 }));
-const scope={teacher_id:'T1',location_id:'L1',billing_block_id:'B1',attendance_session_id:'PAPER_L1_B1',
-  slots:[{slot_id:'S1'},{slot_id:'S2'}]};
+const scope={...paper.scope,teacher_id:'T1'};
 
 test('confirmed cells become stable one-record entries and preserve same-day duplicates',()=>{
   const records=review.buildRegistrationRecords(confirmedCells(['9/18','9/18','2026-09-20']),{memberId:'M1',year:2026});
@@ -25,6 +25,14 @@ test('unknown member, unconfirmed cells and invalid dates fail closed',()=>{
   assert.throws(()=>review.buildRegistrationRecords(confirmedCells(['2/30']),{memberId:'M1',year:2026}),/INVALID_ATTENDANCE_DATE/);
 });
 
+test('manual date accepts MMDD without weakening calendar validation',()=>{
+  assert.equal(review.normalizeDate('0918'),'9/18');
+  assert.equal(review.normalizeDate('１２３１'),'12/31');
+  assert.equal(review.fullDate('0918',2026),'2026-09-18');
+  assert.equal(review.fullDate('0230',2026),'');
+  assert.equal(review.normalizeDate('1331'),'');
+});
+
 test('sequential registration rereads state and adds one free slot without cancelling existing slots',async()=>{
   const records=review.buildRegistrationRecords(confirmedCells(['9/18','9/18']),{memberId:'M1',year:2026}),selected=[] ,writes=[];
   const result=await review.registerSequential({records,scope,successfulKeys:new Set(),
@@ -32,7 +40,7 @@ test('sequential registration rereads state and adds one free slot without cance
     register:async input=>{writes.push(input);selected.splice(0,selected.length,...input.attendance_items[0].slot_ids);return{ok:true};},
     requestId:record=>'REQ-'+record.cell_index});
   assert.equal(result.success,2);assert.equal(result.failed,0);
-  assert.deepEqual(writes.map(input=>input.attendance_items[0].slot_ids),[['S1'],['S1','S2']]);
+  assert.deepEqual(writes.map(input=>input.attendance_items[0].slot_ids),[['PAPER_UNKNOWN_SLOT_1'],['PAPER_UNKNOWN_SLOT_1','PAPER_UNKNOWN_SLOT_2']]);
   assert.ok(writes.every(input=>input.attendance_items.length===1&&input.source==='paper_attendance_review'));
   assert.ok(writes.every(input=>input.skip_billing===true&&input.attendance_items[0].plan_id===''));
 });
@@ -60,16 +68,30 @@ test('screen uses the existing normal attendance action and exposes preview/resu
   const js=fs.readFileSync(path.join(__dirname,'../web/qr/paper_attendance_review.js'),'utf8');
   for(const id of ['registrationMember','registrationYear','prepareRegistrationButton','executeRegistrationButton','registrationResult'])assert.match(html,new RegExp('id="'+id+'"'));
   assert.match(html,/attendance_firebase_read\.js/);
+  assert.match(html,/paper_attendance_scope\.js/);
   assert.match(js,/paperRuntimeConfig\(\)/);
-  assert.match(js,/member_attendance_state/);
+  assert.match(js,/attendance_saved_state/);
   assert.match(js,/attendance_member_options/);
-  assert.match(js,/sessionInfo\.billing_block_id/);
-  assert.match(js,/requires_selection===true/);
+  assert.doesNotMatch(js,/attendance_session_info/);
+  assert.doesNotMatch(js,/member_attendance_state/);
+  assert.match(js,/DOJO_PAPER_ATTENDANCE_SCOPE/);
   assert.match(js,/paperAttendance\?\.apiBaseUrl/);
   assert.match(js,/runtimeConfig=paperRuntimeConfig\(\)/);
   assert.doesNotMatch(js,/registrationRead\("qr_generator_options"\)/);
   assert.match(js,/DOJO_ATTENDANCE_FIREBASE_WRITE\.register/);
   assert.doesNotMatch(js,/runtimeConfig=root\.DOJO_RUNTIME_CONFIG/);
+});
+
+test('paper-only unknown masters preserve same-day occurrences without enabling billing',()=>{
+  assert.equal(paper.masters.dojo.location_id,paper.scope.location_id);
+  assert.equal(paper.masters.dojo.display_name,'道場不明');
+  assert.equal(paper.masters.billing_block.location_id,paper.scope.location_id);
+  assert.equal(paper.masters.billing_block.billing_block_id,paper.scope.billing_block_id);
+  assert.equal(paper.masters.billing_block.slots_per_charge,2);
+  assert.equal(paper.masters.training_slots.length,2);
+  assert.equal(new Set(paper.masters.training_slots.map(row=>row.slot_id)).size,2);
+  assert.ok(paper.masters.training_slots.every(row=>row.location_id===paper.scope.location_id&&row.billing_block_id===paper.scope.billing_block_id));
+  assert.ok(paper.masters.training_slots.every(row=>row.display_name==='稽古枠不明'&&row.billing_allowed===false&&row.status==='有効'));
 });
 
 test('DEV target scopes every paper attendance request to the candidate without changing the shared API URL',()=>{
