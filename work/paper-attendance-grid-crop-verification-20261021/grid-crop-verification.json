@@ -1,0 +1,101 @@
+{
+  "source_size": [
+    4284,
+    5712
+  ],
+  "detected_grid": {
+    "rows": 20,
+    "columns": 20,
+    "x_lines": [
+      295,
+      440,
+      587,
+      737,
+      888,
+      1040,
+      1189,
+      1337,
+      1485,
+      1632,
+      1779,
+      1925,
+      2070,
+      2212,
+      2354,
+      2499,
+      2642,
+      2786,
+      2931,
+      3084,
+      3232
+    ],
+    "y_lines": [
+      1598,
+      1705,
+      1811,
+      1916,
+      2022,
+      2128,
+      2233,
+      2338,
+      2444,
+      2550,
+      2656,
+      2765,
+      2873,
+      2973,
+      3079,
+      3186,
+      3293,
+      3399,
+      3507,
+      3616,
+      3725
+    ]
+  },
+  "corners": {
+    "TL": [
+      307,
+      1593
+    ],
+    "TR": [
+      3221,
+      1594
+    ],
+    "BR": [
+      3253,
+      3724
+    ],
+    "BL": [
+      295,
+      3719
+    ]
+  },
+  "spacing": {
+    "x_px": {
+      "min": 142,
+      "median": 147.0,
+      "max": 153
+    },
+    "y_px": {
+      "min": 100,
+      "median": 106.0,
+      "max": 109
+    }
+  },
+  "coarse_seed_to_refined_intersection": {
+    "x_mean_abs_px": 2.937,
+    "x_p95_abs_px": 14.0,
+    "x_max_abs_px": 24,
+    "y_mean_abs_px": 3.127,
+    "y_p95_abs_px": 6.0,
+    "y_max_abs_px": 6,
+    "note": "These are refinement corrections inside the detected grid, not final crop errors."
+  },
+  "conclusion": {
+    "outer_boundary": "matches the printed 20x20 grid",
+    "corner_order": "TL/TR/BR/BL verified",
+    "initial_crop_change_required": false,
+    "remaining_error_stage": "mesh normalization"
+  }
+}

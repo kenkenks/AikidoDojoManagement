@@ -1,0 +1,152 @@
+{
+  "alignment_before": {
+    "vertical": {
+      "samples": 420,
+      "mean_abs_px": 1.371,
+      "p95_abs_px": 12.0,
+      "max_abs_px": 22
+    },
+    "horizontal": {
+      "samples": 420,
+      "mean_abs_px": 0.417,
+      "p95_abs_px": 1.0,
+      "max_abs_px": 14
+    },
+    "combined": {
+      "samples": 840,
+      "mean_abs_px": 0.894,
+      "p95_abs_px": 4.0,
+      "max_abs_px": 22
+    },
+    "vertical_search_radius_px": 152,
+    "horizontal_search_radius_px": 15
+  },
+  "alignment_after": {
+    "vertical": {
+      "samples": 420,
+      "mean_abs_px": 0.45,
+      "p95_abs_px": 0.0,
+      "max_abs_px": 21
+    },
+    "horizontal": {
+      "samples": 420,
+      "mean_abs_px": 0.431,
+      "p95_abs_px": 1.0,
+      "max_abs_px": 14
+    },
+    "combined": {
+      "samples": 840,
+      "mean_abs_px": 0.44,
+      "p95_abs_px": 0.0,
+      "max_abs_px": 21
+    },
+    "vertical_search_radius_px": 152,
+    "horizontal_search_radius_px": 15
+  },
+  "screening_all_before": {
+    "candidate": 38,
+    "review": 8,
+    "blank": 354
+  },
+  "screening_all_after": {
+    "candidate": 33,
+    "review": 0,
+    "blank": 367
+  },
+  "known_written_27_status_before": {
+    "candidate": 27,
+    "review": 0,
+    "blank": 0
+  },
+  "known_written_27_status_after": {
+    "candidate": 27,
+    "review": 0,
+    "blank": 0
+  },
+  "requested_cards": [
+    {
+      "number": 361,
+      "before": {
+        "number": 361,
+        "printed_row": 2,
+        "column": 1,
+        "status": "candidate",
+        "ink_score": 8934,
+        "background_level": 115.0,
+        "file": "cards/card-361-row-02-col-01-candidate.png"
+      },
+      "after": {
+        "number": 361,
+        "printed_row": 2,
+        "column": 1,
+        "status": "candidate",
+        "ink_score": 8643,
+        "background_level": 117.0,
+        "file": "cards/card-361-row-02-col-01-candidate.png"
+      }
+    },
+    {
+      "number": 362,
+      "before": {
+        "number": 362,
+        "printed_row": 2,
+        "column": 2,
+        "status": "candidate",
+        "ink_score": 5608,
+        "background_level": 112.0,
+        "file": "cards/card-362-row-02-col-02-candidate.png"
+      },
+      "after": {
+        "number": 362,
+        "printed_row": 2,
+        "column": 2,
+        "status": "candidate",
+        "ink_score": 5329,
+        "background_level": 112.0,
+        "file": "cards/card-362-row-02-col-02-candidate.png"
+      }
+    },
+    {
+      "number": 381,
+      "before": {
+        "number": 381,
+        "printed_row": 1,
+        "column": 1,
+        "status": "candidate",
+        "ink_score": 8690,
+        "background_level": 118.0,
+        "file": "cards/card-381-row-01-col-01-candidate.png"
+      },
+      "after": {
+        "number": 381,
+        "printed_row": 1,
+        "column": 1,
+        "status": "candidate",
+        "ink_score": 7881,
+        "background_level": 118.0,
+        "file": "cards/card-381-row-01-col-01-candidate.png"
+      }
+    },
+    {
+      "number": 382,
+      "before": {
+        "number": 382,
+        "printed_row": 1,
+        "column": 2,
+        "status": "candidate",
+        "ink_score": 6444,
+        "background_level": 115.0,
+        "file": "cards/card-382-row-01-col-02-candidate.png"
+      },
+      "after": {
+        "number": 382,
+        "printed_row": 1,
+        "column": 2,
+        "status": "candidate",
+        "ink_score": 5849,
+        "background_level": 116.0,
+        "file": "cards/card-382-row-01-col-02-candidate.png"
+      }
+    }
+  ]
+}
