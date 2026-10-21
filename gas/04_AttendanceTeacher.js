@@ -89,6 +89,9 @@ function attendanceTeacherGetTodayOverview(params, ctx) {
       remaining_training_count: progress.remaining_training_count === null || progress.remaining_training_count === undefined
         ? null
         : Number(progress.remaining_training_count),
+      training_days: Number(progress.training_days || 0),
+      required_training_days: Number(progress.required_training_days || 0),
+      remaining_training_days: progress.remaining_training_days ?? null,
       examination_ready: progress.examination_ready === true,
       slot_ids: Object.keys(grouped[memberId].slot_ids),
       statuses: Object.keys(grouped[memberId].statuses)

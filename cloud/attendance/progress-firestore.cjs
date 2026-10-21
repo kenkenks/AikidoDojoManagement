@@ -44,12 +44,16 @@ function createFirestoreProgressReader(core) {
     const standardRow = matches[0] || {};
     const rankRow = rankMatches[0] || {};
     const rawCount = standardRow['必要稽古数'];
+    const rawDays = standardRow['必要稽古日数'];
     if (rawCount != null && clean(rawCount) !== '' && (!Number.isFinite(Number(rawCount)) || Number(rawCount) < 0))
       throw new Error('INVALID_PROGRESS_STANDARD');
+    if (rawDays != null && clean(rawDays) !== '' && (!Number.isFinite(Number(rawDays)) || Number(rawDays) < 0))
+      throw new Error('INVALID_PROGRESS_STANDARD_DAYS');
     const standard = {
       next_rank:clean(standardRow['次回審査級段位']),
       note:clean(standardRow['備考']),
       required_training_count:Math.floor(Number(rawCount || 0)),
+      required_training_days:Math.floor(Number(rawDays || 0)),
       progress_display_enabled: standardRow['進捗表示対象'] === true ||
         ['true','1','yes','有効','対象','○'].includes(clean(standardRow['進捗表示対象']).toLowerCase())
     };

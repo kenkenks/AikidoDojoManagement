@@ -17,7 +17,7 @@ function runGas(params, member, rows) {
     normalizeId_: value => String(value == null ? '' : value).trim(),
     parseAttendanceDate_: value => value,
     daoMemberGetAll_: () => member ? [{member_id:params.member_id,...member}] : [],
-    getActiveAttendanceRowsForScope: () => rows.filter(row => row['状態'] !== '取消'),
+    getActiveAttendanceRowsForScope: () => rows.filter(row => ['', '有効', '在籍', 'TRUE'].includes(String(row['状態'] == null ? '' : row['状態']).trim())),
     Array, Set, String
   };
   vm.runInNewContext(match[0] + '\nthis.run = getAttendanceSavedState;', context);
@@ -32,9 +32,9 @@ async function runFirebase(params, member, rows) {
 }
 const cases = [
   ['registered and duplicate slots', {status:'有効',current_rank:'一級'}, [
-    {slot_id:'S1','状態':'登録'}, {slot_id:'S1','状態':'登録'}, {slot_id:'S2','状態':'登録'}]],
+    {slot_id:'S1','状態':'有効'}, {slot_id:'S1','状態':'有効'}, {slot_id:'S2','状態':'有効'}]],
   ['cancelled rows excluded', {status:'在籍',current_rank:'二級'}, [
-    {slot_id:'S1','状態':'取消'}, {slot_id:'S2','状態':'登録'}]],
+    {slot_id:'S1','状態':'取消'}, {slot_id:'S2','状態':'有効'}]],
   ['no attendance', {status:'TRUE',current_rank:''}, []],
   ['inactive member', {status:'退会',current_rank:'一級'}, []],
   ['missing member', null, []]

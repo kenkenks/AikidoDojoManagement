@@ -15,6 +15,9 @@ fields:
   - name: 必要稽古数
     type: number
     group: Unclassified
+  - name: 必要稽古日数
+    type: number
+    group: Unclassified
   - name: 必要経過年数
     type: string
     group: Unclassified

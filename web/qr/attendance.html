@@ -468,6 +468,9 @@
         training_count: 0,
         required_training_count: 0,
         remaining_training_count: null,
+        training_days: 0,
+        required_training_days: 0,
+        remaining_training_days: null,
         examination_ready: false,
         slot_ids: [],
         billing_plan_id: "",
@@ -505,6 +508,9 @@
           candidate.remaining_training_count = data.remaining_training_count === null
             ? null
             : Number(data.remaining_training_count);
+          candidate.training_days = Number(data.training_days || 0);
+          candidate.required_training_days = Number(data.required_training_days || 0);
+          candidate.remaining_training_days = data.remaining_training_days ?? null;
           candidate.examination_ready = data.examination_ready === true;
           candidate.billing_plan_id = data.billing_plan_id || candidate.billing_plan_id || "";
           candidate.billing_plan_name = data.billing_plan_name || candidate.billing_plan_name || "";
@@ -642,6 +648,10 @@
           else if (candidate.remaining_training_count !== null && candidate.remaining_training_count <= 5) progress.classList.add("near");
         } else {
           progress.textContent = candidate.training_count + "回（審査基準未設定）";
+        }
+        if (!candidate.rank_changed && candidate.required_training_days > 0) {
+          progress.textContent += " ｜日数 " + candidate.training_days + "/" + candidate.required_training_days +
+            "日（あと" + candidate.remaining_training_days + "日）";
         }
         row.appendChild(progress);
 

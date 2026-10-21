@@ -24,6 +24,7 @@ function projectAttendanceProgress({member, attendanceRows, standard, rankOption
   const override = nonnegative(member.eligible_training_count);
   const standardCount = standard.progress_display_enabled === true ? nonnegative(standard.required_training_count) : 0;
   const required = override || standardCount;
+  const requiredDays = standard.progress_display_enabled === true ? nonnegative(standard.required_training_days) : 0;
   const keys = new Set(), dates = new Set();
   for (const row of attendanceRows) {
     if (!row || typeof row !== 'object') throw new Error('INVALID_PROGRESS_ATTENDANCE');
@@ -34,6 +35,9 @@ function projectAttendanceProgress({member, attendanceRows, standard, rankOption
     dates.add(d);
   }
   const recorded = keys.size, training = carried + recorded;
+  // Days are distinct attendance dates since rank_start_date. No carry-over days are assumed.
+  const trainingDays = dates.size;
+  const remainingDays = requiredDays > 0 ? Math.max(requiredDays - trainingDays, 0) : null;
   const remaining = required > 0 ? Math.max(required - training, 0) : null;
   return {ok:true, member_id:str(member.member_id), member_name:str(member.member_name),
     current_rank:str(member.current_rank), current_rank_id:str(rankOption.rank_id),
@@ -43,7 +47,9 @@ function projectAttendanceProgress({member, attendanceRows, standard, rankOption
     carried_training_count:carried, recorded_training_count:recorded, training_count:training,
     required_training_count:required,
     required_training_count_source:override > 0 ? '会員個別' : standardCount > 0 ? '審査基準マスタ' : '未設定',
-    remaining_training_count:remaining, examination_ready:required > 0 && remaining === 0,
+    remaining_training_count:remaining, training_days:trainingDays,
+    required_training_days:requiredDays, remaining_training_days:remainingDays,
+    examination_ready:required > 0 && remaining === 0 && (requiredDays === 0 || remainingDays === 0),
     recent_attendance_dates:[...dates].sort().slice(-5).reverse()};
 }
 module.exports = {projectAttendanceProgress};

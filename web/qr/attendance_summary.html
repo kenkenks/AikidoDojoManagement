@@ -35,6 +35,10 @@
     </div>
     <div id="progressLine" class="summary-progress">0回（審査基準未設定）</div>
     <div class="progress-bar"><span id="progressBar" style="width:0%"></span></div>
+    <div id="daysProgress" hidden>
+      <div id="daysProgressLine" class="summary-progress"></div>
+      <div class="progress-bar"><span id="daysProgressBar" style="width:0%"></span></div>
+    </div>
     <p id="progressMessage"></p>
     <h3>直近の出席日</h3>
     <ul id="recentDates"></ul>
@@ -109,10 +113,10 @@
       const progressLine = document.getElementById("progressLine");
       if (data.required_training_count > 0) {
         const target = data.next_rank || "次回審査";
-        progressLine.textContent = data.training_count + "/" + data.required_training_count +
+        progressLine.textContent = "稽古時間（枠） " + data.training_count + "H / " + data.required_training_count + "H" +
           (data.examination_ready
             ? "（" + target + "の必要稽古数到達・先生確認）"
-            : "（" + target + "まであと " + data.remaining_training_count + "回）");
+            : "（" + target + "まであと " + data.remaining_training_count + "H）");
         progressLine.className = "summary-progress " + (data.examination_ready ? "ready" : (data.remaining_training_count <= 5 ? "near" : ""));
         const percent = Math.min(100, Math.round(data.training_count * 100 / data.required_training_count));
         document.getElementById("progressBar").style.width = percent + "%";
@@ -122,6 +126,17 @@
         progressLine.className = "summary-progress";
         document.getElementById("progressBar").style.width = "0%";
         document.getElementById("progressMessage").textContent = "審査基準は確認後に設定します。";
+      }
+      const days = document.getElementById("daysProgress");
+      const requiredDays = Number(data.required_training_days || 0);
+      days.hidden = requiredDays <= 0;
+      if (requiredDays > 0) {
+        const actualDays = Number(data.training_days || 0);
+        document.getElementById("daysProgressLine").textContent =
+          "稽古日数 " + actualDays + " / " + requiredDays + "日（あと" +
+          Math.max(requiredDays - actualDays, 0) + "日）";
+        document.getElementById("daysProgressBar").style.width =
+          Math.min(100, Math.round(actualDays * 100 / requiredDays)) + "%";
       }
       const list = document.getElementById("recentDates");
       list.innerHTML = "";

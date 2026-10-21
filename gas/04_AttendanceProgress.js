@@ -49,6 +49,8 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       ? attendanceProgress_toNonNegativeNumber_(standard.required_training_count)
       : 0;
     const requiredCount = overrideCount || standardCount;
+    const requiredDays = standard.progress_display_enabled
+      ? attendanceProgress_toNonNegativeNumber_(standard.required_training_days) : 0;
     states[memberId] = {
       member: member,
       standard: standard,
@@ -56,6 +58,7 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       start_date: attendanceProgress_normalizeOptionalDate_(member.rank_start_date, ctx),
       carried_count: attendanceProgress_toNonNegativeNumber_(member.carried_training_count),
       required_count: requiredCount,
+      required_days: requiredDays,
       required_count_source: overrideCount > 0 ? "会員個別" : (standardCount > 0 ? "審査基準マスタ" : "未設定"),
       attendance_keys: {},
       attendance_dates: {}
@@ -81,6 +84,8 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
     const attendanceDates = Object.keys(state.attendance_dates).sort();
     const recordedCount = Object.keys(state.attendance_keys).length;
     const trainingCount = state.carried_count + recordedCount;
+    const trainingDays = attendanceDates.length;
+    const remainingDays = state.required_days > 0 ? Math.max(state.required_days - trainingDays, 0) : null;
     const remainingCount = state.required_count > 0
       ? Math.max(state.required_count - trainingCount, 0)
       : null;
@@ -103,7 +108,11 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       required_training_count: state.required_count,
       required_training_count_source: state.required_count_source,
       remaining_training_count: remainingCount,
-      examination_ready: state.required_count > 0 && remainingCount === 0,
+      training_days: trainingDays,
+      required_training_days: state.required_days,
+      remaining_training_days: remainingDays,
+      examination_ready: state.required_count > 0 && remainingCount === 0 &&
+        (state.required_days === 0 || remainingDays === 0),
       recent_attendance_dates: attendanceDates.slice(-5).reverse()
     };
   });

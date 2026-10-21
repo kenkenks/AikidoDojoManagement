@@ -488,7 +488,8 @@
         progress.className = "overview-progress";
         if (item.required_training_count > 0) {
           const target = item.next_rank ? item.next_rank : "次回審査";
-          progress.textContent = item.training_count + "/" + item.required_training_count;
+          progress.textContent = item.training_count + "/" + item.required_training_count + "H" +
+            (item.required_training_days > 0 ? "・" + (item.training_days || 0) + "/" + item.required_training_days + "日" : "");
           progress.title = item.examination_ready
             ? target + "の必要稽古数到達・先生確認"
             : target + "まであと " + item.remaining_training_count + "回";
@@ -525,6 +526,9 @@
         training_count: 0,
         required_training_count: 0,
         remaining_training_count: null,
+        training_days: 0,
+        required_training_days: 0,
+        remaining_training_days: null,
         examination_ready: false,
         billing_plan_id:"",billing_plan_name:"",billing_plan_selected:false,billing_plan_candidates:[],
         slot_ids: [],
@@ -561,6 +565,9 @@
           candidate.remaining_training_count = data.remaining_training_count === null
             ? null
             : Number(data.remaining_training_count);
+          candidate.training_days = Number(data.training_days || 0);
+          candidate.required_training_days = Number(data.required_training_days || 0);
+          candidate.remaining_training_days = data.remaining_training_days ?? null;
           candidate.examination_ready = data.examination_ready === true;
         }
         candidate.loaded = true;
@@ -692,6 +699,10 @@
           else if (candidate.remaining_training_count !== null && candidate.remaining_training_count <= 5) progress.classList.add("near");
         } else {
           progress.textContent = "稽古数 " + candidate.training_count + "（審査可能数は未設定）";
+        }
+        if (candidate.required_training_days > 0) {
+          progress.textContent += " ｜日数 " + candidate.training_days + "/" + candidate.required_training_days +
+            "日（あと" + candidate.remaining_training_days + "日）";
         }
         row.appendChild(progress);
 

@@ -58,6 +58,7 @@
       "現在級段位": "current_rank",
       "次回審査級段位": "next_rank",
       "必要稽古数": "required_training_count",
+      "必要稽古日数": "required_training_days",
       "必要経過年数": "required_elapsed_years",
       "進捗表示対象": "show_progress",
       "状態": "status",
