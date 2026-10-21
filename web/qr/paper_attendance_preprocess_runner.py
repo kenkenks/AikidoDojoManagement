@@ -19,8 +19,12 @@ except ImportError:
 
 def notify(stage: str, percent: int, message: str) -> None:
     if _post_message is not None:
-        _post_message({"type": "progress", "stage": stage,
-                       "percent": percent, "message": message})
+        # A Python dict crosses the Pyodide boundary as a PyProxy, which the
+        # Worker structured-clone algorithm cannot serialize.  Send plain JSON
+        # and let the browser restore a native JavaScript object.
+        _post_message(json.dumps({"type": "progress", "stage": stage,
+                                  "percent": percent, "message": message},
+                                 ensure_ascii=False))
 
 
 def main() -> None:
