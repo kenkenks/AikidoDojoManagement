@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="ja">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>紙出席簿 Pyodide検証</title>
+<style>body{font-family:sans-serif;margin:1rem;max-width:1100px}button{padding:.7rem 1rem}pre{white-space:pre-wrap;background:#f4f5f7;padding:1rem}.images{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem}.images img{max-width:100%;border:1px solid #999}</style></head>
+<body>
+<h1>紙出席簿 Pyodide＋Web Worker 独立検証</h1>
+<p>既存画面・APIには接続しません。検証画像はブラウザ内でのみ処理します。</p>
+<input id="file" type="file" accept="image/jpeg,image/png"><button id="sample">同一検証画像を実行</button>
+<pre id="status">待機中</pre><div class="images" id="images"></div>
+<script>
+const status=document.querySelector('#status'),images=document.querySelector('#images');
+async function run(bytes,name){status.textContent='Pyodideを初期化しています…';images.replaceChildren();const [algorithm,baseline]=await Promise.all([fetch('../paper-attendance-preprocess-prototype.py').then(r=>r.text()),fetch('../paper-attendance-final-evaluation-20261021/manifest.json').then(r=>r.json())]);const worker=new Worker('./worker.js');worker.onmessage=event=>{const data=event.data;if(data.type==='progress'){status.textContent=data.message;return;}if(data.type==='error'){status.textContent=`FAIL\n${data.message}`;worker.terminate();return;}const actual=data.manifest,expected=new Map(baseline.cards.map(x=>[x.number,x])),changed=actual.cards.filter(x=>{const b=expected.get(x.number);return !b||b.status!==x.status||b.ink_score!==x.ink_score;});const truth=new Set([1,21,41,61,81,101,121,141,161,181,201,221,241,261,262,281,282,301,302,321,322,341,342,361,362,381,382]);const detected=actual.cards.filter(x=>truth.has(x.number)&&x.status!=='blank').map(x=>x.number);status.textContent=JSON.stringify({source:name,elapsed_ms:data.elapsedMs,wasm_heap_bytes:data.wasmHeapBytes,cards:actual.cards.length,baseline_changed_cards:changed.length,written_truth_detected:`${detected.length}/27`,missed:[...truth].filter(x=>!detected.includes(x)),counts:actual.screening.counts,selected_cards:data.selectedCards.map(x=>x.number)},null,2);const image=document.createElement('img');image.src=URL.createObjectURL(new Blob([data.corrected],{type:'image/jpeg'}));image.alt='補正済み画像';images.append(image);for(const card of data.selectedCards){const figure=document.createElement('figure'),img=document.createElement('img'),cap=document.createElement('figcaption');img.src=URL.createObjectURL(new Blob([card.bytes],{type:'image/png'}));cap.textContent=`card ${card.number}`;figure.append(img,cap);images.append(figure);}worker.terminate();};worker.postMessage({bytes,algorithm},[bytes]);}
+document.querySelector('#sample').onclick=async()=>{const bytes=await fetch('./sample-input.jpg').then(r=>r.arrayBuffer());run(bytes,'sample-input.jpg');};
+document.querySelector('#file').onchange=async event=>{const file=event.target.files[0];if(file)run(await file.arrayBuffer(),file.name);};
+</script></body></html>
