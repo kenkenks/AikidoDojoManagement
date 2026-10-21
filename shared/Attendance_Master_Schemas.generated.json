@@ -489,6 +489,13 @@
         "documentId": false
       },
       {
+        "logicalName": "必要稽古日数",
+        "physicalName": "required_training_days",
+        "type": "number",
+        "required": false,
+        "documentId": false
+      },
+      {
         "logicalName": "必要経過年数",
         "physicalName": "required_elapsed_years",
         "type": "string",
