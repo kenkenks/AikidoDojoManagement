@@ -67,7 +67,8 @@ function buildFirebase() {
         ignore: ["firebase.json", "**/.*", "**/node_modules/**"],
         headers: [
           { source: "**/*.html", headers: [{ key: "Cache-Control", value: "no-cache" }] },
-          { source: "**/*.js", headers: [{ key: "Cache-Control", value: "no-store" }] }
+          { source: "**/*.js", headers: [{ key: "Cache-Control", value: "no-store" }] },
+          { source: "**/*.py", headers: [{ key: "Cache-Control", value: "no-store" }] }
         ]
       }
     }, null, 2) + "\n",

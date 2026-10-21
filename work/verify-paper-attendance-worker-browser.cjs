@@ -16,9 +16,12 @@ const browser=chromeCandidates.find(fs.existsSync);
 assert.ok(browser,'Chrome or Edge is required for the browser Worker regression test');
 
 const html=`<!doctype html><meta charset="utf-8"><pre id="result">RUNNING</pre><script>
-const seen=[];const worker=new Worker('/worker.js');
-worker.onmessage=event=>{let data=event.data;if(typeof data==='string')data=JSON.parse(data);seen.push(data.type);if(['progress','result','error'].every(type=>seen.includes(type))){document.querySelector('#result').textContent='PASS '+seen.join(',');worker.terminate();}};
+const seen=[];let cachePassed=false;const worker=new Worker('/worker.js');
+async function verifyCache(){const oldValue=await fetch('/asset.py').then(r=>r.text());await fetch('/switch');const staleValue=await fetch('/asset.py').then(r=>r.text());const freshValue=await fetch('/asset.py',{cache:'no-store'}).then(r=>r.text());cachePassed=oldValue==='OLD'&&staleValue==='OLD'&&freshValue==='NEW';finish();}
+function finish(){if(cachePassed&&['progress','result','error'].every(type=>seen.includes(type))){document.querySelector('#result').textContent='PASS '+seen.join(',')+',cache';worker.terminate();}}
+worker.onmessage=event=>{let data=event.data;if(typeof data==='string')data=JSON.parse(data);seen.push(data.type);finish();};
 worker.onerror=event=>{document.querySelector('#result').textContent='FAIL '+event.message;};
+verifyCache().catch(error=>document.querySelector('#result').textContent='FAIL '+error);
 </script>`;
 const worker=`'use strict';
 const BASE='https://cdn.jsdelivr.net/pyodide/v0.27.7/full/';
@@ -34,11 +37,14 @@ self.onmessage=()=>{};
   postMessage({type:'error',message:'EXPECTED_TEST_ERROR'});
 }catch(error){postMessage({type:'test-failure',message:String(error?.stack||error)});}})();`;
 
+let assetVersion='OLD';
 const server=http.createServer((request,response)=>{
   const pathname=new URL(request.url,'http://127.0.0.1').pathname;
   if(pathname==='/'){response.setHeader('Content-Type','text/html; charset=utf-8');response.end(html);return;}
   if(pathname==='/worker.js'){response.setHeader('Content-Type','text/javascript; charset=utf-8');response.end(worker);return;}
   if(pathname==='/runner.py'){response.setHeader('Content-Type','text/x-python; charset=utf-8');response.end(fs.readFileSync(path.join(root,'web/qr/paper_attendance_preprocess_runner.py')));return;}
+  if(pathname==='/asset.py'){response.setHeader('Content-Type','text/x-python');response.setHeader('Cache-Control','max-age=3600');response.end(assetVersion);return;}
+  if(pathname==='/switch'){assetVersion='NEW';response.setHeader('Cache-Control','no-store');response.end('OK');return;}
   response.writeHead(404).end();
 });
 
@@ -62,7 +68,7 @@ server.listen(0,'127.0.0.1',()=>{
       await new Promise((resolve,reject)=>{socket.onopen=resolve;socket.onerror=reject;});
       const evaluate=expression=>new Promise(resolve=>{const id=nextId++;pending.set(id,resolve);socket.send(JSON.stringify({id,method:'Runtime.evaluate',params:{expression,returnByValue:true}}));});
       const deadline=Date.now()+120000;
-      while(Date.now()<deadline){const reply=await evaluate("document.querySelector('#result').textContent");const text=reply.result?.result?.value||'';if(text.startsWith('PASS ')){assert.equal(text,'PASS progress,result,error');socket.close();finish();return;}if(text.startsWith('FAIL '))throw Error(text);await new Promise(resolve=>setTimeout(resolve,500));}
+      while(Date.now()<deadline){const reply=await evaluate("document.querySelector('#result').textContent");const text=reply.result?.result?.value||'';if(text.startsWith('PASS ')){assert.equal(text,'PASS progress,result,error,cache');socket.close();finish();return;}if(text.startsWith('FAIL '))throw Error(text);await new Promise(resolve=>setTimeout(resolve,500));}
       throw Error('BROWSER_WORKER_TEST_TIMEOUT');
     }catch(error){finish(error);}
   });

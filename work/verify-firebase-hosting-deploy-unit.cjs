@@ -28,7 +28,8 @@ test('dev-firebase target build creates self-contained Firebase Hosting deploy u
   assert.deepEqual(config.hosting.ignore, ['firebase.json', '**/.*', '**/node_modules/**']);
   assert.deepEqual(config.hosting.headers, [
     { source: '**/*.html', headers: [{ key: 'Cache-Control', value: 'no-cache' }] },
-    { source: '**/*.js', headers: [{ key: 'Cache-Control', value: 'no-store' }] }
+    { source: '**/*.js', headers: [{ key: 'Cache-Control', value: 'no-store' }] },
+    { source: '**/*.py', headers: [{ key: 'Cache-Control', value: 'no-store' }] }
   ]);
 
   assert.equal(fs.existsSync(path.join(hostingRoot, 'docs')), false, 'Hosting deploy unit must not contain docs');

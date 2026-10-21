@@ -8,8 +8,8 @@ self.onmessage=async event=>{
     postMessage({type:'progress',stage:'packages',percent:3,message:'NumPyとPillowを読み込んでいます'});
     await pyodide.loadPackage(['numpy','pillow']);
     const [algorithmResponse,runnerResponse]=await Promise.all([
-      fetch('./paper_attendance_preprocess.py'),
-      fetch('./paper_attendance_preprocess_runner.py')
+      fetch('./paper_attendance_preprocess.py',{cache:'no-store'}),
+      fetch('./paper_attendance_preprocess_runner.py',{cache:'no-store'})
     ]);
     if(!algorithmResponse.ok||!runnerResponse.ok)throw Error('PAPER_PREPROCESS_ASSET_UNAVAILABLE');
     const [algorithm,runner]=await Promise.all([algorithmResponse.text(),runnerResponse.text()]);
