@@ -60,9 +60,26 @@ test('teacher menu links to member list and UI provides all required transitions
   const home=fs.readFileSync('web/qr/teacher_home.html','utf8'),page=fs.readFileSync('web/qr/member_management.html','utf8');
   assert.match(home,/href="member_management\.html">👥 会員管理/);
   for(const text of ['新規登録','編集','退会','支払いグループ'])assert.match(page,new RegExp(text));
-  for(const asset of ['virtual_session.js','runtime_config.js','firebase_auth.js','dojo_api_client.js'])assert.match(page,new RegExp(asset.replace('.','\\.')));
+  for(const asset of ['virtual_session.js','runtime_config.js','firebase_auth.js','dojo_api_client.js','auth_gate.js','page_initialization_manager.js'])assert.match(page,new RegExp(asset.replace('.','\\.')));
   assert.match(page,/member_management_list/);assert.match(page,/member_management_save/);assert.match(page,/member_management_group_save/);assert.match(page,/member_management_withdraw/);assert.match(page,/applicable_member_count/);
   const inline=[...page.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)].map(m=>m[1]).filter(Boolean);assert.equal(inline.length,1);assert.doesNotThrow(()=>new vm.Script(inline[0]));
+});
+
+test('member management gates initialization and isolates optional group capability without clearing forms',()=>{
+  const page=fs.readFileSync('web/qr/member_management.html','utf8');
+  assert.match(page,/dependencies:\[\{name:'auth',run:\(\)=>authGate\.requireAuthenticated\(\)\}\]/);
+  assert.match(page,/requiredTasks:\[\{name:'memberList',run:context=>loadMembers\(context\)\}\]/);
+  assert.match(page,/optionalTasks:\[\{name:'groupOptions',capability:'groupOptions',run:context=>loadGroupOptions\(context\)\}\]/);
+  assert.match(page,/if\(managerContext&&!managerContext\.isCurrent\(\)\)return false/g);
+  assert.match(page,/state\.capabilities&&state\.capabilities\.groupOptions===true/);
+  assert.match(page,/nextUid&&nextUid!==authUid/);
+  assert.match(page,/initializationManager\.accessLost\('authentication_lost'\)/);
+  assert.match(page,/function isAccessError\(error\).*error\.status===401\|\|error\.status===403/);
+  assert.doesNotMatch(page,/auth\.signInWithGoogle\(/);
+  const memberLoad=page.slice(page.indexOf('async function loadMembers'),page.indexOf('async function loadGroupOptions'));
+  assert.doesNotMatch(memberLoad,/show\('listView'\)/);
+  assert.match(page,/form\.addEventListener\('input',\(\)=>\{dirty=true\}\)/);
+  assert.match(page,/stopOperations:\(\)=>setOperationsEnabled\(false\)/);
 });
 
 test('merge into existing group updates existing and incoming members to family2, then family3',async()=>{
@@ -83,7 +100,7 @@ test('UI selects family plans from resulting group size before saving',()=>{
  const fn=html.slice(html.indexOf('    function updatePlanCandidates(){'),html.indexOf('    function openGroup(member){'));
  const elements={groupTarget:{value:'BG001'},groupFeeType:select(),groupPlan:select(),groupPlanNote:{},groupSaveButton:{}};
  function select(){return {value:'月会費',replaceChildren(){this.value='';this.options=[]},append(o){this.options.push(o);if(!this.value)this.value=o.value},options:[]}}
- const context={members:[{member_id:'M1',member_type:'一般',billing_group_id:'BG001'},{member_id:'M2',member_type:'一般',billing_group_id:'BG002'}],rules:[{member_type:'一般',selectable_plan_id:'P1'},{member_type:'家族２',selectable_plan_id:'P2'}],plans:[{plan_id:'P1',fee_type:'月会費',applicable_member_count:1},{plan_id:'P2',fee_type:'月会費',applicable_member_count:2}],selectedGroupMembers:()=>['M1','M2'],byId:id=>elements[id],document:{createElement:()=>({})}};
+ const context={operationsEnabled:true,groupCapability:true,members:[{member_id:'M1',member_type:'一般',billing_group_id:'BG001'},{member_id:'M2',member_type:'一般',billing_group_id:'BG002'}],rules:[{member_type:'一般',selectable_plan_id:'P1'},{member_type:'家族２',selectable_plan_id:'P2'}],plans:[{plan_id:'P1',fee_type:'月会費',applicable_member_count:1},{plan_id:'P2',fee_type:'月会費',applicable_member_count:2}],selectedGroupMembers:()=>['M1','M2'],byId:id=>elements[id],document:{createElement:()=>({})}};
  vm.runInNewContext(fn+';updatePlanCandidates();',context);
  assert.equal(elements.groupPlan.value,'P2');assert.equal(elements.groupSaveButton.disabled,false);
  assert.match(elements.groupPlanNote.textContent,/家族２/);

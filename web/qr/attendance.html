@@ -93,8 +93,8 @@
   <section class="card scan-card">
     <div id="reader"></div>
     <div class="scan-actions">
-      <button type="button" onclick="startScan()">読み取り開始</button>
-      <button type="button" onclick="stopScan()">停止</button>
+      <button id="scanStartButton" type="button" onclick="startScan()">読み取り開始</button>
+      <button id="scanStopButton" type="button" onclick="stopScan()">停止</button>
     </div>
   </section>
 
@@ -114,7 +114,7 @@
       <p id="registrationStatusDetail">先生QRと会員QRを読み取り、出席内容を確認してください。</p>
     </div>
     <button id="sendButton" class="primary" type="button" onclick="sendCandidatesToGas()">選択した出席を登録</button>
-    <button class="secondary-action" type="button" onclick="clearCandidates()">会員一覧をクリア</button>
+    <button id="clearCandidatesButton" class="secondary-action" type="button" onclick="clearCandidates()">会員一覧をクリア</button>
   </section>
 
   <details class="card diagnostic-card">
@@ -130,6 +130,9 @@
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
   <script src="firebase_auth.js"></script>
+  <script src="auth_gate.js"></script>
+  <script src="page_initialization_manager.js"></script>
+  <script src="system_context_adapter.js"></script>
   <script src="dojo_api_client.js"></script>
   <script src="attendance_firebase_read.js"></script>
   <script>
@@ -140,23 +143,16 @@
       ? window.DOJO_FIREBASE_AUTH.create({ runtimeConfig:window.DOJO_RUNTIME_CONFIG }) : null;
     const firebaseAttendanceApi = IS_FIREBASE_ATTENDANCE
       ? window.DOJO_API_CLIENT.create({ getCurrentUser:firebaseAttendanceAuth.getCurrentUser }) : null;
-    if (IS_FIREBASE_ATTENDANCE) {
-      const notice = document.getElementById("firebaseAttendanceNotice");
-      const status = document.getElementById("firebaseAttendanceStatus");
-      const login = document.getElementById("firebaseAttendanceLogin");
-      notice.hidden = false;
-      login.addEventListener("click", function() {
-        firebaseAttendanceAuth.signInWithGoogle().catch(function(error) { status.textContent = error.message || String(error); });
-      });
-      firebaseAttendanceAuth.ready.then(function() {
-        function updateAuthState(user) {
-          status.textContent = user ? "Firebase認証済み" : "Firebase認証が必要です。";
-          login.hidden = !!user;
-        }
-        updateAuthState(firebaseAttendanceAuth.getCurrentUser());
-        firebaseAttendanceAuth.onUserChanged(updateAuthState);
-      }).catch(function(error) { status.textContent = "認証初期化エラー: " + (error.message || String(error)); });
-    }
+    const attendanceAuthGate = IS_FIREBASE_ATTENDANCE
+      ? window.DOJO_AUTH_GATE.create({authClient:firebaseAttendanceAuth,
+          runtimeConfig:window.DOJO_RUNTIME_CONFIG,loginPath:"index.html"}) : null;
+    const attendanceSystemContext = IS_FIREBASE_ATTENDANCE
+      ? window.DOJO_SYSTEM_CONTEXT_ADAPTER.create() : null;
+    let attendanceInitializationManager = null;
+    let attendanceAuthUid = "";
+    let attendanceLoginRedirectStarted = false;
+    let attendanceContextInitialized = false;
+    let businessOperationsEnabled = !IS_FIREBASE_ATTENDANCE;
     const memberNameMap = { M001: "山田太郎", M002: "川本花子", M003: "佐藤一郎" };
 
     let html5QrCode = null;
@@ -177,14 +173,107 @@
     let attendanceInfoLoadedKey = "";
     let attendanceClockKey = "";
 
-    initializeAttendanceContext();
+    if (IS_FIREBASE_ATTENDANCE) initializeFirebaseAttendancePage();
+    else {
+      initializeAttendanceContext();
+      document.getElementById("attendanceDate").textContent = currentAttendanceDate();
+      updateSendButton();
+      loadRankOptions();
+    }
 
-    document.getElementById("attendanceDate").textContent = currentAttendanceDate();
-    window.addEventListener("dojo-system-context", function() {
+
+    function initializeFirebaseAttendancePage() {
+      const notice = document.getElementById("firebaseAttendanceNotice");
+      const status = document.getElementById("firebaseAttendanceStatus");
+      const login = document.getElementById("firebaseAttendanceLogin");
+      notice.hidden = false;
+      login.hidden = true;
+      login.onclick = function() { redirectAttendanceLogin(); };
+      setBusinessOperationsEnabled(false);
+
+      attendanceInitializationManager = window.DOJO_PAGE_INITIALIZATION_MANAGER.create({
+        dependencies:[
+          {name:"auth",run:function() { return attendanceAuthGate.requireAuthenticated(); }},
+          attendanceSystemContext.dependency("systemContext")
+        ],
+        requiredTasks:[{name:"attendanceBusiness",capability:"attendance",
+          run:initializeAttendanceBusiness}],
+        optionalTasks:[{name:"rankOptions",capability:"rankOptions",
+          run:function(context) { return loadRankOptions(context, true); }}],
+        stopOperations:function(reason) { stopAttendanceOperations(reason); }
+      });
+
+      attendanceInitializationManager.subscribe(function(state) {
+        if (state.status === "WAITING_DEPENDENCIES") status.textContent = "Firebase認証とシステム時刻を確認しています。";
+        else if (state.status === "INITIALIZING") status.textContent = "出席受付を初期化しています。";
+        else if (state.status === "READY") {
+          status.textContent = state.capabilities.rankOptions === false
+            ? "Firebase認証済み（級・段一覧は利用できません）" : "Firebase認証済み";
+          setBusinessOperationsEnabled(true);
+        } else if (state.status === "ERROR" && state.error && state.error.code !== "UNAUTHENTICATED") {
+          status.textContent = "出席受付を初期化できませんでした: " + (state.error.message || String(state.error));
+          showRegistrationStatus("failure", "出席受付を開始できません", "必須情報を取得できませんでした。画面を再読み込みしてください。");
+        }
+      });
+
+      attendanceAuthGate.subscribe(function(state) {
+        if (state.status === "CHECKING") {
+          status.textContent = "Firebase認証状態を確認しています。";
+        } else if (state.status === "UNAUTHENTICATED") {
+          attendanceInitializationManager.accessLost("authentication_lost");
+          attendanceAuthUid = "";
+          status.textContent = "Firebase認証が必要です。ログイン画面へ移動します。";
+          login.hidden = false;
+          redirectAttendanceLogin();
+        } else if (state.status === "AUTHENTICATED") {
+          login.hidden = true;
+          const uid = String(state.user && state.user.uid || "");
+          if (attendanceAuthUid && uid && uid !== attendanceAuthUid) {
+            attendanceInitializationManager.accessLost("authenticated_user_changed");
+            clearCandidates(true);
+            attendanceInitializationManager.retry("authenticated_user_changed").catch(handleAttendanceInitializationError);
+          }
+          attendanceAuthUid = uid;
+        } else if (state.status === "ERROR") {
+          attendanceInitializationManager.accessLost("authentication_error");
+          status.textContent = "Firebase認証を初期化できませんでした。";
+        }
+      });
+
+      attendanceSystemContext.subscribe(function(state) {
+        if (state.status !== "READY") return;
+        const managerState = attendanceInitializationManager.getState();
+        if (managerState.status === "ERROR" && managerState.error &&
+            managerState.error.code === "SYSTEM_CONTEXT_UNAVAILABLE") {
+          attendanceInitializationManager.retry("system_context_recovered").catch(handleAttendanceInitializationError);
+          return;
+        }
+        if (!state.changed || managerState.status !== "READY") return;
+        handleAttendanceContextChange();
+        attendanceInitializationManager.retry("system_context_changed").catch(handleAttendanceInitializationError);
+      });
+
+      attendanceInitializationManager.start().catch(handleAttendanceInitializationError);
+    }
+
+    function initializeAttendanceBusiness(context) {
+      if (!context.isCurrent()) return false;
+      if (!attendanceContextInitialized) {
+        initializeAttendanceContext(true);
+        attendanceContextInitialized = true;
+      }
+      document.getElementById("attendanceDate").textContent = currentAttendanceDate();
+      attendanceClockKey = attendanceBusinessClockKey();
+      return Promise.resolve(refreshAttendanceSessionInfoIfNeeded({managerContext:context,propagate:true})).then(function() {
+        if (!context.isCurrent()) return false;
+        return true;
+      });
+    }
+
+    function handleAttendanceContextChange() {
       document.getElementById("attendanceDate").textContent = currentAttendanceDate();
       const clock = attendanceBusinessClockKey();
-      if (IS_FIREBASE_ATTENDANCE && attendanceClockKey && clock !== attendanceClockKey) {
-        if (submitting) return;
+      if (attendanceClockKey && clock !== attendanceClockKey && !submitting) {
         ++attendanceInfoRequestSeq;
         attendanceInfoInFlightKey = attendanceInfoLoadedKey = "";
         currentBillingBlockId = "";
@@ -194,13 +283,42 @@
         renderKeys();
       }
       attendanceClockKey = clock;
-      refreshAttendanceSessionInfoIfNeeded();
-    });
-    updateSendButton();
-    loadRankOptions();
+    }
+
+    function handleAttendanceInitializationError(error) {
+      if (!error || error.code === "UNAUTHENTICATED" || error.code === "INITIALIZATION_STALE" ||
+          error.code === "SYSTEM_CONTEXT_WAIT_ABORTED") return;
+      addLog("初期化エラー: " + (error.message || String(error)), "error");
+    }
+
+    function redirectAttendanceLogin() {
+      if (!attendanceAuthGate || attendanceLoginRedirectStarted) return;
+      attendanceLoginRedirectStarted = true;
+      attendanceAuthGate.redirectToLogin(window.location.href);
+    }
+
+    function stopAttendanceOperations() {
+      businessOperationsEnabled = false;
+      ++attendanceInfoRequestSeq;
+      attendanceInfoInFlightKey = "";
+      setBusinessOperationsEnabled(false);
+      if (scanning) stopScan();
+    }
+
+    function setBusinessOperationsEnabled(enabled) {
+      businessOperationsEnabled = enabled === true;
+      document.getElementById("scanStartButton").disabled = !businessOperationsEnabled;
+      document.getElementById("scanStopButton").disabled = !businessOperationsEnabled;
+      document.getElementById("candidateSort").disabled = !businessOperationsEnabled;
+      document.getElementById("clearCandidatesButton").disabled = !businessOperationsEnabled;
+      const blockChoice = document.getElementById("blockChoice");
+      blockChoice.disabled = !businessOperationsEnabled || blockChoice.options.length <= 1;
+      renderCandidates();
+      updateSendButton();
+    }
 
 
-    function initializeAttendanceContext() {
+    function initializeAttendanceContext(deferSessionInfo) {
       const query = new URLSearchParams(window.location.search);
       const session = DojoVirtualSession.get();
       const context = session && session.context ? session.context : {};
@@ -224,7 +342,7 @@
 
       if (currentLocationId) {
         addLog(query.get("location_id") ? "URLの道場情報を読み込みました。" : "Sessionの道場情報を復元しました。");
-        refreshAttendanceSessionInfoIfNeeded();
+        if (!deferSessionInfo) refreshAttendanceSessionInfoIfNeeded();
       }
     }
 
@@ -238,18 +356,23 @@
       });
     }
 
-    function loadRankOptions() {
+    function loadRankOptions(managerContext, propagate) {
       return jsonp(GAS_URL, { action: "attendance_rank_options" }).then(function(data) {
+        if (managerContext && !managerContext.isCurrent()) return false;
         if (!data.ok) throw new Error(data.message || "級段位マスタを取得できませんでした。");
         rankOptions = Array.isArray(data.rank_options) ? data.rank_options : [];
         renderCandidates();
+        return true;
       }).catch(function(error) {
+        if (managerContext && !managerContext.isCurrent()) return false;
         addLog("級段位マスタ取得エラー: " + (error.message || String(error)), "error");
+        if (propagate) throw error;
+        return false;
       });
     }
 
     function startScan() {
-      if (scanning) return;
+      if (!businessOperationsEnabled || scanning) return;
       html5QrCode = html5QrCode || new Html5Qrcode("reader");
       html5QrCode.start(
         { facingMode: "environment" },
@@ -275,7 +398,7 @@
     }
 
     function onScanSuccess(decodedText) {
-      if (submitting) return;
+      if (!businessOperationsEnabled || submitting) return;
       const now = Date.now();
       if (decodedText === lastText && now - lastReadTime < 2000) return;
       lastText = decodedText;
@@ -287,12 +410,16 @@
         const hasLocation = !!parsed.location_id;
         const hasBillingBlock = !!parsed.billing_block_id;
         const hasTeacher = !!parsed.teacher_id;
-        if (hasLocation) currentLocationId = parsed.location_id;
-        if (hasLocation || hasBillingBlock) {
-          currentBillingBlockId = parsed.billing_block_id || "";
+        const previousCandidateScope = attendanceCandidateScopeKey();
+        const locationChanged = hasLocation && parsed.location_id !== currentLocationId;
+        const billingBlockChanged = hasBillingBlock && parsed.billing_block_id !== currentBillingBlockId;
+        if (locationChanged) currentLocationId = parsed.location_id;
+        if (locationChanged || billingBlockChanged) {
+          currentBillingBlockId = hasBillingBlock ? parsed.billing_block_id : "";
           currentSlots = [];
         }
         if (hasTeacher) currentTeacherId = parsed.teacher_id;
+        clearCandidatesWhenScopeChanged(previousCandidateScope);
         persistAttendanceContext();
         renderKeys();
         if (hasLocation && hasTeacher) {
@@ -303,7 +430,9 @@
           addLog("先生QR読取: " + currentTeacherId);
         }
         beep();
-        if (hasLocation || hasBillingBlock) refreshAttendanceSessionInfoIfNeeded();
+        if (locationChanged || billingBlockChanged ||
+            ((hasLocation || hasBillingBlock) && currentSlots.length === 0))
+          refreshAttendanceSessionInfoIfNeeded();
         return;
       }
       if (parsed.member_id) {
@@ -342,6 +471,14 @@
       return currentLocationId + "|" + currentBillingBlockId + "|" + attendanceBusinessClockKey();
     }
 
+    function attendanceCandidateScopeKey() {
+      return JSON.stringify([currentTeacherId,currentLocationId,currentBillingBlockId,currentAttendanceDate()]);
+    }
+
+    function clearCandidatesWhenScopeChanged(previousScope) {
+      if (previousScope !== attendanceCandidateScopeKey()) clearCandidates(true);
+    }
+
     function attendanceBusinessClockKey() {
       if (!IS_FIREBASE_ATTENDANCE) return "";
       const ctx = window.DOJO_SYSTEM_CONTEXT;
@@ -349,20 +486,21 @@
         ctx.time_travel_enabled ? ctx.system_now : String(ctx.system_now || "").slice(0,10), ctx.target_month]) : "";
     }
 
-    function refreshAttendanceSessionInfoIfNeeded() {
+    function refreshAttendanceSessionInfoIfNeeded(options) {
       if (!currentLocationId) return false;
       const key = attendanceSessionInfoKey();
       if (attendanceInfoInFlightKey === key || attendanceInfoLoadedKey === key) return false;
-      loadAttendanceSessionInfo(key);
-      return true;
+      return loadAttendanceSessionInfo(key, options);
     }
 
-    function loadAttendanceSessionInfo(requestKey) {
+    function loadAttendanceSessionInfo(requestKey, options) {
+      options = options || {};
+      const managerContext = options.managerContext;
       if (!currentLocationId) {
         currentSlots = [];
         renderCandidates();
         addLog("location_id が必要です。", "error");
-        return;
+        return Promise.resolve(false);
       }
 
       const key = requestKey || attendanceSessionInfoKey();
@@ -374,9 +512,11 @@
       };
       if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
 
-      jsonp(GAS_URL, params).then(function (data) {
+      return jsonp(GAS_URL, params).then(function (data) {
+        if (managerContext && !managerContext.isCurrent()) return false;
         if (requestSeq !== attendanceInfoRequestSeq) return;
         if (!data.ok) throw new Error(data.message || "稽古枠を取得できませんでした。");
+        const previousCandidateScope = attendanceCandidateScopeKey();
         document.getElementById("locationId").textContent = data.location_name + " (" + data.location_id + ")";
         document.getElementById("locationId").className = "ok";
 
@@ -384,12 +524,12 @@
           currentBillingBlockId = "";
           currentSlots = [];
           persistAttendanceContext();
-          clearCandidates(true);
+          clearCandidatesWhenScopeChanged(previousCandidateScope);
           setKey("billingBlockId", "");
           updateSendButton();
           renderBlockChoices(data.billing_block_candidates || []);
           addLog(data.message || "課金枠を選択してください。", "warn");
-          return;
+          return true;
         }
 
         document.getElementById("blockChoiceCard").hidden = true;
@@ -398,21 +538,26 @@
         persistAttendanceContext();
         document.getElementById("billingBlockId").textContent = data.billing_block_name;
         document.getElementById("billingBlockId").className = "ok";
-        clearCandidates(true);
+        clearCandidatesWhenScopeChanged(previousCandidateScope);
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
         attendanceInfoLoadedKey = attendanceSessionInfoKey();
         if (entryMemberId) {
           const memberId = entryMemberId;
           entryMemberId = "";
-          addMemberCandidate(memberId);
+          addMemberCandidate(memberId, {initialization:true});
         }
+        return true;
       }).catch(function (error) {
+        if (managerContext && !managerContext.isCurrent()) return false;
         if (requestSeq !== attendanceInfoRequestSeq) return;
         currentSlots = [];
         renderCandidates();
         addLog(error.message || String(error), "error");
+        if (options.propagate) throw error;
+        return false;
       }).finally(function () {
-        if (requestSeq === attendanceInfoRequestSeq) attendanceInfoInFlightKey = "";
+        if ((!managerContext || managerContext.isCurrent()) && requestSeq === attendanceInfoRequestSeq)
+          attendanceInfoInFlightKey = "";
       });
     }
 
@@ -430,19 +575,23 @@
         option.textContent = candidate.label + "（" + candidate.start_time + "–" + candidate.end_time + "）";
         select.appendChild(option);
       });
-      select.disabled = candidates.length === 0;
+      select.disabled = !businessOperationsEnabled || candidates.length === 0;
       card.hidden = false;
     }
 
     function selectBillingBlock(billingBlockId) {
-      if (!billingBlockId) return;
+      if (!businessOperationsEnabled || !billingBlockId) return;
+      const previousCandidateScope = attendanceCandidateScopeKey();
       currentBillingBlockId = billingBlockId;
+      currentSlots = [];
+      clearCandidatesWhenScopeChanged(previousCandidateScope);
       persistAttendanceContext();
       renderKeys();
       refreshAttendanceSessionInfoIfNeeded();
     }
 
-    function addMemberCandidate(memberId) {
+    function addMemberCandidate(memberId, options) {
+      if (!businessOperationsEnabled && !(options && options.initialization)) return;
       if (submitting) {
         addLog("送信確認中のため、会員追加を待ってください。", "warn");
         return;
@@ -486,6 +635,12 @@
     }
 
     function loadMemberAttendanceState(memberId, expectedState, quiet, savedOnly) {
+      const initializationGeneration = IS_FIREBASE_ATTENDANCE && attendanceInitializationManager
+        ? attendanceInitializationManager.getState().generation : null;
+      if (initializationGeneration !== null &&
+          !attendanceInitializationManager.isCurrent(initializationGeneration)) {
+        return Promise.resolve({ok:false,matches:false,member_id:memberId,stale:true});
+      }
       return jsonp(GAS_URL, {
         action: savedOnly ? "attendance_saved_state" : "member_attendance_state",
         attendance_date: currentAttendanceDate(),
@@ -493,6 +648,9 @@
         location_id: currentLocationId,
         billing_block_id: currentBillingBlockId
       }).then(function (data) {
+        if (initializationGeneration !== null &&
+            !attendanceInitializationManager.isCurrent(initializationGeneration))
+          return {ok:false,matches:false,member_id:memberId,stale:true};
         if (!data.ok) throw new Error(data.message || "登録済み出席を取得できませんでした。");
         const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
         if (!candidate) return { ok: false, matches: false, member_id: memberId };
@@ -531,6 +689,9 @@
         if (!quiet) addLog(memberId + " の登録済み枠を復元しました（" + candidate.slot_ids.length + "枠）。");
         return { ok: true, matches: slotMatches && rankMatches, member_id: memberId };
       }).catch(function (error) {
+        if (initializationGeneration !== null &&
+            !attendanceInitializationManager.isCurrent(initializationGeneration))
+          return {ok:false,matches:false,member_id:memberId,stale:true};
         const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
         if (!candidate) return { ok: false, matches: false, member_id: memberId };
         candidate.loaded = false;
@@ -579,7 +740,7 @@
 
     function toggleSlot(memberId, slotId) {
       const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
-      if (!candidate || !candidate.loaded || submitting) return;
+      if (!businessOperationsEnabled || !candidate || !candidate.loaded || submitting) return;
       const index = candidate.slot_ids.indexOf(slotId);
       if (index >= 0) candidate.slot_ids.splice(index, 1);
       else candidate.slot_ids.push(slotId);
@@ -587,7 +748,7 @@
     }
 
     function removeCandidate(memberId) {
-      if (submitting) return;
+      if (!businessOperationsEnabled || submitting) return;
       memberCandidates = memberCandidates.filter(function (item) { return item.member_id !== memberId; });
       renderCandidates();
     }
@@ -614,7 +775,7 @@
         remove.type = "button";
         remove.className = "danger";
         remove.textContent = "削除";
-        remove.disabled = submitting;
+        remove.disabled = !businessOperationsEnabled || submitting;
         remove.onclick = function () { removeCandidate(candidate.member_id); };
         head.append(name, remove);
         row.appendChild(head);
@@ -625,7 +786,7 @@
         rankLabel.textContent = "現在級・段";
         const rankSelect = document.createElement("select");
         buildRankOptions(rankSelect, candidate.current_rank);
-        rankSelect.disabled = !candidate.loaded || submitting;
+        rankSelect.disabled = !businessOperationsEnabled || !candidate.loaded || submitting;
         rankSelect.onchange = function () {
           candidate.current_rank = rankSelect.value;
           candidate.rank_changed = true;
@@ -664,7 +825,7 @@
             const retry = document.createElement("button");
             retry.type = "button";
             retry.textContent = "再取得";
-            retry.disabled = submitting;
+            retry.disabled = !businessOperationsEnabled || submitting;
             retry.onclick = function () {
               candidate.load_error = "";
               renderCandidates();
@@ -697,7 +858,7 @@
             option.selected = candidate.billing_plan_id === plan.plan_id;
             planSelect.appendChild(option);
           });
-          planSelect.disabled = submitting || !candidate.loaded;
+          planSelect.disabled = !businessOperationsEnabled || submitting || !candidate.loaded;
           planSelect.onchange = function() {
             candidate.billing_plan_id = planSelect.value;
             renderCandidates();
@@ -714,7 +875,7 @@
           button.type = "button";
           button.className = "slot" + (selected ? " selected" : "");
           button.textContent = (slot.start_time && slot.end_time) ? slot.start_time + "–" + slot.end_time : slot.label;
-          button.disabled = !candidate.loaded || submitting;
+          button.disabled = !businessOperationsEnabled || !candidate.loaded || submitting;
           button.onclick = function () { toggleSlot(candidate.member_id, slot.slot_id); };
           slots.appendChild(button);
         });
@@ -732,7 +893,7 @@
     }
 
     function sendCandidatesToGas() {
-      if (submitting) return;
+      if (!businessOperationsEnabled || submitting) return;
       if (!currentTeacherId || !currentLocationId || !currentBillingBlockId) {
         addLog("先生・道場・課金枠をすべて設定してください。", "error");
         return;
@@ -893,7 +1054,7 @@
       sendButton.hidden = waitingForTeacher;
       sendButton.textContent = submitting ? "登録処理中…" : "選択した出席を登録";
       sendButton.disabled = !(
-        !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
+        businessOperationsEnabled && !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
         memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.loaded && item.current_rank; })
       );
     }
@@ -965,6 +1126,13 @@
           runtimeConfig:window.DOJO_RUNTIME_CONFIG,
           authClient:firebaseAttendanceAuth,
           apiClient:firebaseAttendanceApi
+        }).catch(function(error) {
+          if (attendanceInitializationManager && /HTTP (401|403)\b/.test(String(error && error.message || error))) {
+            attendanceInitializationManager.accessLost("authorization_lost");
+            document.getElementById("firebaseAttendanceStatus").textContent =
+              "この出席操作を行う権限を確認できませんでした: " + (error.message || String(error));
+          }
+          throw error;
         });
       }
       return new Promise(function (resolve, reject) {

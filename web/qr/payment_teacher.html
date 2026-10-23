@@ -338,6 +338,9 @@
   <script src="firebase_auth.js"></script>
   <script src="dojo_api_client.js"></script>
   <script src="payment_cash_accept_client.js"></script>
+  <script src="auth_gate.js"></script>
+  <script src="page_initialization_manager.js"></script>
+  <script src="system_context_adapter.js"></script>
   <script>
     const RUNTIME_CONFIG = window.DOJO_RUNTIME_CONFIG;
     const IS_FIREBASE = RUNTIME_CONFIG.runtime === "firebase";
@@ -349,7 +352,11 @@
     const dojoApiClient = IS_FIREBASE
       ? window.DOJO_API_CLIENT.create({ getCurrentUser:firebaseAuthClient.getCurrentUser })
       : null;
-    const firebaseCashAcceptClient = IS_FIREBASE
+    const authGate = IS_FIREBASE
+      ? window.DOJO_AUTH_GATE.create({ authClient:firebaseAuthClient, loginPath:"index.html" })
+      : null;
+    const systemContextAdapter = IS_FIREBASE ? window.DOJO_SYSTEM_CONTEXT_ADAPTER.create() : null;
+    let firebaseCashAcceptClient = IS_FIREBASE
       ? window.DOJO_PAYMENT_CASH_ACCEPT.create({
           send:sendFirebaseCashAccept,
           generateRequestId:makeFirebaseCashRequestId
@@ -371,6 +378,67 @@
     let paymentList = [];
     let confirmedEvidences = [];
     let postedEvidences = [];
+    let initializationManager = null;
+    let authUid = "";
+    let redirectStarted = false;
+    let operationsEnabled = !IS_FIREBASE;
+    let scopeAcquisitionEnabled = !IS_FIREBASE;
+    let initializedContextKey = "";
+    const paymentStateByOwnerScope = new Map();
+    const cashClientByOwnerScope = new Map();
+    let activePaymentOwnerScope = "";
+
+    function paymentOwnerScopeKey() {
+      return [authUid, todayValue(), currentLocationId, currentBillingBlockId, currentTeacherId].join("|");
+    }
+
+    function isPaymentOwnerScopeCurrent(key) {
+      return !IS_FIREBASE || (key && key === activePaymentOwnerScope);
+    }
+
+    function clearRegisteredScopeDisplay() {
+      document.getElementById("registeredCashTotal").textContent = "0";
+      document.getElementById("registeredPaypayTotal").textContent = "0";
+      document.getElementById("registeredGrandTotal").textContent = "0";
+      document.getElementById("registeredPaymentCount").textContent = "0";
+      document.getElementById("expectedCollectionTotal").textContent = "0";
+      document.getElementById("attendanceMemberCount").textContent = "0";
+      renderAttendancePaymentWarnings([]);
+      renderRegisteredPayments([]);
+    }
+
+    function activatePaymentOwnerScope(nextKey) {
+      if (!IS_FIREBASE || nextKey === activePaymentOwnerScope) return;
+      if (activePaymentOwnerScope) {
+        paymentStateByOwnerScope.set(activePaymentOwnerScope, {
+          currentPayment:currentPayment,
+          paymentList:paymentList.slice(),
+          confirmedEvidences:confirmedEvidences.slice(),
+          postedEvidences:postedEvidences.slice(),
+          pendingPayPayPost:pendingPayPayPost
+        });
+        cashClientByOwnerScope.set(activePaymentOwnerScope, firebaseCashAcceptClient);
+      }
+      const saved = paymentStateByOwnerScope.get(nextKey) || null;
+      currentPayment = saved ? saved.currentPayment : null;
+      paymentList = saved ? saved.paymentList.slice() : [];
+      confirmedEvidences = saved ? saved.confirmedEvidences.slice() : [];
+      postedEvidences = saved ? saved.postedEvidences.slice() : [];
+      pendingPayPayPost = saved ? saved.pendingPayPayPost : null;
+      paypayPostInFlight = false;
+      firebaseCashAcceptClient = cashClientByOwnerScope.get(nextKey) || window.DOJO_PAYMENT_CASH_ACCEPT.create({
+        send:sendFirebaseCashAccept,
+        generateRequestId:makeFirebaseCashRequestId
+      });
+      cashClientByOwnerScope.set(nextKey, firebaseCashAcceptClient);
+      activePaymentOwnerScope = nextKey;
+      clearRegisteredScopeDisplay();
+      renderCurrentPayment();
+      renderPaymentList();
+      renderSummary();
+      renderConfirmedEvidences();
+      renderPostedEvidences();
+    }
 
     function setFirebaseAccessStatus(message, state) {
       if (!IS_FIREBASE) return;
@@ -402,11 +470,13 @@
     }
 
     function firebaseReadError(response, body) {
-      if (response.status === 401) return new Error("Firebase認証が必要です（HTTP 401）。");
-      if (response.status === 403) return new Error("管理者権限がありません（HTTP 403）。");
+      if (response.status === 401) { const error = new Error("Firebase認証が必要です（HTTP 401）。"); error.status = 401; return error; }
+      if (response.status === 403) { const error = new Error("管理者権限がありません（HTTP 403）。"); error.status = 403; return error; }
       const code = body && (body.error || body.message);
-      return new Error("Firebase会費情報の取得に失敗しました（HTTP " + response.status +
+      const error = new Error("Firebase会費情報の取得に失敗しました（HTTP " + response.status +
         (code ? " / " + code : "") + "）。");
+      error.status = response.status;
+      return error;
     }
 
     function buildFirebaseWebConnectUrl(params) {
@@ -434,7 +504,11 @@
       }
       let body = null;
       try { body = await response.json(); } catch (error) { body = null; }
-      if (!response.ok) throw firebaseReadError(response, body);
+      if (!response.ok) {
+        const error = firebaseReadError(response, body);
+        handleAccessError(error);
+        throw error;
+      }
       return body;
     }
 
@@ -510,26 +584,117 @@
       disableFirebaseWriteControls();
       const loginButton = document.getElementById("firebaseLoginButton");
       loginButton.addEventListener("click", function() {
-        setFirebaseAccessStatus("Googleログインを開始しています。", "loading");
-        firebaseAuthClient.signInWithGoogle().catch(function(error) {
-          setFirebaseAccessStatus("Firebase認証に失敗しました: " + (error.message || String(error)), "error");
-        });
+        redirectToLogin();
       });
-      firebaseAuthClient.ready.then(function() {
-        function updateUser(user) {
-          loginButton.classList.toggle("hidden", !!user);
-          if (!user) {
-            setFirebaseAccessStatus("会費受付情報の表示には管理者ログインが必要です。", "error");
-            return;
-          }
-          setFirebaseAccessStatus("ログイン済みです。管理者権限と受付範囲を確認しています。", "loading");
-          updateReceptionScope();
+      setPaymentOperationsEnabled(false);
+      initializationManager = window.DOJO_PAGE_INITIALIZATION_MANAGER.create({
+        dependencies:[
+          { name:"auth", run:function(){ return authGate.requireAuthenticated(); } },
+          systemContextAdapter.dependency("systemContext")
+        ],
+        requiredTasks:[{
+          name:"receptionScope",
+          run:function(context){ return updateReceptionScope(context, true); }
+        }],
+        stopOperations:function(){ setPaymentOperationsEnabled(false); }
+      });
+      initializationManager.subscribe(function(state) {
+        if (state.status === "INITIALIZING") {
+          setScopeAcquisitionEnabled(true);
+        } else if (state.status === "READY") {
+          const context = state.values && state.values.systemContext;
+          initializedContextKey = contextKey(context);
+          setPaymentOperationsEnabled(true);
+          setFirebaseAccessStatus("会費受付情報を表示しました。", "");
+        } else if (state.status === "ERROR" && state.error && state.error.code !== "UNAUTHENTICATED") {
+          setFirebaseAccessStatus(state.error.message || String(state.error), "error");
         }
-        firebaseAuthClient.onUserChanged(updateUser);
-        updateUser(firebaseAuthClient.getCurrentUser());
-      }).catch(function(error) {
-        setFirebaseAccessStatus("Firebase認証の初期化に失敗しました: " + (error.message || String(error)), "error");
       });
+      authGate.subscribe(function(state) {
+        if (state.status === "UNAUTHENTICATED") {
+          authUid = ""; redirectStarted = false;
+          initializationManager.accessLost("authentication_lost");
+          loginButton.classList.remove("hidden");
+          setFirebaseAccessStatus("会費受付情報の表示には管理者ログインが必要です。", "error");
+          redirectToLogin();
+        } else if (state.status === "AUTHENTICATED") {
+          loginButton.classList.add("hidden");
+          const uid = String(state.user && state.user.uid || "");
+          if (authUid && uid && uid !== authUid) {
+            initializationManager.accessLost("authenticated_user_changed");
+            authUid = uid;
+            activatePaymentOwnerScope(paymentOwnerScopeKey());
+            initializationManager.retry("authenticated_user_changed").catch(showInitializationError);
+          }
+          authUid = uid;
+        } else if (state.status === "ERROR") {
+          initializationManager.accessLost("authentication_error");
+          showInitializationError(state.error);
+        }
+      });
+      systemContextAdapter.subscribe(function(state) {
+        if (state.status !== "READY" || !state.changed || !initializationManager) return;
+        const nextKey = contextKey(state.context);
+        if (initializationManager.getState().status === "READY" && initializedContextKey && nextKey !== initializedContextKey) {
+          initializationManager.retry("system_context_changed").catch(showInitializationError);
+        }
+      });
+      initializationManager.start().catch(function(error) {
+        if (error && error.code !== "UNAUTHENTICATED") showInitializationError(error);
+      });
+    }
+
+    function contextKey(context) {
+      return context ? [context.system_now, context.target_month, context.time_travel_enabled].join("|") : "";
+    }
+
+    function redirectToLogin() {
+      if (!authGate || redirectStarted) return;
+      redirectStarted = true;
+      authGate.redirectToLogin(window.location.href);
+    }
+
+    function showInitializationError(error) {
+      setFirebaseAccessStatus("初期化に失敗しました: " + ((error && error.message) || String(error)), "error");
+    }
+
+    function isAccessError(error) {
+      return error && (error.status === 401 || error.status === 403 || /HTTP\s+(401|403)/.test(String(error.message || "")));
+    }
+
+    function handleAccessError(error) {
+      if (IS_FIREBASE && initializationManager && isAccessError(error)) initializationManager.accessLost("authorization_lost");
+    }
+
+    function setPaymentOperationsEnabled(enabled) {
+      operationsEnabled = enabled === true;
+      scopeAcquisitionEnabled = operationsEnabled;
+      document.querySelectorAll('button[onclick]').forEach(function(button) {
+        const action = String(button.getAttribute("onclick") || "");
+        if (action === "stopScan()" || action === "resetScreen()") return;
+        button.disabled = !operationsEnabled;
+      });
+      updateCompletionButton();
+    }
+
+    function setScopeAcquisitionEnabled(enabled) {
+      scopeAcquisitionEnabled = enabled === true;
+      const button = document.querySelector('button[onclick="startScan()"]');
+      if (button) button.disabled = !scopeAcquisitionEnabled;
+    }
+
+    function requestReceptionScopeRefresh() {
+      if (!IS_FIREBASE || !initializationManager) return updateReceptionScope();
+      activatePaymentOwnerScope(paymentOwnerScopeKey());
+      const status = initializationManager.getState().status;
+      if (status === "ERROR" || status === "INVALIDATED") {
+        return initializationManager.retry("reception_scope_changed").catch(showInitializationError);
+      }
+      return updateReceptionScope();
+    }
+
+    function isOperationCurrent(generation) {
+      return !IS_FIREBASE || (operationsEnabled && initializationManager && initializationManager.isCurrent(generation));
     }
 
     function saveReceptionScopeToSession() {
@@ -543,6 +708,7 @@
     }
 
     function startScan() {
+      if (IS_FIREBASE && !scopeAcquisitionEnabled) return;
       if (scanning) return;
 
       html5QrCode = new Html5Qrcode("reader");
@@ -577,6 +743,7 @@
     }
 
     function onScanSuccess(decodedText) {
+      if (IS_FIREBASE && !scopeAcquisitionEnabled) return;
       const now = Date.now();
 
       if (decodedText === lastText && now - lastReadTime < 2000) {
@@ -604,7 +771,7 @@
           addLog("課金枠QR読取: " + currentBillingBlockId);
         }
         saveReceptionScopeToSession();
-        updateReceptionScope();
+        requestReceptionScopeRefresh();
         beep();
         return;
       }
@@ -616,12 +783,16 @@
         document.getElementById("teacherId").textContent = currentTeacherId;
         document.getElementById("teacherId").className = "ok";
         addLog("先生QR読取: " + currentTeacherId);
-        updateReceptionScope();
+        requestReceptionScopeRefresh();
         beep();
         return;
       }
 
       if (parsed.member_id && parsed.plan_id) {
+        if (IS_FIREBASE && (!operationsEnabled || !currentLocationId || !currentBillingBlockId || !currentTeacherId)) {
+          addLog("会費受付スキップ: 受付スコープが未確定です。");
+          return;
+        }
         addLog("会員・プランQR読取: " + parsed.member_id + "(" + parsed.plan_id + ")");
         beep();
         loadMemberForPayment(parsed.member_id, parsed.plan_id);
@@ -629,6 +800,10 @@
       }
 
       if (parsed.member_id) {
+        if (IS_FIREBASE && (!operationsEnabled || !currentLocationId || !currentBillingBlockId || !currentTeacherId)) {
+          addLog("会費受付スキップ: 受付スコープが未確定です。");
+          return;
+        }
         addLog("会員QR読取: " + parsed.member_id);
         beep();
         loadMemberForPayment(parsed.member_id);
@@ -775,6 +950,9 @@
 
     function acceptFirebaseCashPayment(payType) {
       if (!IS_FIREBASE || payType !== "現金") return Promise.resolve(null);
+      if (!operationsEnabled) return Promise.resolve(null);
+      const generation = initializationManager.getState().generation;
+      const ownerScope = activePaymentOwnerScope;
       if (!currentPayment || currentPayment.amount <= 0) {
         const message = "受領対象の未払い会費がありません。";
         setFirebaseAccessStatus(message, "error");
@@ -806,12 +984,14 @@
       setFirebaseAccessStatus("現金受領を確定しています。", "loading");
       addLog("Firebase現金受領送信: " + memberId);
       return firebaseCashAcceptClient.execute(input).then(function(result) {
+        if (!isOperationCurrent(generation) || !isPaymentOwnerScopeCurrent(ownerScope)) return null;
         addLog("Firebase現金受領完了: " + memberId + " / " + Number(result.accepted_amount || 0) + "円");
         setFirebaseAccessStatus("現金受領を確定しました。最新情報を再取得しています。", "loading");
         return Promise.all([
           loadFirebaseMemberForPayment(memberId, planId),
           loadPaymentScreenRead()
         ]).then(function(results) {
+          if (!isOperationCurrent(generation) || !isPaymentOwnerScopeCurrent(ownerScope)) return null;
           const refreshed = results.every(function(value) { return value !== null; });
           setFirebaseAccessStatus(refreshed
             ? "現金受領を確定し、表示を更新しました。"
@@ -819,6 +999,8 @@
           return result;
         });
       }).catch(function(error) {
+        handleAccessError(error);
+        if (!isOperationCurrent(generation) || !isPaymentOwnerScopeCurrent(ownerScope)) return null;
         const unknown = error && error.outcomeUnknown === true;
         const message = unknown
           ? "通信結果が不明です。入金失敗とは断定できません。同じ会員の現金受領を再試行してください。"
@@ -827,7 +1009,7 @@
         setFirebaseAccessStatus(message, "error");
         return null;
       }).finally(function() {
-        setFirebaseCashAcceptBusy(false);
+        if (isOperationCurrent(generation) && isPaymentOwnerScopeCurrent(ownerScope)) setFirebaseCashAcceptBusy(false);
       });
     }
 
@@ -904,16 +1086,18 @@
       button.disabled = !currentTeacherId || !currentLocationId || !currentBillingBlockId || paymentList.length === 0;
     }
 
-    function updateReceptionScope() {
+    function updateReceptionScope(managerContext, requiredInitialization) {
       updateCompletionButton();
       if (!currentLocationId) {
         if (IS_FIREBASE) setFirebaseAccessStatus("受付範囲を確定できません。道場QR、URLまたは既存セッションで道場を指定してください。", "error");
-        return;
+        const error = new Error("受付範囲を確定できません。道場を指定してください。");
+        return requiredInitialization ? Promise.reject(error) : Promise.resolve(null);
       }
       if (IS_FIREBASE && !(window.DOJO_SYSTEM_CONTEXT && window.DOJO_SYSTEM_CONTEXT.system_now)) {
         setFirebaseAccessStatus("SystemContextの業務日を待っています。", "loading");
-        return;
+        return Promise.resolve(null);
       }
+      if (IS_FIREBASE) activatePaymentOwnerScope(paymentOwnerScopeKey());
 
       receptionSessionId = makeReceptionSessionId();
       const params = {
@@ -922,13 +1106,17 @@
       };
       if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
 
-      webConnectRead(params).then(function(result) {
+      const generation = IS_FIREBASE ? (managerContext ? managerContext.generation : initializationManager.getState().generation) : 0;
+      const ownerScope = IS_FIREBASE ? activePaymentOwnerScope : "";
+      return webConnectRead(params).then(function(result) {
+        if (IS_FIREBASE && (!(managerContext ? managerContext.isCurrent() : isOperationCurrent(generation)) || !isPaymentOwnerScopeCurrent(ownerScope))) return null;
         if (!result || result.ok !== true) {
           currentBillingBlockName = "";
           document.getElementById("billingBlockName").textContent = (result && result.message) || "課金枠を確認できませんでした。";
           addLog("課金枠確認エラー: " + ((result && result.message) || "ok=false"));
           if (IS_FIREBASE) setFirebaseAccessStatus("受付範囲を確定できません。課金枠を確認できませんでした。", "error");
-          return;
+          if (requiredInitialization) throw new Error((result && result.message) || "課金枠を確認できませんでした。");
+          return null;
         }
         currentBillingBlockId = result.billing_block_id || currentBillingBlockId;
         if (!currentBillingBlockId) {
@@ -936,26 +1124,36 @@
           document.getElementById("billingBlockName").textContent = result.message || "課金枠を確定できませんでした。";
           addLog("課金枠確認待ち: " + (result.message || "billing_block_id未確定"));
           if (IS_FIREBASE) setFirebaseAccessStatus("受付範囲を確定できません。課金枠QR、URLまたは既存セッションで課金枠を指定してください。", "error");
-          return;
+          if (requiredInitialization) throw new Error(result.message || "課金枠を確定できませんでした。");
+          return null;
         }
         currentBillingBlockName = result.billing_block_name || currentBillingBlockId;
+        activatePaymentOwnerScope(paymentOwnerScopeKey());
         document.getElementById("billingBlockId").textContent = currentBillingBlockId;
         document.getElementById("billingBlockId").className = "ok";
         document.getElementById("billingBlockName").textContent = currentBillingBlockName;
         saveReceptionScopeToSession();
         receptionSessionId = makeReceptionSessionId();
         addLog("課金枠確認完了: " + currentBillingBlockName);
-        loadPaymentScreenRead();
+        return loadPaymentScreenRead({ managerContext:managerContext, requiredInitialization:requiredInitialization });
       }).catch(function(error) {
+        handleAccessError(error);
+        if (IS_FIREBASE && (!(managerContext ? managerContext.isCurrent() : isOperationCurrent(generation)) || !isPaymentOwnerScopeCurrent(ownerScope))) return null;
         addLog("課金枠確認失敗: " + (error.message || String(error)));
         if (IS_FIREBASE) setFirebaseAccessStatus(error.message || String(error), "error");
+        if (requiredInitialization) throw error;
+        return null;
       });
     }
 
-    let firebaseRefreshInFlight = false;
+    let firebaseRefreshScope = "";
     function loadPaymentScreenRead(options) {
       const silent = !!(options && options.silent);
-      if (IS_FIREBASE && firebaseRefreshInFlight) return Promise.resolve(null);
+      const managerContext = options && options.managerContext;
+      const requiredInitialization = !!(options && options.requiredInitialization);
+      const generation = IS_FIREBASE ? (managerContext ? managerContext.generation : initializationManager.getState().generation) : 0;
+      const ownerScope = IS_FIREBASE ? activePaymentOwnerScope : "";
+      if (IS_FIREBASE && firebaseRefreshScope === ownerScope) return Promise.resolve(null);
       if (!currentLocationId || !currentBillingBlockId) {
         const scopeMessage = "受付範囲を確定できません。道場と課金枠を指定してください。";
         addLog("決済画面情報取得中止: " + scopeMessage);
@@ -971,7 +1169,7 @@
       }
       if (!silent) addLog("決済画面情報取得開始");
       if (IS_FIREBASE && !silent) setFirebaseAccessStatus("会費受付情報を読み込んでいます。", "loading");
-      if (IS_FIREBASE) firebaseRefreshInFlight = true;
+      if (IS_FIREBASE) firebaseRefreshScope = ownerScope;
       return webConnectRead({
         action: "payment_screen_read",
         reception_date: receptionDate,
@@ -979,6 +1177,7 @@
         billing_block_id: currentBillingBlockId,
         payment_method: "PAYPAY"
       }).then(function(result) {
+        if (IS_FIREBASE && (!(managerContext ? managerContext.isCurrent() : isOperationCurrent(generation)) || !isPaymentOwnerScopeCurrent(ownerScope))) return null;
         if (!result || result.ok !== true) throw new Error((result && result.message) || "決済画面情報を取得できませんでした。");
         const summary = result.summary || {};
         const confirmedResult = result.confirmed || {};
@@ -1001,10 +1200,13 @@
         if (IS_FIREBASE && !silent) setFirebaseAccessStatus("会費受付情報を表示しました。", "");
         return result;
       }).catch(function(error) {
+        handleAccessError(error);
+        if (IS_FIREBASE && (!(managerContext ? managerContext.isCurrent() : isOperationCurrent(generation)) || !isPaymentOwnerScopeCurrent(ownerScope))) return null;
         if (!silent) addLog("決済画面情報取得失敗: " + (error.message || String(error)));
         if (IS_FIREBASE) setFirebaseAccessStatus(error.message || String(error), "error");
+        if (requiredInitialization) throw error;
         return null;
-      }).finally(function() { if (IS_FIREBASE) firebaseRefreshInFlight = false; });
+      }).finally(function() { if (IS_FIREBASE && firebaseRefreshScope === ownerScope) firebaseRefreshScope = ""; });
     }
 
     function loadRegisteredScopeSummary() {
@@ -1370,6 +1572,9 @@
 
     async function postFirebaseSelectedEvidences(selected) {
       if (paypayPostInFlight) return;
+      if (!operationsEnabled) return;
+      const generation = initializationManager.getState().generation;
+      const ownerScope = activePaymentOwnerScope;
       const ids = selected.map(function(e) { return e.evidence_id; }).sort();
       const scope = [currentLocationId, currentBillingBlockId, receptionSessionId || ""];
       if (pendingPayPayPost && (JSON.stringify(ids) !== JSON.stringify(pendingPayPayPost.ids) ||
@@ -1392,21 +1597,26 @@
       setFirebaseAccessStatus("PayPay決済更新中です。", "loading");
       try {
         const result = await sendFirebasePayPayPost(pendingPayPayPost.input);
+        if (!isOperationCurrent(generation) || !isPaymentOwnerScopeCurrent(ownerScope)) return;
         pendingPayPayPost = null;
         addLog("PayPay決済更新完了: " + (result.results || result.posted || []).length + "件");
         setFirebaseAccessStatus("PayPay決済更新が完了しました。", "");
         await loadPaymentScreenRead();
       } catch (error) {
+        handleAccessError(error);
+        if (!isOperationCurrent(generation) || !isPaymentOwnerScopeCurrent(ownerScope)) return;
         if (!error.outcomeUnknown) pendingPayPayPost = null;
         addLog("PayPay決済更新失敗: " + error.message);
         setFirebaseAccessStatus(error.message, "error");
       } finally {
         paypayPostInFlight = false;
-        if (button) button.disabled = false;
+        if (button && isPaymentOwnerScopeCurrent(ownerScope)) button.disabled = false;
+        if (!isOperationCurrent(generation) && isPaymentOwnerScopeCurrent(ownerScope)) setPaymentOperationsEnabled(false);
       }
     }
 
     function postSelectedConfirmedEvidences() {
+      if (IS_FIREBASE && !operationsEnabled) return;
       if (!currentTeacherId) {
         addLog("決済更新スキップ: teacher_id未設定");
         return;
@@ -1567,11 +1777,14 @@
   }
 
   function loadFirebaseMemberForPayment(memberId, planId) {
+    if (!operationsEnabled) return Promise.resolve(null);
+    const generation = initializationManager.getState().generation;
     setFirebaseAccessStatus("会員別会費情報を読み込んでいます。", "loading");
     return webConnectRead({
       action:"getMemberInfo",
       member_id:memberId
     }).then(function(result) {
+      if (!isOperationCurrent(generation)) return null;
       const normalizedResult = normalizeFirebaseMemberPayment(result, memberId, planId);
       if (!normalizedResult.ok) {
         addLog("会費情報取得エラー: " + normalizedResult.message);
@@ -1594,6 +1807,8 @@
       setFirebaseAccessStatus("会員別会費情報を表示しました。", "");
       return normalized;
     }).catch(function(error) {
+      handleAccessError(error);
+      if (!isOperationCurrent(generation)) return null;
       const message = error.message || String(error);
       addLog("会費情報取得失敗: " + message);
       setFirebaseAccessStatus(message, "error");
@@ -1766,7 +1981,7 @@
       document.getElementById("billingBlockId").textContent = currentBillingBlockId;
       document.getElementById("billingBlockId").className = "ok";
     }
-    updateReceptionScope();
+    if (typeof IS_FIREBASE === "undefined" || !IS_FIREBASE) updateReceptionScope();
   }
 
   //　未使用予備 
@@ -1839,7 +2054,6 @@
   initializeReceptionScopeFromUrl();
   window.addEventListener("dojo-system-context", function() {
     receptionSessionId = makeReceptionSessionId();
-    if (IS_FIREBASE && currentLocationId && firebaseAuthClient.getCurrentUser()) updateReceptionScope();
   });
   window.addEventListener("dojo-system-context-error", function(event) {
     if (!IS_FIREBASE) return;

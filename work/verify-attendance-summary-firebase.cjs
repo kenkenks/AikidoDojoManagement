@@ -79,3 +79,13 @@ test('actual summary page uses authenticated GET in Firebase and preserves GAS J
   c.summaryAuth.getCurrentUser=()=>null;await assert.rejects(c.readSummary('M1'),/AUTH_REQUIRED/);assert.equal(calls.length,1);
   c.isFirebase=false;await c.readSummary('M1');assert.equal(calls[1],'jsonp');
 });
+test('summary page gates Firebase initialization and protects current input from token refresh',()=>{
+  const html=fs.readFileSync('web/qr/attendance_summary.html','utf8');
+  for(const asset of ['auth_gate.js','page_initialization_manager.js'])assert.match(html,new RegExp(asset.replace('.','\\.')));
+  assert.match(html,/dependencies:\[\{name:'auth'/);
+  assert.match(html,/requiredTasks:\[\{name:'summaryAccess'/);
+  assert.match(html,/if\(summaryAuthUid&&uid&&uid!==summaryAuthUid\)/);
+  assert.match(html,/managerContext&&!managerContext\.isCurrent\(\)/);
+  assert.match(html,/accessLost\('authorization_lost'\)/);
+  assert.doesNotMatch(html,/signInWithGoogle\(\)/);
+});

@@ -1,7 +1,9 @@
 import fs from "node:fs";
 import vm from "node:vm";
 
-const code = fs.readFileSync(new URL("../gas/04_AttendanceTeacher.js", import.meta.url), "utf8");
+const jobCode = fs.readFileSync(new URL("../gas/00_Job.js", import.meta.url), "utf8");
+const attendanceTeacherCode = fs.readFileSync(new URL("../gas/04_AttendanceTeacher.js", import.meta.url), "utf8");
+const code = jobCode + "\n" + attendanceTeacherCode;
 
 globalThis.ensureSheetContext = value => value || {};
 globalThis.normalizeId_ = value => String(value || "").trim();

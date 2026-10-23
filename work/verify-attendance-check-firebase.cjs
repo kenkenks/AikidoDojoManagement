@@ -5,40 +5,36 @@ const {createTeacherTodayReader}=require('../cloud/attendance/teacher-today-fire
 const {createAdminApi}=require('../cloud/api/admin-api.cjs');
 const {createDispatch}=require('../cloud/api/webConnect.cjs');
 const date='2026-10-26',params={location_id:'L1',billing_block_id:'B1',attendance_date:date};
-function sessionPage(){
-  const html=fs.readFileSync('web/qr/attendanceCheck.html','utf8'),requests=[],nodes=new Map(),choices=[];
-  const functions=html.slice(html.indexOf('    function loadAttendanceSessionInfo()'),html.indexOf('    function renderBlockChoices('))+
-    html.slice(html.indexOf('    function selectBillingBlock('),html.indexOf('    function loadTeacherAttendanceOverview('));
-  const listener=/window.addEventListener\("dojo-system-context", function\(\) \{([\s\S]*?)\n    \}\);/.exec(html)[1];
-  const ctx={IS_FIREBASE_ATTENDANCE:true,GAS_URL:'https://example.invalid',currentLocationId:'L1',currentBillingBlockId:'',currentSlots:[],sessionInfoRequestSeq:0,overviewClockKey:'',submitting:false,
-    document:{getElementById:id=>{if(!nodes.has(id))nodes.set(id,{});return nodes.get(id);}},
-    currentAttendanceDate:()=>date,persistAttendanceContext(){},clearCandidates(){},renderCandidates(){},updateSendButton(){},renderKeys(){},setKey(){},addLog(){},loadTeacherAttendanceOverview(){},
-    renderBlockChoices:(...args)=>choices.push(args),
-    jsonp:(_url,p)=>new Promise((resolve,reject)=>requests.push({params:JSON.parse(JSON.stringify(p)),resolve,reject}))};
-  ctx.window={DOJO_SYSTEM_CONTEXT:{time_travel_enabled:true,system_now:date+' 10:30:00',target_month:'2026-10'}};
-  vm.createContext(ctx);vm.runInContext(functions+'\nfunction onClock(){'+listener+'}',ctx);
-  const response=(id)=>({ok:true,location_id:'L1',location_name:'TEST',requires_selection:false,billing_block_id:id,billing_block_name:id,inferred:true,slots:[{slot_id:'S1'}],billing_block_candidates:[{billing_block_id:id}]});
-  return {ctx,requests,nodes,choices,response,run:s=>vm.runInContext(s,ctx),settle:()=>new Promise(r=>setImmediate(r))};
-}
-test('teacher initialization clock event selects Monday morning and renders selected option',async()=>{
-  const p=sessionPage();p.run('onClock()');assert.equal(p.requests.length,1);assert.equal(p.requests[0].params.billing_block_id,undefined);
-  p.requests[0].resolve(p.response('AM'));await p.settle();assert.equal(p.ctx.currentBillingBlockId,'AM');assert.equal(p.nodes.get('billingBlockId').className,'ok');
-  assert.equal(p.choices.at(-1)[1],'AM');assert.equal(p.choices.at(-1)[2],true);
+const attendanceCheckHtml=fs.readFileSync('web/qr/attendanceCheck.html','utf8');
+test('attendanceCheck uses the shared auth, context and initialization lifecycle',()=>{
+  for(const asset of ['auth_gate.js','page_initialization_manager.js','system_context_adapter.js'])
+    assert.match(attendanceCheckHtml,new RegExp('<script src="'+asset.replace('.','\\.')+'"></script>'));
+  assert.match(attendanceCheckHtml,/attendanceCheckSystemContext\.dependency\('systemContext'\)/);
+  assert.match(attendanceCheckHtml,/requiredTasks:\[\{name:'attendanceCheckBusiness'/);
+  assert.match(attendanceCheckHtml,/optionalTasks:\[\{name:'rankOptions'/);
 });
-test('TimeTravel change clears old block for automatic selection; manual reselection remains explicit',async()=>{
-  const p=sessionPage();p.run('onClock()');p.requests[0].resolve(p.response('AM'));await p.settle();
-  p.ctx.window.DOJO_SYSTEM_CONTEXT.system_now=date+' 19:30:00';p.run('onClock()');assert.equal(p.requests[1].params.billing_block_id,undefined);
-  p.requests[1].resolve(p.response('PM'));await p.settle();assert.equal(p.ctx.currentBillingBlockId,'PM');
-  p.run("selectBillingBlock('AM')");assert.equal(p.requests[2].params.billing_block_id,'AM');
-  p.requests[2].resolve({...p.response('AM'),inferred:false});await p.settle();assert.equal(p.ctx.currentBillingBlockId,'AM');
+test('business initialization is gated and stale async results are rejected',()=>{
+  assert.match(attendanceCheckHtml,/function initializeAttendanceCheckBusiness\(context\)/);
+  assert.match(attendanceCheckHtml,/if\(!context\.isCurrent\(\)\)return false/);
+  assert.match(attendanceCheckHtml,/managerContext&&!managerContext\.isCurrent\(\)/);
+  assert.match(attendanceCheckHtml,/attendanceCheckInitializationManager\.isCurrent\(initializationGeneration\)/);
 });
-test('late initialization/clock responses and errors cannot overwrite newer Firebase selection',async()=>{
-  for(const lateError of [false,true]){
-    const p=sessionPage();p.run('onClock()');p.ctx.window.DOJO_SYSTEM_CONTEXT.system_now=date+' 19:30:00';p.run('onClock()');
-    p.requests[1].resolve(p.response('PM'));await p.settle();
-    if(lateError)p.requests[0].reject(Error('old error'));else p.requests[0].resolve({ok:true,requires_selection:true,billing_block_candidates:[]});
-    await p.settle();assert.equal(p.ctx.currentBillingBlockId,'PM');assert.equal(p.ctx.currentSlots.length,1);assert.equal(p.choices.length,1);
-  }
+test('authentication and authorization loss stop operations without redirect loops',()=>{
+  assert.match(attendanceCheckHtml,/accessLost\('authentication_lost'\)/);
+  assert.match(attendanceCheckHtml,/accessLost\('authorization_lost'\)/);
+  assert.match(attendanceCheckHtml,/redirectAttendanceCheckLogin\(\)/);
+  assert.doesNotMatch(attendanceCheckHtml,/signInWithGoogle\(\)/);
+});
+test('same-scope QR reload preserves candidates while actual scope changes clear them',()=>{
+  assert.match(attendanceCheckHtml,/function attendanceCheckCandidateScopeKey\(\)/);
+  assert.match(attendanceCheckHtml,/clearAttendanceCheckCandidatesWhenScopeChanged\(previousCandidateScope\)/);
+  assert.match(attendanceCheckHtml,/locationChanged\|\|billingBlockChanged/);
+  assert.match(attendanceCheckHtml,/currentSlots\.length===0/);
+});
+test('GAS path remains available and does not require the Firebase manager',()=>{
+  assert.match(attendanceCheckHtml,/if\(IS_FIREBASE_ATTENDANCE\)initializeFirebaseAttendanceCheckPage\(\)/);
+  assert.match(attendanceCheckHtml,/else\{[\s\S]*?loadRankOptions\(\);initializeFromPageUrl\(\)/);
+  assert.match(attendanceCheckHtml,/if\(IS_FIREBASE_ATTENDANCE\)return window\.DOJO_ATTENDANCE_FIREBASE_READ\.request/);
 });
 const row=(member,slot,status='有効',extra={})=>({member_id:member,slot_id:slot,'状態':status,'稽古日':date,location_id:'L1',billing_block_id:'B1',...extra});
 const summary={M1:{member_name:'TEST',current_rank:'初段',rank_sort_order:1,training_count:2,required_training_count:10,remaining_training_count:8}};
@@ -97,7 +93,7 @@ test('virtual teacher or extra parameters cannot grant rights; active teacher ma
 test('actual teacher page sends Firebase register/cancel/re-register then full GET readback and overview, never post_receipt',async()=>{
   const html=fs.readFileSync('web/qr/attendanceCheck.html','utf8');
   const body=html.slice(html.indexOf('    function sendCandidatesToGas()'),html.indexOf('    function postJsonViaForm('));
-  const calls=[],ctx={IS_FIREBASE_ATTENDANCE:true,submitting:false,currentTeacherId:'T1',currentLocationId:'L1',currentBillingBlockId:'B1',attendanceSessionId:'SESSION',overviewClockKey:'',
+  const calls=[],ctx={IS_FIREBASE_ATTENDANCE:true,businessOperationsEnabled:true,submitting:false,currentTeacherId:'T1',currentLocationId:'L1',currentBillingBlockId:'B1',attendanceSessionId:'SESSION',overviewClockKey:'',
     memberCandidates:[{member_id:'M1',loaded:true,current_rank:'初段',slot_ids:['S1'],billing_plan_id:'P1',billing_plan_selected:true}],
     currentAttendanceDate:()=>date,renderCandidates(){},updateSendButton(){},addLog(){},firebaseAttendanceAuth:{},firebaseAttendanceApi:{},
     postJsonViaForm(){throw Error('NO_GAS');},waitForPostReceipt(){throw Error('NO_RECEIPT');},

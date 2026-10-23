@@ -6,20 +6,107 @@
   <section class="card">
     <h2>入口</h2>
     <div id="loginState" class="login-message">先生または会員のQRを読み取ってください。</div>
-    <button id="scanButton" onclick="startLoginScan()">QR読み取り開始</button>
-    <button id="stopButton" onclick="stopLoginScan()">停止</button>
-    <div id="loginReader"></div>
-    <p class="note">このログインは同じタブのページ間で保持されます。タブを閉じるか、ログアウトすると解除されます。</p>
+    <div id="normalEntryControls">
+      <button id="scanButton" onclick="startLoginScan()">QR読み取り開始</button>
+      <button id="stopButton" onclick="stopLoginScan()">停止</button>
+      <div id="loginReader"></div>
+      <p class="note">このログインは同じタブのページ間で保持されます。タブを閉じるか、ログアウトすると解除されます。</p>
+    </div>
+    <button id="firebaseLoginButton" type="button" hidden>Googleでログイン</button>
   </section>
   <script src="virtual_session.js"></script>
+  <script src="runtime_config.js"></script>
+  <script src="firebase_auth.js"></script>
+  <script src="auth_gate.js"></script>
   <script>
     let loginQr = null;
     let loginScanning = false;
+    let firebaseReturnGate = null;
+    let returnNavigationStarted = false;
 
-    applyLocationContextFromUrl();
-    const urlIdentityApplied = applyIdentityFromUrl();
-    renderLoginState();
-    if (urlIdentityApplied) continueLogin();
+    const returnMode = new URLSearchParams(location.search).has("return_url");
+    if (returnMode) {
+      initializeFirebaseReturnMode();
+    } else {
+      applyLocationContextFromUrl();
+      const urlIdentityApplied = applyIdentityFromUrl();
+      renderLoginState();
+      if (urlIdentityApplied) continueLogin();
+    }
+
+
+    function initializeFirebaseReturnMode() {
+      document.getElementById("normalEntryControls").hidden = true;
+      const loginButton = document.getElementById("firebaseLoginButton");
+      const runtimeConfig = window.DOJO_RUNTIME_CONFIG;
+      if (!runtimeConfig || runtimeConfig.runtime !== "firebase" ||
+          !window.DOJO_FIREBASE_AUTH || !window.DOJO_AUTH_GATE) {
+        showLoginMessage("Firebaseログインを利用できません。通常の入口へ戻ってください。", "error");
+        return;
+      }
+
+      const requestedReturnUrl = new URLSearchParams(location.search).get("return_url") || "";
+      const returnUrl = window.DOJO_AUTH_GATE.normalizeReturnUrl(requestedReturnUrl, {
+        baseUrl:location.href,
+        loginUrl:new URL("index.html", location.href).href
+      });
+      if (!returnUrl) {
+        showLoginMessage("復帰先URLが不正です。通常の入口から操作してください。", "error");
+        return;
+      }
+      const authClient = window.DOJO_FIREBASE_AUTH.create({ runtimeConfig:runtimeConfig });
+      firebaseReturnGate = window.DOJO_AUTH_GATE.create({
+        authClient:authClient,
+        runtimeConfig:runtimeConfig,
+        loginPath:"index.html"
+      });
+      firebaseReturnGate.rememberReturnUrl(returnUrl);
+
+      loginButton.onclick = function() {
+        loginButton.disabled = true;
+        showLoginMessage("Googleログインを開始しています。", "");
+        firebaseReturnGate.signInWithGoogle()
+          .then(function() { return firebaseReturnGate.requireAuthenticated(); })
+          .then(function() { returnToRequestedPage(returnUrl); })
+          .catch(function(error) {
+            loginButton.disabled = false;
+            loginButton.hidden = false;
+            showLoginMessage("Googleログインに失敗しました。もう一度お試しください。", "error");
+          });
+      };
+
+      firebaseReturnGate.subscribe(function(state) {
+        if (state.status === "CHECKING") {
+          loginButton.hidden = true;
+          showLoginMessage("Firebase認証状態を確認しています。", "");
+        } else if (state.status === "UNAUTHENTICATED") {
+          loginButton.hidden = false;
+          loginButton.disabled = false;
+          showLoginMessage("続けるにはGoogleログインが必要です。", "");
+        } else if (state.status === "AUTHENTICATED") {
+          loginButton.hidden = true;
+          showLoginMessage("認証済みです。元の画面へ戻ります。", "ok");
+          returnToRequestedPage(returnUrl);
+        } else if (state.status === "ERROR") {
+          loginButton.hidden = true;
+          showLoginMessage("Firebase認証を初期化できませんでした。画面を再読み込みしてください。", "error");
+        }
+      });
+      firebaseReturnGate.ready.catch(function() {});
+    }
+
+    function returnToRequestedPage(returnUrl) {
+      if (!firebaseReturnGate || returnNavigationStarted) return;
+      const validated = firebaseReturnGate.validateReturnUrl(returnUrl) ||
+        firebaseReturnGate.getRememberedReturnUrl();
+      if (!validated) {
+        showLoginMessage("安全な復帰先を確認できませんでした。通常の入口から操作してください。", "error");
+        return;
+      }
+      returnNavigationStarted = true;
+      firebaseReturnGate.clearRememberedReturnUrl();
+      location.assign(validated);
+    }
 
 
     function applyLocationContextFromUrl() {

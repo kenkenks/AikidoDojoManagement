@@ -39,7 +39,7 @@ function extractFunction(name) {
 const saveSource = extractFunction("saveReceptionScopeToSession");
 const initSource = extractFunction("initializeReceptionScopeFromUrl");
 
-assert(/saveReceptionScopeToSession\(\);\s*updateReceptionScope\(\)/.test(html), "道場・課金枠QR後にContextを保存していません。");
+assert(/saveReceptionScopeToSession\(\);\s*requestReceptionScopeRefresh\(\)/.test(html), "道場・課金枠QR後にContextを保存していません。");
 assert(/loginTeacher\(currentTeacherId, "SCREEN_QR"\);\s*saveReceptionScopeToSession\(\)/.test(html), "先生QR後にContextを保存していません。");
 assert(/params\.get\("location_id"\) \|\| sessionContext\.location_id/.test(initSource), "location_id のURL優先・Session補完がありません。");
 assert(/params\.get\("billing_block_id"\) \|\| sessionContext\.billing_block_id/.test(initSource), "billing_block_id のURL優先・Session補完がありません。");

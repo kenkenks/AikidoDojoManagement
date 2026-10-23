@@ -65,7 +65,7 @@
     <div class="toolbar"><button id="withdrawButton">退会を確定</button><button id="withdrawCancelButton">一覧へ戻る</button></div>
   </section>
   <p class="note"><a id="teacherHomeLink" href="teacher_home.html">先生ホームへ戻る</a></p>
-  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script>
+  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script><script src="auth_gate.js"></script><script src="page_initialization_manager.js"></script>
   <script>
   (function(){
     "use strict";
@@ -79,14 +79,18 @@
     document.getElementById("loginIdentity").textContent=session&&session.role==="TEACHER"?"先生 "+session.teacher_id+" の会員管理":"先生セッションがありません";
     const auth=isFirebase?window.DOJO_FIREBASE_AUTH.create({runtimeConfig:cfg}):null;
     const api=auth?window.DOJO_API_CLIENT.create({getCurrentUser:auth.getCurrentUser}):null;
-    let members=[],plans=[],rules=[],editing=null,busy=false;
+    const authGate=auth&&window.DOJO_AUTH_GATE?window.DOJO_AUTH_GATE.create({authClient:auth,loginPath:'index.html'}):null;
+    let members=[],plans=[],rules=[],editing=null,busy=false,operationsEnabled=false,groupCapability=false,activeView='listView',dirty=false;
+    let initializationManager=null,authUid='',redirectStarted=false;
     const fields=['member_id','member_name','member_name_kana','member_type','status','billing_group_id','joined_date','withdrawn_date','suspension_start_month','suspension_end_month','birth_date','insurance_type','email','phone','current_rank','remarks'];
     const byId=id=>document.getElementById(id), form=byId('memberForm');
     function message(text,type){const el=byId('message');el.textContent=text;el.className='note '+(type||'')}
-    function show(name){for(const id of ['listView','editView','groupView','withdrawView'])byId(id).classList.toggle('hidden',id!==name)}
+    function show(name){activeView=name;for(const id of ['listView','editView','groupView','withdrawView'])byId(id).classList.toggle('hidden',id!==name)}
     function url(action,params){const u=new URL(cfg.apiBaseUrl+'/api/webconnect');u.searchParams.set('action',action);for(const [k,v]of Object.entries(params||{}))u.searchParams.set(k,v);return u.toString()}
-    async function read(action,params){const r=await api.request(url(action,params),{method:'GET',cache:'no-store'});const body=await r.json().catch(()=>({}));if(!r.ok)throw Error(body.error||'HTTP_'+r.status);return body}
-    async function write(action,input){const r=await api.request(cfg.apiBaseUrl+'/api/webconnect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,input})});const body=await r.json().catch(()=>({}));if(!r.ok)throw Error(body.error||'HTTP_'+r.status);return body}
+    async function read(action,params){const r=await api.request(url(action,params),{method:'GET',cache:'no-store'});const body=await r.json().catch(()=>({}));if(!r.ok){const error=Error(body.error||'HTTP_'+r.status);error.status=r.status;throw error}return body}
+    async function write(action,input){const r=await api.request(cfg.apiBaseUrl+'/api/webconnect',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,input})});const body=await r.json().catch(()=>({}));if(!r.ok){const error=Error(body.error||'HTTP_'+r.status);error.status=r.status;throw error}return body}
+    function isAccessError(error){return error&&(error.status===401||error.status===403||/HTTP[_ ](?:401|403)/.test(String(error.message||error)))}
+    function handleAccessError(error){if(isAccessError(error)&&initializationManager){initializationManager.accessLost('authorization_lost');message('認証または利用権限を確認できないため、操作を停止しました。','error')}}
     function render(){
       const q=byId('filter').value.trim().toLocaleLowerCase('ja'),root=byId('memberList');root.replaceChildren();
       members.filter(m=>!q||[m.member_id,m.member_name,m.member_name_kana].some(v=>String(v||'').toLocaleLowerCase('ja').includes(q))).forEach(m=>{
@@ -96,14 +100,51 @@
         const meta=document.createElement('span');meta.className='member-meta';meta.textContent=[m.member_type,m.current_rank].filter(Boolean).join(' · ')||m.status||'区分未登録';
         summary.append(name,meta);
         const actions=document.createElement('div');actions.className='member-actions';
-        [['編集',()=>openEdit(m)],['支払設定',()=>openGroup(m)]].forEach(([label,fn])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;actions.append(b)});
+        [['編集',()=>openEdit(m),operationsEnabled],['支払設定',()=>openGroup(m),operationsEnabled&&groupCapability]].forEach(([label,fn,enabled])=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=fn;b.disabled=!enabled;actions.append(b)});
         row.append(summary,actions);root.append(row);
       });
       if(!root.children.length){const p=document.createElement('p');p.className='note';p.textContent='該当する会員はありません。';root.append(p)}
     }
-    async function load(){if(!api)return;message('会員一覧を読み込んでいます。');const [data,options]=await Promise.all([read('member_management_list'),read('qr_generator_options')]);members=Array.isArray(data.members)?data.members:[];plans=Array.isArray(options.plans)?options.plans:[];rules=Array.isArray(options.plan_selection_rules)?options.plan_selection_rules:[];render();show('listView');message(members.length+'件の会員を表示しました。','ok')}
+    async function loadMembers(managerContext){
+      message('会員一覧を読み込んでいます。');
+      const data=await read('member_management_list');
+      if(managerContext&&!managerContext.isCurrent())return false;
+      members=Array.isArray(data.members)?data.members:[];render();message(members.length+'件の会員を表示しました。','ok');return true;
+    }
+    async function loadGroupOptions(managerContext){
+      const options=await read('qr_generator_options');
+      if(managerContext&&!managerContext.isCurrent())return false;
+      plans=Array.isArray(options.plans)?options.plans:[];rules=Array.isArray(options.plan_selection_rules)?options.plan_selection_rules:[];groupCapability=true;render();return true;
+    }
+    async function reloadAll(){
+      if(!api||!operationsEnabled)return;
+      try{await loadMembers()}catch(error){handleAccessError(error);throw error}
+      try{await loadGroupOptions()}
+      catch(error){
+        handleAccessError(error);if(isAccessError(error))throw error;
+        groupCapability=false;render();message('会員一覧は更新しました。支払いグループ用マスターを取得できないため、支払いグループ操作のみ停止しています。','error');
+      }
+    }
+    function actionGeneration(){return initializationManager?initializationManager.getState().generation:0}
+    function isActionCurrent(generation){return initializationManager&&initializationManager.isCurrent(generation)&&operationsEnabled}
+    function setOperationsEnabled(enabled){
+      operationsEnabled=enabled===true;
+      for(const element of document.querySelectorAll('#editView input,#editView select,#editView textarea,#editView button,#groupView input,#groupView select,#groupView button,#withdrawView input,#withdrawView button'))element.disabled=!operationsEnabled;
+      byId('newButton').disabled=!operationsEnabled;byId('reloadButton').disabled=!operationsEnabled;byId('filter').disabled=!operationsEnabled;
+      if(operationsEnabled&&activeView==='groupView')updatePlanCandidates();
+      render();
+    }
+    function redirectLogin(){if(!authGate||redirectStarted)return;redirectStarted=true;authGate.redirectToLogin(window.location.href)}
+    function showInitializationError(error){message('会員管理を初期化できませんでした: '+(error&&error.message||error),'error')}
+    function isolateMemberManagementForDifferentUid(){
+      members=[];plans=[];rules=[];editing=null;busy=false;groupCapability=false;dirty=false;
+      form.reset();form.elements.member_id.readOnly=false;
+      byId('filter').value='';byId('groupMembers').replaceChildren();byId('groupTarget').replaceChildren();byId('groupPlan').replaceChildren();
+      byId('withdrawMemberId').value='';byId('withdrawMember').textContent='';byId('withdrawnDate').value='';
+      show('listView');render();message('利用者が切り替わったため、前の利用者の編集中データを隔離しました。');
+    }
     function nextGroupId(){let max=0;for(const m of members){const hit=/^BG(\d+)$/.exec(String(m.billing_group_id||''));if(hit)max=Math.max(max,Number(hit[1]))}return 'BG'+String(max+1).padStart(3,'0')}
-    function openEdit(member){editing=member||null;byId('formTitle').textContent=member?'会員編集':'会員新規登録';
+    function openEdit(member){if(!operationsEnabled)return;editing=member||null;dirty=false;byId('formTitle').textContent=member?'会員編集':'会員新規登録';
       for(const key of fields)form.elements[key].value=member&&member[key]!=null?member[key]:'';
       if(!member)form.elements.billing_group_id.value=nextGroupId();
       form.elements.member_id.readOnly=!!member;
@@ -124,9 +165,11 @@
       const selectedType=feeSelect.value,candidates=eligible.filter(p=>p.fee_type===selectedType&&Number(p.applicable_member_count)===all.length);
       const select=byId('groupPlan');select.replaceChildren();for(const p of candidates){const o=document.createElement('option');o.value=p.plan_id;o.textContent=p.plan_name+' / '+p.fee_type+' / '+p.applicable_member_count+'人用';select.append(o)}
       byId('groupPlanNote').textContent=all.length+'人編成。'+(familyType?'全員の会員区分を「'+familyType+'」、グループIDを「'+(target==='__NEW__'?nextGroupId():target)+'」に更新します。':'')+(candidates.length?'候補を初期表示しています。確定は月次会費管理で行います。':'対応する有効な料金プラン候補がありません。会員区分の選択ルール・会費タイプ・適用人数を確認してください。');
-      byId('groupSaveButton').disabled=ids.length<1||all.length>5||!selectedType;
+      byId('groupSaveButton').disabled=!operationsEnabled||!groupCapability||ids.length<1||all.length>5||!selectedType;
     }
     function openGroup(member){
+      if(!operationsEnabled||!groupCapability){message('支払いグループ用マスターを取得できないため、この操作は利用できません。','error');return}
+      dirty=false;
       const target=byId('groupTarget');target.replaceChildren();
       const fresh=document.createElement('option');fresh.value='__NEW__';fresh.textContent='新しいグループ（'+nextGroupId()+'）';target.append(fresh);
       for(const id of groupIds()){const o=document.createElement('option');o.value=id;o.textContent=id+'（現在 '+members.filter(m=>m.billing_group_id===id).length+'人）';target.append(o)}
@@ -135,10 +178,10 @@
       const syncTarget=()=>{for(const box of root.querySelectorAll('input')){const fixed=target.value!=='__NEW__'&&box.dataset.group===target.value;box.checked=fixed||box.value===(member&&member.member_id);box.disabled=fixed}updatePlanCandidates()};
       target.onchange=syncTarget;byId('groupFeeType').onchange=updatePlanCandidates;show('groupView');syncTarget();
     }
-    function openWithdraw(member){editing=member;byId('withdrawMember').textContent=member.member_id+' '+(member.member_name||'');byId('withdrawnDate').value=new Date().toISOString().slice(0,10);show('withdrawView')}
-    form.addEventListener('submit',async e=>{e.preventDefault();if(busy)return;busy=true;try{const member={};for(const key of fields)if(!editing||key!=='billing_group_id')member[key]=String(form.elements[key].value||'').trim();await write('member_management_save',{mode:editing?'update':'create',member});message('会員情報を保存しました。','ok');await load()}catch(err){message('保存できませんでした: '+err.message,'error')}finally{busy=false}});
-    byId('groupSaveButton').onclick=async()=>{if(busy)return;const target=byId('groupTarget').value,createNew=target==='__NEW__',groupId=createNew?nextGroupId():target;busy=true;try{await write('member_management_group_save',{billing_group_id:groupId,member_ids:selectedGroupMembers(),membership_fee_type:byId('groupFeeType').value,plan_id:byId('groupPlan').value||'',create_new:createNew});message('支払いグループを保存しました。料金プランは月次会費管理で確定してください。','ok');await load()}catch(err){message('グループ編成を保存できませんでした: '+err.message,'error')}finally{busy=false}};
-    byId('withdrawButton').onclick=async()=>{if(busy||!editing)return;if(!window.confirm(editing.member_id+' '+(editing.member_name||'')+' を退会処理します。よろしいですか？'))return;busy=true;try{await write('member_management_withdraw',{member_id:editing.member_id,withdrawn_date:byId('withdrawnDate').value});message('退会手続きを保存しました。','ok');await load()}catch(err){message('退会手続きを保存できませんでした: '+err.message,'error')}finally{busy=false}};
+    function openWithdraw(member){if(!operationsEnabled)return;editing=member;dirty=false;byId('withdrawMember').textContent=member.member_id+' '+(member.member_name||'');byId('withdrawnDate').value=new Date().toISOString().slice(0,10);show('withdrawView')}
+    form.addEventListener('submit',async e=>{e.preventDefault();if(busy||!operationsEnabled)return;const generation=actionGeneration();busy=true;try{const member={};for(const key of fields)if(!editing||key!=='billing_group_id')member[key]=String(form.elements[key].value||'').trim();await write('member_management_save',{mode:editing?'update':'create',member});if(!isActionCurrent(generation))return;dirty=false;show('listView');message('会員情報を保存しました。','ok');await reloadAll()}catch(err){handleAccessError(err);if(isActionCurrent(generation))message('保存できませんでした: '+err.message,'error')}finally{busy=false}});
+    byId('groupSaveButton').onclick=async()=>{if(busy||!operationsEnabled||!groupCapability)return;const generation=actionGeneration(),target=byId('groupTarget').value,createNew=target==='__NEW__',groupId=createNew?nextGroupId():target;busy=true;try{await write('member_management_group_save',{billing_group_id:groupId,member_ids:selectedGroupMembers(),membership_fee_type:byId('groupFeeType').value,plan_id:byId('groupPlan').value||'',create_new:createNew});if(!isActionCurrent(generation))return;dirty=false;show('listView');message('支払いグループを保存しました。料金プランは月次会費管理で確定してください。','ok');await reloadAll()}catch(err){handleAccessError(err);if(isActionCurrent(generation))message('グループ編成を保存できませんでした: '+err.message,'error')}finally{busy=false}};
+    byId('withdrawButton').onclick=async()=>{if(busy||!operationsEnabled||!editing)return;if(!window.confirm(editing.member_id+' '+(editing.member_name||'')+' を退会処理します。よろしいですか？'))return;const generation=actionGeneration();busy=true;try{await write('member_management_withdraw',{member_id:editing.member_id,withdrawn_date:byId('withdrawnDate').value});if(!isActionCurrent(generation))return;dirty=false;show('listView');message('退会手続きを保存しました。','ok');await reloadAll()}catch(err){handleAccessError(err);if(isActionCurrent(generation))message('退会手続きを保存できませんでした: '+err.message,'error')}finally{busy=false}};
     byId('withdrawLookupButton').onclick=()=>{
       const memberId=byId('withdrawMemberId').value.trim();
       if(!memberId){message('退会対象の会員IDを入力してください。','error');return}
@@ -146,10 +189,35 @@
       if(matches.length!==1){message(matches.length?'会員IDが重複しています。管理者に確認してください。':'該当する会員IDが見つかりません。','error');return}
       openWithdraw(matches[0]);
     };
-    byId('filter').oninput=render;byId('reloadButton').onclick=()=>load().catch(e=>message(e.message,'error'));byId('newButton').onclick=()=>openEdit(null);byId('cancelButton').onclick=byId('groupCancelButton').onclick=byId('withdrawCancelButton').onclick=()=>show('listView');
-    byId('authButton').onclick=()=>auth&&auth.signInWithGoogle().catch(e=>message('ログインできませんでした: '+e.message,'error'));
+    form.addEventListener('input',()=>{dirty=true});form.addEventListener('change',()=>{dirty=true});
+    byId('groupView').addEventListener('change',()=>{dirty=true});byId('withdrawView').addEventListener('change',()=>{dirty=true});
+    byId('filter').oninput=render;byId('reloadButton').onclick=()=>reloadAll().catch(e=>message(e.message,'error'));byId('newButton').onclick=()=>openEdit(null);byId('cancelButton').onclick=byId('groupCancelButton').onclick=byId('withdrawCancelButton').onclick=()=>{dirty=false;show('listView')};
+    byId('authButton').onclick=redirectLogin;
     if(!isFirebase){byId('authButton').hidden=true;message('会員管理はFirebase版で利用できます。','error');return}
-    auth.ready.then(()=>{auth.onUserChanged(user=>{byId('authButton').hidden=!!user;if(user)load().catch(e=>message('会員一覧を取得できませんでした: '+e.message,'error'));else message('会員管理には既存のFirebase管理者ログインが必要です。','error')});const user=auth.getCurrentUser();if(user)load().catch(e=>message(e.message,'error'));else message('会員管理には既存のFirebase管理者ログインが必要です。','error')}).catch(e=>message('Firebase認証を初期化できませんでした: '+e.message,'error'));
+    setOperationsEnabled(false);
+    initializationManager=window.DOJO_PAGE_INITIALIZATION_MANAGER.create({
+      dependencies:[{name:'auth',run:()=>authGate.requireAuthenticated()}],
+      requiredTasks:[{name:'memberList',run:context=>loadMembers(context)}],
+      optionalTasks:[{name:'groupOptions',capability:'groupOptions',run:context=>loadGroupOptions(context)}],
+      stopOperations:()=>setOperationsEnabled(false)
+    });
+    initializationManager.subscribe(state=>{
+      if(state.status==='READY'){
+        groupCapability=state.capabilities&&state.capabilities.groupOptions===true;setOperationsEnabled(true);
+        if(!groupCapability)message('会員一覧は利用できます。支払いグループ用マスターを取得できないため、支払いグループ操作のみ停止しています。','error');
+      }else if(state.status==='ERROR'&&state.error&&state.error.code!=='UNAUTHENTICATED')showInitializationError(state.error);
+    });
+    authGate.subscribe(state=>{
+      if(state.status==='UNAUTHENTICATED'){
+        authUid='';redirectStarted=false;initializationManager.accessLost('authentication_lost');byId('authButton').hidden=false;
+        message('会員管理には既存のFirebase管理者ログインが必要です。','error');redirectLogin();
+      }else if(state.status==='AUTHENTICATED'){
+        byId('authButton').hidden=true;const nextUid=String(state.user&&state.user.uid||'');
+        if(authUid&&nextUid&&nextUid!==authUid){initializationManager.accessLost('authenticated_user_changed');isolateMemberManagementForDifferentUid();initializationManager.retry('authenticated_user_changed').catch(showInitializationError)}
+        authUid=nextUid;
+      }else if(state.status==='ERROR'){initializationManager.accessLost('authentication_error');showInitializationError(state.error)}
+    });
+    initializationManager.start().catch(error=>{if(error&&error.code!=='UNAUTHENTICATED')showInitializationError(error)});
   })();
   </script>
 </body></html>

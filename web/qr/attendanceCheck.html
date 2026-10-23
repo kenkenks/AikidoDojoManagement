@@ -103,7 +103,7 @@
           <option value="name">氏名順</option>
         </select>
       </label>
-      <button type="button" onclick="loadTeacherAttendanceOverview()">更新</button>
+      <button id="overviewReloadButton" type="button" onclick="loadTeacherAttendanceOverview()">更新</button>
     </div>
     <div id="overviewStatus" class="empty">道場を設定すると本日の出席者を表示します。</div>
     <div id="teacherOverview" class="overview-list"></div>
@@ -111,8 +111,8 @@
 
   <section class="card scan-card">
     <div id="reader"></div>
-    <button type="button" onclick="startScan()">読み取り開始</button>
-    <button type="button" onclick="stopScan()">停止</button>
+    <button id="scanStartButton" type="button" onclick="startScan()">読み取り開始</button>
+    <button id="scanStopButton" type="button" onclick="stopScan()">停止</button>
   </section>
 
   <section class="card">
@@ -125,7 +125,7 @@
     </select>
     <div id="memberCandidates" class="empty">会員QRを読み取ってください。</div>
     <button id="sendButton" class="primary" type="button" onclick="sendCandidatesToGas()">選択した出席を登録</button>
-    <button type="button" onclick="clearCandidates()">会員一覧をクリア</button>
+    <button id="clearCandidatesButton" type="button" onclick="clearCandidates()">会員一覧をクリア</button>
   </section>
 
   <details class="card diagnostic-card"><summary>最新読み取りURL</summary>
@@ -139,6 +139,9 @@
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
   <script src="firebase_auth.js"></script>
+  <script src="auth_gate.js"></script>
+  <script src="page_initialization_manager.js"></script>
+  <script src="system_context_adapter.js"></script>
   <script src="dojo_api_client.js"></script>
   <script src="attendance_firebase_read.js"></script>
   <script>
@@ -146,18 +149,14 @@
     const IS_FIREBASE_ATTENDANCE=window.DOJO_RUNTIME_CONFIG.runtime==='firebase';
     const firebaseAttendanceAuth=IS_FIREBASE_ATTENDANCE?window.DOJO_FIREBASE_AUTH.create({runtimeConfig:window.DOJO_RUNTIME_CONFIG}):null;
     const firebaseAttendanceApi=IS_FIREBASE_ATTENDANCE?window.DOJO_API_CLIENT.create({getCurrentUser:firebaseAttendanceAuth.getCurrentUser}):null;
-    if(IS_FIREBASE_ATTENDANCE){
-      const card=document.createElement('section');card.className='card';
-      const status=document.createElement('span');status.id='firebaseCheckStatus';
-      const login=document.createElement('button');login.textContent='Googleログイン';
-      login.onclick=()=>firebaseAttendanceAuth.signInWithGoogle().catch(()=>{status.textContent='認証に失敗しました。';});
-      const title=document.createElement('strong');title.textContent='Firebase DEV 接続';card.append(title,document.createElement('br'),status,login);document.querySelector('.top-nav').after(card);
-      firebaseAttendanceAuth.ready.then(()=>{
-        const update=user=>{status.textContent=user?'Firebase認証済み（権限はAPIで確認）':'Firebase認証が必要です。';login.hidden=!!user;
-          if(user){loadRankOptions();if(currentLocationId)loadAttendanceSessionInfo();}};
-        update(firebaseAttendanceAuth.getCurrentUser());firebaseAttendanceAuth.onUserChanged(update);
-      }).catch(()=>{status.textContent='認証初期化に失敗しました。';});
-    }
+    const attendanceCheckAuthGate=IS_FIREBASE_ATTENDANCE?window.DOJO_AUTH_GATE.create({
+      authClient:firebaseAttendanceAuth,runtimeConfig:window.DOJO_RUNTIME_CONFIG,loginPath:'index.html'}):null;
+    const attendanceCheckSystemContext=IS_FIREBASE_ATTENDANCE?window.DOJO_SYSTEM_CONTEXT_ADAPTER.create():null;
+    let attendanceCheckInitializationManager=null;
+    let attendanceCheckAuthUid='';
+    let attendanceCheckLoginRedirectStarted=false;
+    let attendanceCheckContextInitialized=false;
+    let businessOperationsEnabled=!IS_FIREBASE_ATTENDANCE;
     const memberNameMap = { M001: "山田太郎", M002: "川本花子", M003: "佐藤一郎" };
 
     let html5QrCode = null;
@@ -176,36 +175,137 @@
     let overviewClockKey = "";
     let sessionInfoRequestSeq = 0;
 
-    document.getElementById("attendanceDate").textContent = currentAttendanceDate();
-    window.addEventListener("dojo-system-context", function() {
-      document.getElementById("attendanceDate").textContent = currentAttendanceDate();
-      if(IS_FIREBASE_ATTENDANCE){
-        const ctx=window.DOJO_SYSTEM_CONTEXT;
-        const key=ctx?JSON.stringify([ctx.time_travel_enabled,ctx.time_travel_enabled?ctx.system_now:String(ctx.system_now||'').slice(0,10),ctx.target_month]):'';
-        if(overviewClockKey&&key!==overviewClockKey){
-          if(submitting)return;
-          currentBillingBlockId='';currentSlots=[];clearCandidates(true);persistAttendanceContext();renderKeys();
-        }
-        overviewClockKey=key;
-      }
-      if (currentLocationId) loadAttendanceSessionInfo();
-    });
-    updateSendButton();
-    loadRankOptions();
-    initializeFromPageUrl();
+    if(IS_FIREBASE_ATTENDANCE)initializeFirebaseAttendanceCheckPage();
+    else{
+      document.getElementById("attendanceDate").textContent=currentAttendanceDate();
+      updateSendButton();loadRankOptions();initializeFromPageUrl();
+      window.addEventListener("dojo-system-context",function(){
+        document.getElementById("attendanceDate").textContent=currentAttendanceDate();
+        if(currentLocationId)loadAttendanceSessionInfo();
+      });
+    }
 
-    function loadRankOptions() {
+    function initializeFirebaseAttendanceCheckPage(){
+      const card=document.createElement('section');card.className='card';
+      const status=document.createElement('span');status.id='firebaseCheckStatus';status.textContent='Firebase認証状態を確認しています。';
+      const login=document.createElement('button');login.id='firebaseCheckLogin';login.textContent='Googleログイン';login.hidden=true;
+      login.onclick=function(){redirectAttendanceCheckLogin();};
+      const title=document.createElement('strong');title.textContent='Firebase DEV 接続';
+      card.append(title,document.createElement('br'),status,login);document.querySelector('.top-nav').after(card);
+      setBusinessOperationsEnabled(false);
+      attendanceCheckInitializationManager=window.DOJO_PAGE_INITIALIZATION_MANAGER.create({
+        dependencies:[
+          {name:'auth',run:function(){return attendanceCheckAuthGate.requireAuthenticated();}},
+          attendanceCheckSystemContext.dependency('systemContext')
+        ],
+        requiredTasks:[{name:'attendanceCheckBusiness',capability:'attendanceCheck',run:initializeAttendanceCheckBusiness}],
+        optionalTasks:[{name:'rankOptions',capability:'rankOptions',run:function(context){return loadRankOptions(context,true);}}],
+        stopOperations:function(){stopAttendanceCheckOperations();}
+      });
+      attendanceCheckInitializationManager.subscribe(function(state){
+        if(state.status==='WAITING_DEPENDENCIES')status.textContent='Firebase認証とシステム時刻を確認しています。';
+        else if(state.status==='INITIALIZING')status.textContent='出席確認を初期化しています。';
+        else if(state.status==='READY'){
+          status.textContent=state.capabilities.rankOptions===false?'Firebase認証済み（級・段一覧は利用できません）':'Firebase認証済み';
+          setBusinessOperationsEnabled(true);
+        }else if(state.status==='ERROR'&&state.error&&state.error.code!=='UNAUTHENTICATED'){
+          status.textContent='出席確認を初期化できませんでした: '+(state.error.message||String(state.error));
+        }
+      });
+      attendanceCheckAuthGate.subscribe(function(state){
+        if(state.status==='CHECKING')status.textContent='Firebase認証状態を確認しています。';
+        else if(state.status==='UNAUTHENTICATED'){
+          attendanceCheckInitializationManager.accessLost('authentication_lost');attendanceCheckAuthUid='';
+          status.textContent='Firebase認証が必要です。ログイン画面へ移動します。';login.hidden=false;redirectAttendanceCheckLogin();
+        }else if(state.status==='AUTHENTICATED'){
+          login.hidden=true;const uid=String(state.user&&state.user.uid||'');
+          if(attendanceCheckAuthUid&&uid&&uid!==attendanceCheckAuthUid){
+            attendanceCheckInitializationManager.accessLost('authenticated_user_changed');
+            clearCandidates(true);
+            attendanceCheckInitializationManager.retry('authenticated_user_changed').catch(handleAttendanceCheckInitializationError);
+          }
+          attendanceCheckAuthUid=uid;
+        }else if(state.status==='ERROR'){
+          attendanceCheckInitializationManager.accessLost('authentication_error');status.textContent='Firebase認証を初期化できませんでした。';
+        }
+      });
+      attendanceCheckSystemContext.subscribe(function(state){
+        if(state.status!=='READY')return;
+        const managerState=attendanceCheckInitializationManager.getState();
+        if(managerState.status==='ERROR'&&managerState.error&&managerState.error.code==='SYSTEM_CONTEXT_UNAVAILABLE'){
+          attendanceCheckInitializationManager.retry('system_context_recovered').catch(handleAttendanceCheckInitializationError);return;
+        }
+        if(!state.changed||managerState.status!=='READY')return;
+        handleAttendanceCheckContextChange();
+        attendanceCheckInitializationManager.retry('system_context_changed').catch(handleAttendanceCheckInitializationError);
+      });
+      attendanceCheckInitializationManager.start().catch(handleAttendanceCheckInitializationError);
+    }
+
+    function initializeAttendanceCheckBusiness(context){
+      if(!context.isCurrent())return false;
+      if(!attendanceCheckContextInitialized){initializeFromPageUrl(true);attendanceCheckContextInitialized=true;}
+      document.getElementById('attendanceDate').textContent=currentAttendanceDate();
+      overviewClockKey=attendanceCheckBusinessClockKey();
+      return Promise.resolve(currentLocationId?loadAttendanceSessionInfo({managerContext:context,propagate:true}):true).then(function(){
+        return context.isCurrent();
+      });
+    }
+
+    function handleAttendanceCheckContextChange(){
+      document.getElementById('attendanceDate').textContent=currentAttendanceDate();
+      const key=attendanceCheckBusinessClockKey();
+      if(overviewClockKey&&key!==overviewClockKey&&!submitting){
+        ++sessionInfoRequestSeq;currentBillingBlockId='';currentSlots=[];clearCandidates(true);persistAttendanceContext();renderKeys();
+      }
+      overviewClockKey=key;
+    }
+
+    function attendanceCheckBusinessClockKey(){
+      const ctx=window.DOJO_SYSTEM_CONTEXT;
+      return ctx?JSON.stringify([ctx.time_travel_enabled,ctx.time_travel_enabled?ctx.system_now:String(ctx.system_now||'').slice(0,10),ctx.target_month]):'';
+    }
+
+    function redirectAttendanceCheckLogin(){
+      if(!attendanceCheckAuthGate||attendanceCheckLoginRedirectStarted)return;
+      attendanceCheckLoginRedirectStarted=true;attendanceCheckAuthGate.redirectToLogin(window.location.href);
+    }
+
+    function handleAttendanceCheckInitializationError(error){
+      if(!error||error.code==='UNAUTHENTICATED'||error.code==='INITIALIZATION_STALE'||error.code==='SYSTEM_CONTEXT_WAIT_ABORTED')return;
+      addLog('初期化エラー: '+(error.message||String(error)),'error');
+    }
+
+    function stopAttendanceCheckOperations(){
+      businessOperationsEnabled=false;++sessionInfoRequestSeq;setBusinessOperationsEnabled(false);if(scanning)stopScan();
+    }
+
+    function setBusinessOperationsEnabled(enabled){
+      businessOperationsEnabled=enabled===true;
+      ['scanStartButton','scanStopButton','candidateSort','overviewSort','overviewReloadButton','clearCandidatesButton'].forEach(function(id){
+        const element=document.getElementById(id);if(element)element.disabled=!businessOperationsEnabled;
+      });
+      const blockChoice=document.getElementById('blockChoice');blockChoice.disabled=!businessOperationsEnabled||blockChoice.options.length<=1;
+      renderCandidates();updateSendButton();
+    }
+
+    function loadRankOptions(managerContext,propagate) {
       return jsonp(GAS_URL, { action: "attendance_rank_options" }).then(function(data) {
+        if(managerContext&&!managerContext.isCurrent())return false;
         if (!data.ok) throw new Error(data.message || "級段位マスタを取得できませんでした。");
         rankOptions = Array.isArray(data.rank_options) ? data.rank_options : [];
         renderCandidates();
         renderTeacherOverview();
+        return true;
       }).catch(function(error) {
+        if(managerContext&&!managerContext.isCurrent())return false;
         addLog("級段位マスタ取得エラー: " + (error.message || String(error)), "error");
+        if(propagate)throw error;
+        return false;
       });
     }
 
-    function initializeFromPageUrl() {
+    function initializeFromPageUrl(deferSessionInfo) {
       const query = new URLSearchParams(window.location.search);
       const urlTeacherId = String(query.get("teacher_id") || "").trim();
 
@@ -229,7 +329,7 @@
 
       if (currentLocationId) {
         addLog(query.get("location_id") ? "URLの道場情報を読み込みました。" : "Sessionの道場情報を復元しました。");
-        loadAttendanceSessionInfo();
+        if(!deferSessionInfo)loadAttendanceSessionInfo();
         return;
       }
 
@@ -251,7 +351,7 @@
     }
 
     function startScan() {
-      if (scanning) return;
+      if (!businessOperationsEnabled || scanning) return;
       html5QrCode = html5QrCode || new Html5Qrcode("reader");
       html5QrCode.start(
         { facingMode: "environment" },
@@ -277,7 +377,7 @@
     }
 
     function onScanSuccess(decodedText) {
-      if (submitting) return;
+      if (!businessOperationsEnabled || submitting) return;
       const now = Date.now();
       if (decodedText === lastText && now - lastReadTime < 2000) return;
       lastText = decodedText;
@@ -287,6 +387,9 @@
       const parsed = parseQrText(decodedText);
       // 一つのQRに先生IDと道場IDが共存しても、一度の読み取りで両方を反映する。
       if (parsed.teacher_id || parsed.location_id || parsed.billing_block_id) {
+        const previousCandidateScope=attendanceCheckCandidateScopeKey();
+        const locationChanged=!!parsed.location_id&&parsed.location_id!==currentLocationId;
+        const billingBlockChanged=!!parsed.billing_block_id&&parsed.billing_block_id!==currentBillingBlockId;
         if (parsed.teacher_id) {
           currentTeacherId = parsed.teacher_id;
           const currentSession = DojoVirtualSession.get();
@@ -294,9 +397,11 @@
             DojoVirtualSession.loginTeacher(currentTeacherId, "SCREEN_QR");
           }
         }
-        if (parsed.location_id) currentLocationId = parsed.location_id;
-        if (parsed.billing_block_id) currentBillingBlockId = parsed.billing_block_id;
-        if (parsed.location_id || parsed.billing_block_id) currentSlots = [];
+        if (locationChanged) currentLocationId = parsed.location_id;
+        if (locationChanged||billingBlockChanged) {
+          currentBillingBlockId=parsed.billing_block_id||"";currentSlots=[];
+        }
+        clearAttendanceCheckCandidatesWhenScopeChanged(previousCandidateScope);
         persistAttendanceContext();
         renderKeys();
         if (parsed.teacher_id && parsed.location_id) {
@@ -311,7 +416,8 @@
           addLog("課金枠QRを読み取りました。" + (currentLocationId ? "" : " 続けて道場QRを読み取ってください。"));
         }
         beep();
-        if (currentLocationId && (parsed.location_id || parsed.billing_block_id)) loadAttendanceSessionInfo();
+        if(currentLocationId&&(locationChanged||billingBlockChanged||
+            ((parsed.location_id||parsed.billing_block_id)&&currentSlots.length===0)))loadAttendanceSessionInfo();
         return;
       }
       if (parsed.member_id) {
@@ -346,13 +452,22 @@
       }
     }
 
-    function loadAttendanceSessionInfo() {
+    function attendanceCheckCandidateScopeKey(){
+      return JSON.stringify([currentTeacherId,currentLocationId,currentBillingBlockId,currentAttendanceDate()]);
+    }
+
+    function clearAttendanceCheckCandidatesWhenScopeChanged(previousScope){
+      if(previousScope!==attendanceCheckCandidateScopeKey())clearCandidates(true);
+    }
+
+    function loadAttendanceSessionInfo(options) {
+      options=options||{};const managerContext=options.managerContext;
       const requestSeq=++sessionInfoRequestSeq;
       if (!currentLocationId) {
         currentSlots = [];
         renderCandidates();
         addLog("location_id が必要です。", "error");
-        return;
+        return Promise.resolve(false);
       }
 
       const params = {
@@ -361,9 +476,11 @@
       };
       if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
 
-      jsonp(GAS_URL, params).then(function (data) {
+      return jsonp(GAS_URL, params).then(function (data) {
+        if(managerContext&&!managerContext.isCurrent())return false;
         if(IS_FIREBASE_ATTENDANCE&&requestSeq!==sessionInfoRequestSeq)return;
         if (!data.ok) throw new Error(data.message || "稽古枠を取得できませんでした。");
+        const previousCandidateScope=attendanceCheckCandidateScopeKey();
         document.getElementById("locationId").textContent = data.location_name + " (" + data.location_id + ")";
         document.getElementById("locationId").className = "ok";
 
@@ -371,12 +488,12 @@
           currentBillingBlockId = "";
           currentSlots = [];
           persistAttendanceContext();
-          clearCandidates(true);
+          clearAttendanceCheckCandidatesWhenScopeChanged(previousCandidateScope);
           setKey("billingBlockId", "");
           updateSendButton();
           renderBlockChoices(data.billing_block_candidates || []);
           addLog(data.message || "稽古枠を選択してください。", "warn");
-          return;
+          return true;
         }
 
         currentBillingBlockId = data.billing_block_id;
@@ -384,15 +501,19 @@
         persistAttendanceContext();
         document.getElementById("billingBlockId").textContent = data.billing_block_name;
         document.getElementById("billingBlockId").className = "ok";
-        clearCandidates(true);
+        clearAttendanceCheckCandidatesWhenScopeChanged(previousCandidateScope);
         renderBlockChoices(data.billing_block_candidates || [], currentBillingBlockId, data.inferred === true);
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
-        loadTeacherAttendanceOverview();
+        loadTeacherAttendanceOverview(managerContext);
+        return true;
       }).catch(function (error) {
+        if(managerContext&&!managerContext.isCurrent())return false;
         if(IS_FIREBASE_ATTENDANCE&&requestSeq!==sessionInfoRequestSeq)return;
         currentSlots = [];
         renderCandidates();
         addLog(error.message || String(error), "error");
+        if(options.propagate)throw error;
+        return false;
       });
     }
 
@@ -412,7 +533,7 @@
         option.selected = candidate.billing_block_id === selectedBillingBlockId;
         select.appendChild(option);
       });
-      select.disabled = candidates.length === 0;
+      select.disabled = !businessOperationsEnabled || candidates.length === 0;
       if (guide) {
         guide.textContent = selectedBillingBlockId
           ? (inferred ? "現在時刻から自動選択しました。必要なら変更できます。" : "選択中の稽古枠です。必要なら変更できます。")
@@ -423,14 +544,17 @@
     }
 
     function selectBillingBlock(billingBlockId) {
-      if (!billingBlockId) return;
+      if (!businessOperationsEnabled || !billingBlockId) return;
+      const previousCandidateScope=attendanceCheckCandidateScopeKey();
       currentBillingBlockId = billingBlockId;
+      currentSlots=[];clearAttendanceCheckCandidatesWhenScopeChanged(previousCandidateScope);
       persistAttendanceContext();
       renderKeys();
       loadAttendanceSessionInfo();
     }
 
-    function loadTeacherAttendanceOverview() {
+    function loadTeacherAttendanceOverview(managerContext) {
+      if(!businessOperationsEnabled&&!managerContext)return Promise.resolve(false);
       const status = document.getElementById("overviewStatus");
       if (!currentLocationId) {
         teacherOverviewItems = [];
@@ -446,6 +570,7 @@
       };
       if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
       return jsonp(GAS_URL, params).then(function(data) {
+        if(managerContext&&!managerContext.isCurrent())return false;
         if (!data.ok) throw new Error(data.message || "本日の出席者を取得できませんでした。");
         teacherOverviewItems = data.attendance_items || [];
         status.className = teacherOverviewItems.length ? "" : "empty";
@@ -454,6 +579,7 @@
         renderTeacherOverview();
         return true;
       }).catch(function(error) {
+        if(managerContext&&!managerContext.isCurrent())return false;
         teacherOverviewItems = [];
         status.textContent = error.message || String(error);
         status.className = "error";
@@ -503,6 +629,7 @@
     }
 
     function addMemberCandidate(memberId) {
+      if(!businessOperationsEnabled)return;
       if (submitting) {
         addLog("送信確認中のため、会員追加を待ってください。", "warn");
         return;
@@ -541,6 +668,10 @@
     }
 
     function loadMemberAttendanceState(memberId, expectedState, quiet, savedOnly) {
+      const initializationGeneration=IS_FIREBASE_ATTENDANCE&&attendanceCheckInitializationManager
+        ?attendanceCheckInitializationManager.getState().generation:null;
+      if(initializationGeneration!==null&&!attendanceCheckInitializationManager.isCurrent(initializationGeneration))
+        return Promise.resolve({ok:false,matches:false,member_id:memberId,stale:true});
       return jsonp(GAS_URL, {
         action: savedOnly ? "attendance_saved_state" : "member_attendance_state",
         attendance_date: currentAttendanceDate(),
@@ -548,6 +679,8 @@
         location_id: currentLocationId,
         billing_block_id: currentBillingBlockId
       }).then(function (data) {
+        if(initializationGeneration!==null&&!attendanceCheckInitializationManager.isCurrent(initializationGeneration))
+          return {ok:false,matches:false,member_id:memberId,stale:true};
         if (!data.ok) throw new Error(data.message || "登録済み出席を取得できませんでした。");
         const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
         if (!candidate) return { ok: false, matches: false, member_id: memberId };
@@ -579,6 +712,8 @@
         if (!quiet) addLog(memberId + " の登録済み枠を復元しました（" + candidate.slot_ids.length + "枠）。");
         return { ok: true, matches: slotMatches && rankMatches, member_id: memberId };
       }).catch(function (error) {
+        if(initializationGeneration!==null&&!attendanceCheckInitializationManager.isCurrent(initializationGeneration))
+          return {ok:false,matches:false,member_id:memberId,stale:true};
         const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
         if (!candidate) return { ok: false, matches: false, member_id: memberId };
         candidate.loaded = false;
@@ -627,7 +762,7 @@
 
     function toggleSlot(memberId, slotId) {
       const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
-      if (!candidate || !candidate.loaded || submitting) return;
+      if (!businessOperationsEnabled || !candidate || !candidate.loaded || submitting) return;
       const index = candidate.slot_ids.indexOf(slotId);
       if (index >= 0) candidate.slot_ids.splice(index, 1);
       else candidate.slot_ids.push(slotId);
@@ -635,7 +770,7 @@
     }
 
     function removeCandidate(memberId) {
-      if (submitting) return;
+      if (!businessOperationsEnabled || submitting) return;
       memberCandidates = memberCandidates.filter(function (item) { return item.member_id !== memberId; });
       renderCandidates();
     }
@@ -662,7 +797,7 @@
         remove.type = "button";
         remove.className = "danger";
         remove.textContent = "削除";
-        remove.disabled = submitting;
+        remove.disabled = !businessOperationsEnabled || submitting;
         remove.onclick = function () { removeCandidate(candidate.member_id); };
         head.append(name, remove);
         row.appendChild(head);
@@ -673,7 +808,7 @@
         rankLabel.textContent = "現在級・段";
         const rankSelect = document.createElement("select");
         buildRankOptions(rankSelect, candidate.current_rank);
-        rankSelect.disabled = !candidate.loaded || submitting;
+        rankSelect.disabled = !businessOperationsEnabled || !candidate.loaded || submitting;
         rankSelect.onchange = function () { candidate.current_rank = rankSelect.value; };
         rankRow.append(rankLabel, rankSelect);
         row.appendChild(rankRow);
@@ -715,7 +850,7 @@
             const retry = document.createElement("button");
             retry.type = "button";
             retry.textContent = "再取得";
-            retry.disabled = submitting;
+            retry.disabled = !businessOperationsEnabled || submitting;
             retry.onclick = function () {
               candidate.load_error = "";
               renderCandidates();
@@ -734,7 +869,7 @@
           button.type = "button";
           button.className = "slot" + (selected ? " selected" : "");
           button.textContent = (slot.start_time && slot.end_time) ? slot.start_time + "–" + slot.end_time : slot.label;
-          button.disabled = !candidate.loaded || submitting;
+          button.disabled = !businessOperationsEnabled || !candidate.loaded || submitting;
           button.onclick = function () { toggleSlot(candidate.member_id, slot.slot_id); };
           slots.appendChild(button);
         });
@@ -745,7 +880,7 @@
     }
 
     function sendCandidatesToGas() {
-      if (submitting) return;
+      if (!businessOperationsEnabled || submitting) return;
       if (!currentTeacherId || !currentLocationId || !currentBillingBlockId) {
         addLog("先生・道場・課金枠をすべて設定してください。", "error");
         return;
@@ -884,7 +1019,7 @@
 
     function updateSendButton() {
       document.getElementById("sendButton").disabled = !(
-        !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
+        businessOperationsEnabled && !submitting && currentTeacherId && currentLocationId && currentBillingBlockId &&
         memberCandidates.length > 0 && memberCandidates.every(function (item) { return item.loaded && item.current_rank; })
       );
     }
@@ -951,7 +1086,14 @@
     function jsonp(url, params) {
       if(IS_FIREBASE_ATTENDANCE)return window.DOJO_ATTENDANCE_FIREBASE_READ.request({
         action:params.action,params,runtimeConfig:window.DOJO_RUNTIME_CONFIG,
-        authClient:firebaseAttendanceAuth,apiClient:firebaseAttendanceApi});
+        authClient:firebaseAttendanceAuth,apiClient:firebaseAttendanceApi}).catch(function(error){
+          if(attendanceCheckInitializationManager&&/HTTP (401|403)\b/.test(String(error&&error.message||error))){
+            attendanceCheckInitializationManager.accessLost('authorization_lost');
+            const status=document.getElementById('firebaseCheckStatus');
+            if(status)status.textContent='この出席操作を行う権限を確認できませんでした: '+(error.message||String(error));
+          }
+          throw error;
+        });
       return new Promise(function (resolve, reject) {
         const callbackName = "attendanceCallback_" + Date.now() + "_" + Math.floor(Math.random() * 10000);
         const script = document.createElement("script");

@@ -187,6 +187,8 @@
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
   <script src="firebase_auth.js"></script>
+  <script src="auth_gate.js"></script>
+  <script src="page_initialization_manager.js"></script>
   <script src="dojo_api_client.js"></script>
   <script src="qr_generator.js"></script>
   <script>
@@ -203,10 +205,17 @@
     const GAS_URL = RUNTIME_CONFIG.apiBaseUrl;
     const firebaseAuthClient = IS_FIREBASE ? window.DOJO_FIREBASE_AUTH.create({ runtimeConfig:RUNTIME_CONFIG }) : null;
     const dojoApiClient = IS_FIREBASE ? window.DOJO_API_CLIENT.create({ getCurrentUser:firebaseAuthClient.getCurrentUser }) : null;
+    const qrAuthGate = IS_FIREBASE ? window.DOJO_AUTH_GATE.create({authClient:firebaseAuthClient,runtimeConfig:RUNTIME_CONFIG,loginPath:'index.html'}) : null;
+    let qrInitializationManager = null;
+    let qrAuthUid = '';
+    let qrRedirectStarted = false;
+    let qrOperationsEnabled = !IS_FIREBASE;
     qrLog("02", "apiBaseUrl configured=" + !!GAS_URL);
     let qrType = "MEMBER_CARD";
     let options = null;
-    const printItems = [];
+    let printItems = [];
+    const qrStateByUid = new Map();
+    let pendingQrSelections = null;
 
     const teacherSession = DojoVirtualSession.get();
     qrLog("03", "session role=" + (teacherSession ? teacherSession.role : "none") + " teacher_id present=" + !!(teacherSession && teacherSession.teacher_id));
@@ -215,28 +224,32 @@
       const loginButton = document.getElementById("firebaseLoginButton");
       loginButton.classList.remove("hidden");
       loginButton.addEventListener("click", function() {
-        firebaseAuthClient.signInWithGoogle().catch(function(error) {
-          document.getElementById("loadMessage").className = "note error";
-          document.getElementById("loadMessage").textContent = error.message || String(error);
-        });
+        redirectQrLogin();
       });
-      firebaseAuthClient.ready.then(function() {
-        function updateUser(user) {
-          loginButton.classList.toggle("hidden", !!user);
-          document.getElementById("loginIdentity").textContent = user ? "Googleログイン済み（管理者権限を確認中）" : "QR生成にはFirebase管理者ログインが必要です。";
-          if (user) loadOptions();
-          else {
-            options = null;
-            document.getElementById("previewButton").disabled = true;
-            document.getElementById("loadMessage").textContent = "管理者としてログインしてください。";
-          }
+      setQrOperationsEnabled(false);
+      qrInitializationManager=window.DOJO_PAGE_INITIALIZATION_MANAGER.create({
+        dependencies:[{name:'auth',run:function(){return qrAuthGate.requireAuthenticated();}}],
+        requiredTasks:[{name:'qrOptions',capability:'qrOptions',run:function(context){return loadOptions(context,true);}}],
+        stopOperations:function(){setQrOperationsEnabled(false);}
+      });
+      qrInitializationManager.subscribe(function(state){
+        if(state.status==='READY')setQrOperationsEnabled(true);
+        else if(state.status==='ERROR'&&state.error&&state.error.code!=='UNAUTHENTICATED')showQrInitializationError(state.error);
+      });
+      qrAuthGate.subscribe(function(state){
+        if(state.status==='UNAUTHENTICATED'){
+          qrInitializationManager.accessLost('authentication_lost');qrAuthUid='';loginButton.classList.remove('hidden');
+          document.getElementById('loginIdentity').textContent='QR生成にはFirebase管理者ログインが必要です.';redirectQrLogin();
+        }else if(state.status==='AUTHENTICATED'){
+          loginButton.classList.add('hidden');document.getElementById('loginIdentity').textContent='Googleログイン済み（管理者権限を確認中）';
+          const uid=String(state.user&&state.user.uid||'');
+          if(qrAuthUid&&uid&&uid!==qrAuthUid){qrInitializationManager.accessLost('authenticated_user_changed');switchQrOwner(qrAuthUid,uid);qrInitializationManager.retry('authenticated_user_changed').catch(showQrInitializationError);}
+          qrAuthUid=uid;
+        }else if(state.status==='ERROR'){
+          qrInitializationManager.accessLost('authentication_error');showQrInitializationError(state.error);
         }
-        firebaseAuthClient.onUserChanged(updateUser);
-        updateUser(firebaseAuthClient.getCurrentUser());
-      }).catch(function(error) {
-        document.getElementById("loadMessage").className = "note error";
-        document.getElementById("loadMessage").textContent = error.message || String(error);
       });
+      qrInitializationManager.start().catch(function(error){if(error&&error.code!=='UNAUTHENTICATED')showQrInitializationError(error);});
     } else if (!teacherSession || teacherSession.role !== "TEACHER") {
       document.getElementById("loginIdentity").textContent = "先生ログインが必要です。";
       document.getElementById("loadMessage").className = "note error";
@@ -279,10 +292,11 @@
       renderPrintList();
     });
 
-    function loadOptions() {
+    function loadOptions(managerContext,propagate) {
       qrLog("05", "qr_generator_options request start");
       (IS_FIREBASE ? loadFirebaseOptions() : jsonp(GAS_URL, { action:"qr_generator_options" }))
         .then(function(result) {
+          if(managerContext&&!managerContext.isCurrent())return false;
           if (!result || result.ok !== true) {
             throw new Error((result && result.message) || "QR生成用マスタを取得できませんでした。");
           }
@@ -307,8 +321,14 @@
             function(row) { return row.teacher_id + "｜" + row.teacher_name + (row.role_name ? "（" + row.role_name + "）" : ""); }
           );
 
+          if(pendingQrSelections){
+            for(const [id,value] of [['memberSelect',pendingQrSelections.member],['locationSelect',pendingQrSelections.location],['teacherSelect',pendingQrSelections.teacher]]){
+              const select=document.getElementById(id);if([...select.options].some(option=>option.value===value))select.value=value;
+            }
+          }
+
           const currentTeacherId = teacherSession && teacherSession.teacher_id;
-          if (currentTeacherId) document.getElementById("teacherSelect").value = currentTeacherId;
+          if (currentTeacherId && !document.getElementById("teacherSelect").value) document.getElementById("teacherSelect").value = currentTeacherId;
 
           document.getElementById("loadMessage").className = "note";
           document.getElementById("loadMessage").textContent =
@@ -316,13 +336,49 @@
             "件 ／ 都度 " + (result.onetime_plans || []).length + "件 ／ 道場 " +
             (result.locations || []).length + "件 ／ 先生 " + (result.teachers || []).length + "名";
           renderFields();
+          if(pendingQrSelections){const plan=document.getElementById('planSelect');if([...plan.options].some(option=>option.value===pendingQrSelections.plan))plan.value=pendingQrSelections.plan;pendingQrSelections=null;renderSummary();}
           qrLog("07", "options rendered");
+          return true;
         })
         .catch(function(error) {
+          if(managerContext&&!managerContext.isCurrent())return false;
+          if(IS_FIREBASE&&qrInitializationManager&&/HTTP (401|403)/.test(String(error&&error.message||error)))qrInitializationManager.accessLost('authorization_lost');
           qrLog("E1", "options request failed: " + String(error && error.message || error));
           document.getElementById("loadMessage").className = "note error";
           document.getElementById("loadMessage").textContent = error.message || String(error);
+          if(propagate)throw error;
+          return false;
         });
+    }
+
+    function setQrOperationsEnabled(enabled) {
+      qrOperationsEnabled=enabled===true;
+      ['memberSelect','planSelect','locationSelect','teacherSelect'].forEach(function(id){
+        const element=document.getElementById(id);if(element)element.disabled=!qrOperationsEnabled;
+      });
+      document.querySelectorAll('.type-button').forEach(function(button){button.disabled=!qrOperationsEnabled;});
+      if(qrOperationsEnabled){renderFields();renderPrintList();}
+      else ['previewButton','addToPrintListButton','clearPrintListButton','printPdfButton'].forEach(function(id){const element=document.getElementById(id);if(element)element.disabled=true;});
+    }
+
+    function redirectQrLogin(){
+      if(!qrAuthGate||qrRedirectStarted)return;
+      qrRedirectStarted=true;qrAuthGate.redirectToLogin(window.location.href);
+    }
+
+    function showQrInitializationError(error){
+      document.getElementById('loadMessage').className='note error';
+      document.getElementById('loadMessage').textContent=error&&error.message||String(error||'初期化に失敗しました。');
+    }
+
+    function switchQrOwner(previousUid,nextUid){
+      if(previousUid)qrStateByUid.set(previousUid,{qrType:qrType,printItems:printItems.slice(),selections:{member:valueOf('memberSelect'),plan:valueOf('planSelect'),location:valueOf('locationSelect'),teacher:valueOf('teacherSelect')}});
+      const saved=qrStateByUid.get(nextUid)||null;
+      qrType=saved?saved.qrType:'MEMBER_CARD';printItems=saved?saved.printItems.slice():[];pendingQrSelections=saved?saved.selections:null;options=null;
+      for(const id of ['memberSelect','planSelect','locationSelect','teacherSelect'])document.getElementById(id).replaceChildren();
+      document.querySelectorAll('.type-button').forEach(function(button){button.classList.toggle('active',button.dataset.type===qrType);});
+      document.getElementById('selectionSummary').textContent='新しい利用者のマスターを読み込んでいます。';
+      renderPrintList();
     }
 
     function renderFields() {
@@ -495,6 +551,7 @@
     }
 
     function openPreview() {
+      if(!qrOperationsEnabled)return;
       qrLog("08", "preview requested: type=" + qrType + " options loaded=" + !!options + " complete=" + isSelectionComplete());
       if (!options || !isSelectionComplete()) return;
 
@@ -663,6 +720,7 @@
     }
 
     function addCurrentQrToPrintList() {
+      if(!qrOperationsEnabled)return;
       const item = currentQrItem();
       if (!item) return;
       printItems.push(item);
@@ -743,6 +801,7 @@
     }
 
     function printB5Pdf() {
+      if(!qrOperationsEnabled)return;
       if (printItems.length === 0) return;
       const button = document.getElementById("printPdfButton");
       button.disabled = true;

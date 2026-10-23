@@ -61,12 +61,16 @@ test('Fee nonfinite, negative and malformed amount/cap fail closed',async()=>{
 });
 test('Firebase clock change invalidates explicit block, ignores old responses and requests a fresh selection; GAS unchanged',()=>{
   const html=fs.readFileSync('web/qr/attendance.html','utf8');
-  const body='(function(){'+/window.addEventListener\("dojo-system-context", function\(\) \{([\s\S]*?)\n    \}\);/.exec(html)[1]+'})();';
-  const ctx={IS_FIREBASE_ATTENDANCE:true,attendanceClockKey:'old',attendanceInfoRequestSeq:4,
+  const start=html.indexOf('    function handleAttendanceContextChange() {');
+  const end=html.indexOf('    function handleAttendanceInitializationError',start);
+  assert.ok(start>0&&end>start);
+  const body=html.slice(start,end)+'\nhandleAttendanceContextChange();';
+  const ctx={attendanceClockKey:'old',attendanceInfoRequestSeq:4,
     attendanceInfoInFlightKey:'old',attendanceInfoLoadedKey:'old',currentBillingBlockId:'AM',currentSlots:[1],submitting:false,
     document:{getElementById:()=>({})},currentAttendanceDate:()=>'',attendanceBusinessClockKey:()=> 'new',
-    clearCandidates(){},persistAttendanceContext(){},renderKeys(){},refreshAttendanceSessionInfoIfNeeded(){ctx.refreshed=true;}};
+    clearCandidates(){},persistAttendanceContext(){},renderKeys(){}};
   vm.createContext(ctx);vm.runInContext(body,ctx);
-  assert.equal(ctx.currentBillingBlockId,'');assert.equal(ctx.attendanceInfoRequestSeq,5);assert.equal(ctx.refreshed,true);
-  ctx.IS_FIREBASE_ATTENDANCE=false;ctx.currentBillingBlockId='AM';ctx.attendanceClockKey='old';vm.runInContext(body,ctx);assert.equal(ctx.currentBillingBlockId,'AM');
+  assert.equal(ctx.currentBillingBlockId,'');assert.equal(ctx.attendanceInfoRequestSeq,5);
+  assert.match(html,/attendanceInitializationManager\.retry\("system_context_changed"\)/);
+  assert.match(html,/if \(IS_FIREBASE_ATTENDANCE\) initializeFirebaseAttendancePage\(\);[\s\S]*?else \{[\s\S]*?initializeAttendanceContext\(\);/);
 });
