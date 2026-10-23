@@ -17,7 +17,11 @@ check("web/qr/attendance_summary.html", ['isolateSummaryForDifferentUid();']);
 check("web/qr/time_travel.html", ['isolateTimeTravelForDifferentUid();']);
 check("web/qr/member_management.html", ['isolateMemberManagementForDifferentUid();']);
 check("web/qr/qr_generator.html", ['const qrStateByUid = new Map();', 'switchQrOwner(qrAuthUid,uid);']);
-check("web/qr/paper_attendance_review.js", ['const paperStateByUid=new Map();', 'switchPaperOwner(authUid,uid);']);
+check("web/qr/paper_attendance_review.js", [
+  'const paperStateByOwner=new Map();',
+  'paperOwnerKey(previousUid,previousMemberId)',
+  'switchPaperOwner(paperOwnerUid,activeMemberId,uid,"");'
+]);
 check("web/qr/paypay_code.html", [
   'const payPayStateByUid = new Map();',
   'switchPayPayOwner(authUid, uid);',

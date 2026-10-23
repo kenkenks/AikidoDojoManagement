@@ -41,16 +41,17 @@ function gasSummary(member,rows,standard){
   vm.createContext(c);vm.runInContext(fs.readFileSync('gas/04_AttendanceProgress.js','utf8'),c);
   return JSON.parse(JSON.stringify(c.attendanceProgress_getMemberSummary('M1',{})));
 }
-test('summary matches GAS DTO: start date, distinct slots, cancellation/re-registration, carry, required and recent five',()=>{
+test('summary matches GAS DTO: progress fields and attendance hours by date',()=>{
   const member={member_id:'M1',member_name:'TEST',status:'有効',current_rank:'R',rank_start_date:'2026-10-02',carried_training_count:'2.9',eligible_training_count:'12.8'};
   const standard={progress_display_enabled:true,required_training_count:20,next_rank:'R2',note:''};
-  const rows=Array.from({length:8},(_,i)=>({member_id:'M1','稽古日':'2026-10-0'+(i+1),slot_id:'S1','状態':'有効'}));
-  rows.push({...rows[2]},{...rows[2],slot_id:'S2'},{...rows[3],slot_id:'S3','状態':'取消'});
+  const rows=Array.from({length:8},(_,i)=>({member_id:'M1','稽古日':'2026-10-0'+(i+1),slot_id:'S1','稽古時間分':i===2?90:60,'状態':'有効'}));
+  rows.push({...rows[2]},{...rows[2],slot_id:'S2','稽古時間分':30},{...rows[3],slot_id:'S3','稽古時間分':480,'状態':'取消'});
   for(const status of ['有効','取消','有効']){
     rows[4]['状態']=status;
     const result=projectAttendanceProgress({member,attendanceRows:rows,standard,rankOption:{rank_id:'R1',sort_order:1}});
     assert.deepEqual(JSON.parse(JSON.stringify(result)),gasSummary(member,rows,standard));
     assert.equal(result.required_training_count,12);assert.equal(result.carried_training_count,2);assert.equal(result.recent_attendance_dates.length,5);
+    assert.deepEqual(result.attendance_by_date.find(row=>row.attendance_date==='2026-10-03'),{attendance_date:'2026-10-03',training_minutes:210,training_hours:3.5});
   }
 });
 test('summary reader rejects incomplete history and master pagination rather than partial DTO',async()=>{

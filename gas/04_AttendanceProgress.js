@@ -61,7 +61,8 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       required_days: requiredDays,
       required_count_source: overrideCount > 0 ? "会員個別" : (standardCount > 0 ? "審査基準マスタ" : "未設定"),
       attendance_keys: {},
-      attendance_dates: {}
+      attendance_dates: {},
+      attendance_minutes_by_date: {}
     };
   });
 
@@ -71,7 +72,11 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
     const state = states[memberId];
     if (!state) return;
     const dateText = formatAttendanceDate_(row["稽古日"], ctx);
-    if (!dateText || (state.start_date && dateText < state.start_date)) return;
+    if (!dateText) return;
+    const durationMinutes = attendanceProgress_toDurationMinutes_(row["稽古時間分"]);
+    state.attendance_minutes_by_date[dateText] =
+      (state.attendance_minutes_by_date[dateText] || 0) + durationMinutes;
+    if (state.start_date && dateText < state.start_date) return;
     const slotId = normalizeId_(row["slot_id"]) || "LEGACY_NO_SLOT";
     state.attendance_keys[dateText + "|" + slotId] = true;
     state.attendance_dates[dateText] = true;
@@ -113,7 +118,15 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
       remaining_training_days: remainingDays,
       examination_ready: state.required_count > 0 && remainingCount === 0 &&
         (state.required_days === 0 || remainingDays === 0),
-      recent_attendance_dates: attendanceDates.slice(-5).reverse()
+      recent_attendance_dates: attendanceDates.slice(-5).reverse(),
+      attendance_by_date: Object.keys(state.attendance_minutes_by_date).sort().map(function(attendanceDate) {
+        const trainingMinutes = state.attendance_minutes_by_date[attendanceDate];
+        return {
+          attendance_date: attendanceDate,
+          training_minutes: trainingMinutes,
+          training_hours: trainingMinutes / 60
+        };
+      })
     };
   });
   return summaries;
@@ -168,6 +181,13 @@ function attendanceProgress_normalizeOptionalDate_(value, ctx) {
 function attendanceProgress_toNonNegativeNumber_(value) {
   const number = Number(value || 0);
   return isFinite(number) && number > 0 ? Math.floor(number) : 0;
+}
+
+function attendanceProgress_toDurationMinutes_(value) {
+  if (value === "" || value === null || value === undefined) return 60;
+  const number = Number(value);
+  if (!isFinite(number) || number <= 0) throw new Error("INVALID_PROGRESS_DURATION");
+  return number;
 }
 
 // 初回導入時に管理者が一度実行する。既存列は変更せず、不足列だけを末尾へ追加する。

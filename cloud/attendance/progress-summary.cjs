@@ -15,6 +15,12 @@ function date(value) {
     throw new Error('INVALID_PROGRESS_DATE');
   return s;
 }
+function durationMinutes(value) {
+  if (value == null || str(value) === '') return 60;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n <= 0) throw new Error('INVALID_PROGRESS_DURATION');
+  return n;
+}
 function projectAttendanceProgress({member, attendanceRows, standard, rankOption}) {
   if (!member || !Array.isArray(attendanceRows) || !standard || !rankOption ||
       !str(member.member_id) || !['', '有効', '在籍', 'TRUE'].includes(str(member.status)))
@@ -25,12 +31,14 @@ function projectAttendanceProgress({member, attendanceRows, standard, rankOption
   const standardCount = standard.progress_display_enabled === true ? nonnegative(standard.required_training_count) : 0;
   const required = override || standardCount;
   const requiredDays = standard.progress_display_enabled === true ? nonnegative(standard.required_training_days) : 0;
-  const keys = new Set(), dates = new Set();
+  const keys = new Set(), dates = new Set(), minutesByDate = new Map();
   for (const row of attendanceRows) {
     if (!row || typeof row !== 'object') throw new Error('INVALID_PROGRESS_ATTENDANCE');
     if (str(row.member_id) !== str(member.member_id) || !active(row)) continue;
     const d = date(row['稽古日']);
-    if (!d || (start && d < start)) continue;
+    if (!d) continue;
+    minutesByDate.set(d, (minutesByDate.get(d) || 0) + durationMinutes(row['稽古時間分']));
+    if (start && d < start) continue;
     keys.add(d + '|' + (str(row.slot_id) || 'LEGACY_NO_SLOT'));
     dates.add(d);
   }
@@ -50,6 +58,9 @@ function projectAttendanceProgress({member, attendanceRows, standard, rankOption
     remaining_training_count:remaining, training_days:trainingDays,
     required_training_days:requiredDays, remaining_training_days:remainingDays,
     examination_ready:required > 0 && remaining === 0 && (requiredDays === 0 || remainingDays === 0),
-    recent_attendance_dates:[...dates].sort().slice(-5).reverse()};
+    recent_attendance_dates:[...dates].sort().slice(-5).reverse(),
+    attendance_by_date:[...minutesByDate].sort(([a],[b]) => a.localeCompare(b)).map(([attendance_date,training_minutes]) => ({
+      attendance_date, training_minutes, training_hours:training_minutes / 60
+    }))};
 }
 module.exports = {projectAttendanceProgress};

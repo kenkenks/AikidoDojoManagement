@@ -36,22 +36,23 @@ test('paper attendance keeps OCR as required auth capability and registration da
   assert.match(js,/requiredTasks:\[\{name:"ocrReady"/);
   assert.match(js,/optionalTasks:\[\{name:"registrationPreparation",capability:"registrationPreparation"/);
   assert.match(js,/registrationCapability=state\.capabilities\.registrationPreparation===true/);
-  assert.match(js,/画像確認とOCRは利用できます/);
+  assert.match(js,/会員一覧・業務年を取得できないため、紙取込を開始できません/);
   assert.match(js,/registrationRead\("attendance_member_options"\)/);
+  assert.match(js,/registrationRead\("attendance_progress_summary",\{member_id:memberId\}\)/);
   assert.match(js,/registrationRead\("system_context"\)/);
   assert.doesNotMatch(html,/system_context_adapter\.js/);
 });
 
 test('paper attendance rejects stale OCR and registration results without clearing work',()=>{
   const js=read('web/qr/paper_attendance_review.js');
-  assert.match(js,/if\(!isOperationCurrent\(generation\)\)throw Error\("INITIALIZATION_STALE"\)/);
-  assert.match(js,/if\(!isOperationCurrent\(generation\)\)return/);
+  assert.match(js,/if\(!isOperationCurrent\(generation,ownerGeneration\)\)throw Error\("INITIALIZATION_STALE"\)/);
+  assert.match(js,/if\(!isOperationCurrent\(generation,ownerGeneration\)\)return/);
   assert.match(js,/initializationManager\.accessLost\("authorization_lost"\)/);
   assert.match(js,/successfulKeys:successfulRegistrationKeys/);
   const initializer=js.slice(js.indexOf('async function initializeRegistration'),js.indexOf('function prepareRegistration'));
   assert.doesNotMatch(initializer,/manualEdits\s*=|successfulRegistrationKeys\.clear|registrationRequestIds\.clear/);
-  assert.match(initializer,/else if\(prior\)preparedRecords=\[\]/);
-  assert.match(initializer,/const select=byId\("registrationMember"\),prior=select\.value/);
-  assert.match(js,/if\(authUid&&uid&&uid!==authUid\)/);
+  assert.match(initializer,/else if\(prior\)\{activeMemberId=""/);
+  assert.match(initializer,/const select=byId\("registrationMember"\),prior=activeMemberId/);
+  assert.match(js,/if\(paperOwnerUid&&uid&&uid!==paperOwnerUid\)/);
   assert.doesNotMatch(js,/auth\.signInWithGoogle\(/);
 });
