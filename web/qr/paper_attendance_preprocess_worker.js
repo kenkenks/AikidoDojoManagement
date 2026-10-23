@@ -17,14 +17,21 @@ self.onmessage=async event=>{
     pyodide.FS.writeFile('/work/input.jpg',new Uint8Array(event.data.bytes));
     pyodide.FS.writeFile('/work/algorithm.py',new TextEncoder().encode(algorithm));
     pyodide.FS.writeFile('/work/runner.py',new TextEncoder().encode(runner));
+    const corners=event.data.corners;
+    if(corners!==undefined)pyodide.FS.writeFile('/work/grid-hint.json',new TextEncoder().encode(JSON.stringify({corners})));
     const started=performance.now();
-    await pyodide.runPythonAsync("import runpy,sys\nsys.argv=['/work/runner.py','/work/algorithm.py','/work/input.jpg','/work/output','half-fast']\nrunpy.run_path('/work/runner.py',run_name='__main__')");
+    await pyodide.runPythonAsync("import runpy,sys\nsys.argv=['/work/runner.py','/work/algorithm.py','/work/input.jpg','/work/output','half-fast','/work/grid-hint.json' if __import__('os').path.exists('/work/grid-hint.json') else '']\nrunpy.run_path('/work/runner.py',run_name='__main__')");
+    if(pyodide.FS.analyzePath('/work/output/error.json').exists){
+      const failure=JSON.parse(new TextDecoder().decode(pyodide.FS.readFile('/work/output/error.json')));
+      postMessage({type:'error',...failure});return;
+    }
     const manifest=JSON.parse(new TextDecoder().decode(pyodide.FS.readFile('/work/output/manifest.json')));
     const selectedCards=[361,362,381,382].map(number=>({number,bytes:pyodide.FS.readFile(`/work/output/cards/card-${String(number).padStart(3,'0')}.png`).slice().buffer}));
     const quadrants=[1,2].flatMap(row=>[1,2].map(column=>({row,column,bytes:pyodide.FS.readFile(`/work/output/quadrant-${row}-${column}.jpg`).slice().buffer})));
     const transfers=[...selectedCards.map(item=>item.bytes),...quadrants.map(item=>item.bytes)];
     postMessage({type:'result',elapsedMs:Math.round(performance.now()-started),wasmHeapBytes:pyodide._module.HEAP8.buffer.byteLength,manifest,selectedCards,quadrants},transfers);
   }catch(error){
-    postMessage({type:'error',message:String(error?.stack||error)});
+    const message=String(error?.message||error||'PAPER_PREPROCESS_FAILED');
+    postMessage({type:'error',stage:'runtime',code:String(error?.name||'PAPER_PREPROCESS_FAILED'),message,detail:String(error||message),jsStack:String(error?.stack||'')});
   }
 };

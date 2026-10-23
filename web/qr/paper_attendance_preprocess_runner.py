@@ -6,6 +6,7 @@ import json
 import runpy
 import sys
 import time
+import traceback
 from pathlib import Path
 
 import numpy as np
@@ -27,6 +28,52 @@ def notify(stage: str, percent: int, message: str) -> None:
                                  ensure_ascii=False))
 
 
+class PreprocessStageError(RuntimeError):
+    def __init__(self, stage: str, error: BaseException) -> None:
+        super().__init__(str(error))
+        self.stage = stage
+        self.error = error
+        self.traceback = traceback.format_exc()
+
+
+def validated_seed(path: str) -> tuple[float, float, float, float] | None:
+    if not path:
+        return None
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    corners = payload.get("corners")
+    if not isinstance(corners, list) or len(corners) != 4:
+        raise ValueError("INVALID_GRID_CORNERS")
+    points = []
+    for point in corners:
+        if not isinstance(point, dict):
+            raise ValueError("INVALID_GRID_CORNERS")
+        x, y = float(point.get("x", -1)), float(point.get("y", -1))
+        if not (0 <= x <= 1 and 0 <= y <= 1):
+            raise ValueError("INVALID_GRID_CORNERS")
+        points.append((x, y))
+    sign = 0
+    twice_area = 0.0
+    for index, point in enumerate(points):
+        following = points[(index + 1) % 4]
+        after = points[(index + 2) % 4]
+        cross = ((following[0] - point[0]) * (after[1] - following[1]) -
+                 (following[1] - point[1]) * (after[0] - following[0]))
+        if abs(cross) < 1e-6 or (sign and (cross > 0) != (sign > 0)):
+            raise ValueError("INVALID_GRID_CORNERS")
+        sign = cross
+        twice_area += point[0] * following[1] - following[0] * point[1]
+    if abs(twice_area) / 2 < .01:
+        raise ValueError("INVALID_GRID_CORNERS")
+    top_left, top_right, bottom_right, bottom_left = points
+    x0 = (top_left[0] + bottom_left[0]) / 2
+    x1 = (top_right[0] + bottom_right[0]) / 2
+    y0 = (top_left[1] + top_right[1]) / 2
+    y1 = (bottom_left[1] + bottom_right[1]) / 2
+    if x1 - x0 < .05 or y1 - y0 < .05:
+        raise ValueError("INVALID_GRID_CORNERS")
+    return x0, y0, x1, y1
+
+
 def main() -> None:
     algorithm, image_path, output_path = sys.argv[1:4]
     mode = sys.argv[4] if len(sys.argv) > 4 else "half-fast"
@@ -34,6 +81,12 @@ def main() -> None:
     cards_dir = out / "cards"
     cards_dir.mkdir(parents=True, exist_ok=True)
     ns = runpy.run_path(algorithm, run_name="paper_attendance_frozen")
+    seed_path = sys.argv[5] if len(sys.argv) > 5 else ""
+    manual_seed = validated_seed(seed_path)
+    if manual_seed is not None:
+        # detect_grid reads SEED from the runpy namespace.  Supplying a hint
+        # must never silently fall back to the frozen reference-image seed.
+        ns["detect_grid"].__globals__["SEED"] = manual_seed
     rows, cols, card_w, card_h, subdiv = (ns[x] for x in
         ("ROWS", "COLS", "CARD_W", "CARD_H", "MESH_SUBDIV"))
     timings: dict[str, int] = {}
@@ -52,7 +105,10 @@ def main() -> None:
         start_percent, end_percent, message = stage_progress.get(name, (5, 85, name))
         notify(name, start_percent, message)
         started = time.perf_counter()
-        value = function()
+        try:
+            value = function()
+        except Exception as error:
+            raise PreprocessStageError(name, error) from error
         timings[name] = round((time.perf_counter() - started) * 1000)
         notify(name, end_percent, message + "（完了）")
         return value
@@ -156,7 +212,8 @@ def main() -> None:
     manifest = []
     quadrant_alignment = []
     warp_ms = cards_ms = 0
-    for qr in range(2):
+    try:
+      for qr in range(2):
         for qc in range(2):
             quadrant_number = qr * 2 + qc + 1
             notify("quadrant_warp", 86 + (quadrant_number - 1) * 3,
@@ -185,6 +242,8 @@ def main() -> None:
             del quadrant
             notify("quadrant_warp", 86 + quadrant_number * 3,
                    f"補正画像と400カードを生成しています（{quadrant_number}/4 完了）")
+    except Exception as error:
+        raise PreprocessStageError("card_generation", error) from error
     timings["quadrant_warp"] = warp_ms
     timings["card_generation"] = cards_ms
     manifest.sort(key=lambda x: x["number"])
@@ -200,4 +259,24 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except PreprocessStageError as error:
+        output = Path(sys.argv[3]);output.mkdir(parents=True, exist_ok=True)
+        (output / "error.json").write_text(json.dumps({
+            "stage": error.stage,
+            "code": type(error.error).__name__,
+            "message": str(error.error),
+            "traceback": error.traceback,
+            "detail": error.traceback,
+        }, ensure_ascii=False), encoding="utf-8")
+    except Exception as error:
+        output = Path(sys.argv[3]);output.mkdir(parents=True, exist_ok=True)
+        detail = traceback.format_exc()
+        (output / "error.json").write_text(json.dumps({
+            "stage": "runtime",
+            "code": type(error).__name__,
+            "message": str(error),
+            "traceback": detail,
+            "detail": detail,
+        }, ensure_ascii=False), encoding="utf-8")

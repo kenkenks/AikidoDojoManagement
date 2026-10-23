@@ -31,7 +31,7 @@
     <h2>2. 画像とAI読み取り結果</h2>
     <p class="note">画像と認識結果はこの画面のメモリ内だけで扱います。下部で先生が確定操作を行うまではFirestoreへ出席を送信しません。</p>
     <div class="toolbar"><label>帳票画像 <input id="imageFile" type="file" accept="image/*" disabled></label><label>最大辺 <input id="maxDimension" type="number" min="1200" max="4000" step="200" value="2400" style="width:90px">px</label><label>JPEG品質 <input id="jpegQuality" type="number" min="0.55" max="0.98" step="0.01" value="0.86" style="width:75px"></label><button id="runOcrButton" type="button" disabled>画像補正＋AI読み取り</button><button id="cancelProcessingButton" type="button" disabled>処理をキャンセル</button><button id="clearButton" type="button">画面をクリア</button></div>
-    <div id="preprocessStatus" class="preprocess-status hidden"><progress id="preprocessProgress" max="100" value="0"></progress><span id="preprocessElapsed" class="elapsed">経過 0:00</span><div id="preprocessMessage">待機中</div></div>
+    <div id="preprocessStatus" class="preprocess-status hidden"><progress id="preprocessProgress" max="100" value="0"></progress><span id="preprocessElapsed" class="elapsed">経過 0:00</span><div id="preprocessMessage">待機中</div><details id="preprocessErrorDetails" class="hidden"><summary>エラー詳細</summary><pre id="preprocessErrorText"></pre></details></div>
     <details><summary>OCR JSONを貼り付ける</summary><textarea id="ocrText" rows="5" style="width:100%" placeholder="paper-attendance-ocr-prototype.cjs のJSON出力"></textarea><button id="applyOcrButton" type="button" disabled>認識結果を反映</button></details>
     <div id="message" class="note">帳票画像とAI読み取り結果を選択してください。</div>
   </section>
