@@ -13,3 +13,4 @@ __pycache__/
 *.pyc
 
 /work/fw001-firestore-runs/
+/work/paper-attendance-dev-snapshots/
