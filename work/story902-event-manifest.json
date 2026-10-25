@@ -1,0 +1,5994 @@
+{
+  "schemaVersion": 1,
+  "storyId": "STORY-902",
+  "source": {
+    "workbook": "STORY-902_イベントスケジュール_設計方針反映.xlsx",
+    "sheet": "902イベント",
+    "firstRow": 2,
+    "lastRow": 48,
+    "originalModified": false
+  },
+  "target": {
+    "projectId": "dojo-management-dev",
+    "timezone": "Asia/Tokyo"
+  },
+  "executionPolicy": {
+    "excelRowOrder": "PROVISIONAL_CANDIDATE_ONLY",
+    "unresolvedValuesAreExecutable": false,
+    "timeTripRequired": true,
+    "businessBoundary": "WEBCONNECT_ONLY"
+  },
+  "adapters": [
+    {
+      "adapterId": "attendance.register",
+      "eventTypes": [
+        "ATTENDANCE_REGISTER"
+      ],
+      "firebaseActions": [
+        "attendance_batch"
+      ],
+      "gasActions": [
+        "attendance_batch"
+      ],
+      "status": "AVAILABLE",
+      "notes": "既存契約を再利用"
+    },
+    {
+      "adapterId": "payment.cash",
+      "eventTypes": [
+        "CASH_PAYMENT"
+      ],
+      "firebaseActions": [
+        "payment_cash_accept"
+      ],
+      "gasActions": [
+        "payment_batch"
+      ],
+      "status": "AVAILABLE_WITH_CONTRACT_DIFFERENCE",
+      "notes": "DTOとrequest_id契約の共通化が必要"
+    },
+    {
+      "adapterId": "payment.paypay",
+      "eventTypes": [
+        "PAYPAY_PAYMENT"
+      ],
+      "firebaseActions": [
+        "paypay_code_start",
+        "paypay_code_record",
+        "payment_paypay_post_selected"
+      ],
+      "gasActions": [
+        "payment_batch"
+      ],
+      "status": "AVAILABLE_WITH_CONTRACT_DIFFERENCE",
+      "notes": "複数段階のFirebase契約をAdapterで吸収"
+    },
+    {
+      "adapterId": "exam.fee",
+      "eventTypes": [
+        "EXAM_FEE"
+      ],
+      "firebaseActions": [],
+      "gasActions": [],
+      "status": "MISSING_CONTRACT",
+      "notes": "審査費の申込・請求生成を行う共通WebConnect契約が未確認"
+    },
+    {
+      "adapterId": "attendance.cancel",
+      "eventTypes": [
+        "ATTENDANCE_CANCEL"
+      ],
+      "firebaseActions": [
+        "attendance_batch"
+      ],
+      "gasActions": [
+        "attendance_batch"
+      ],
+      "status": "CANDIDATE_NOT_CONFIRMED",
+      "notes": "sync_unselectedによる取消範囲と対象ID契約の確認が必要"
+    },
+    {
+      "adapterId": "payment.cancel",
+      "eventTypes": [
+        "PAYMENT_CANCEL"
+      ],
+      "firebaseActions": [],
+      "gasActions": [],
+      "status": "MISSING_CONTRACT",
+      "notes": "取消・返金配賦の共通WebConnect契約が不足"
+    },
+    {
+      "adapterId": "payment.replay.cash",
+      "eventTypes": [
+        "PAYMENT_REPLAY_CASH"
+      ],
+      "firebaseActions": [
+        "payment_cash_accept"
+      ],
+      "gasActions": [
+        "payment_batch"
+      ],
+      "status": "CANDIDATE_NOT_CONFIRMED",
+      "notes": "同一request_idの冪等性契約を確認する"
+    },
+    {
+      "adapterId": "payment.replay.paypay",
+      "eventTypes": [
+        "PAYMENT_REPLAY_PAYPAY",
+        "PAYMENT_DOUBLE_PAYPAY"
+      ],
+      "firebaseActions": [
+        "payment_paypay_post_selected"
+      ],
+      "gasActions": [
+        "payment_batch"
+      ],
+      "status": "CANDIDATE_NOT_CONFIRMED",
+      "notes": "同一ID再送と別ID二重支払の期待契約を確定する"
+    },
+    {
+      "adapterId": "month.verify",
+      "eventTypes": [
+        "MONTH_END_VERIFY"
+      ],
+      "firebaseActions": [
+        "attendance_progress_summary",
+        "payment_reception_summary"
+      ],
+      "gasActions": [
+        "attendance_progress_summary",
+        "payment_reception_summary",
+        "teacher_payment_status"
+      ],
+      "status": "COMPOSITE_READ_ONLY",
+      "notes": "単一actionではなく複合Judge。Firebaseでは一部UNSUPPORTED"
+    }
+  ],
+  "summary": {
+    "eventCount": 47,
+    "eventTypeCounts": {
+      "ATTENDANCE_REGISTER": 26,
+      "CASH_PAYMENT": 13,
+      "PAYPAY_PAYMENT": 1,
+      "EXAM_FEE": 1,
+      "ATTENDANCE_CANCEL": 1,
+      "PAYMENT_CANCEL": 1,
+      "PAYMENT_REPLAY_CASH": 1,
+      "PAYMENT_REPLAY_PAYPAY": 1,
+      "PAYMENT_DOUBLE_PAYPAY": 1,
+      "MONTH_END_VERIFY": 1
+    },
+    "specificationStatusCounts": {
+      "EXECUTABLE": 1,
+      "PROVISIONAL": 30,
+      "UNRESOLVED": 16
+    }
+  },
+  "events": [
+    {
+      "eventId": "902-E010",
+      "sourceRow": 2,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-02",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": "2027-07-02T19:30:00+09:00",
+      "executionDateTimeSource": "CONFIRMED_SUPPLEMENT",
+      "executionDateTimeSupplement": {
+        "value": "2027-07-02T19:30:00+09:00",
+        "reason": "E010で採用済みの19:00〜20:00稽古枠の中点。既存E010 manifestと整合する。",
+        "status": "CONFIRMED"
+      },
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M001; 出席日=2027/07/02; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": null,
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "EXECUTABLE",
+      "implementation": {
+        "status": "IMPLEMENTED",
+        "source": "EXISTING_E010_IMPLEMENTATION"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "PASS",
+          "evidenceKind": "HISTORICAL_INDIVIDUAL_RESULT",
+          "note": "E010の過去の個別PASS。47件一括実行結果ではない。"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E020",
+      "sourceRow": 3,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-02",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M002; 出席日=2027/07/02; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E010",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E030",
+      "sourceRow": 4,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-02",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M005-2",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M005-2; 出席日=2027/07/02; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E020",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-2",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E040",
+      "sourceRow": 5,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-02",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "原案",
+        "note": "M001の1回目支払い"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M001; plan_id=P002; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E010",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E030",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E050",
+      "sourceRow": 6,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-02",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M002; plan_id=P001; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E020",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E040",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E060",
+      "sourceRow": 7,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-02",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M005-2",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M005-2; plan_id=P011; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E030",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E050",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-2",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E070",
+      "sourceRow": 8,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-04",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M006",
+      "planId": "P020",
+      "conditions": {
+        "feeTypeLabel": "ビジター",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M006; 出席日=2027/07/04; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E060",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M006",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P020",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E080",
+      "sourceRow": 9,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-04",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M007",
+      "planId": "P021",
+      "conditions": {
+        "feeTypeLabel": "体験",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M007; 出席日=2027/07/04; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E070",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M007",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P021",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E090",
+      "sourceRow": 10,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-04",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M006",
+      "planId": "P020",
+      "conditions": {
+        "feeTypeLabel": "ビジター",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M006; plan_id=P020; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E070",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E080",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M006",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P020",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E100",
+      "sourceRow": 11,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-04",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M007",
+      "planId": "P021",
+      "conditions": {
+        "feeTypeLabel": "体験",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "要仕様確認",
+        "note": "無料対象が誤って支払おうとする。受付可否を検証"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M007; plan_id=P021; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E080",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E090",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M007",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P021",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E110",
+      "sourceRow": 12,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-09",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M001; 出席日=2027/07/09; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E100",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E120",
+      "sourceRow": 13,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-09",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M002; 出席日=2027/07/09; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E110",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E130",
+      "sourceRow": 14,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-09",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M005-1",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M005-1; 出席日=2027/07/09; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E120",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-1",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E140",
+      "sourceRow": 15,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-09",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M005-3",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M005-3; 出席日=2027/07/09; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E130",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-3",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E150",
+      "sourceRow": 16,
+      "eventType": "PAYPAY_PAYMENT",
+      "sourceDate": "2027-07-09",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "PayPay",
+        "sourceCategory": "原案",
+        "note": "2回目支払い"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M001; plan_id=P002; 決済=PayPay; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E040",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E110",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E140",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E160",
+      "sourceRow": 17,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-09",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "要仕様確認",
+        "note": "誤って再度支払おうとする"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M002; plan_id=P001; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E050",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E150",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E170",
+      "sourceRow": 18,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-09",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M005-1",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "要仕様確認",
+        "note": "誤って再度支払おうとする"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M005-1; plan_id=P011; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E060",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E160",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-1",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E180",
+      "sourceRow": 19,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-09",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M005-3",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "要仕様確認",
+        "note": "誤って再度支払おうとする"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M005-3; plan_id=P011; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E060",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E170",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-3",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E190",
+      "sourceRow": 20,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-12",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M001; 出席日=2027/07/12; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E180",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E200",
+      "sourceRow": 21,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-12",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M002; 出席日=2027/07/12; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E190",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E210",
+      "sourceRow": 22,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-12",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M005-2",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M005-2; 出席日=2027/07/12; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E200",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-2",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E220",
+      "sourceRow": 23,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-12",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "原案",
+        "note": "3回目支払い"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M001; plan_id=P002; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E150",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E190",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E210",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E230",
+      "sourceRow": 24,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-16",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M001; 出席日=2027/07/16; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E220",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E240",
+      "sourceRow": 25,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-16",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": "審査費申込予定"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M002; 出席日=2027/07/16; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E230",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E250",
+      "sourceRow": 26,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-16",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M005-2",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M005-2; 出席日=2027/07/16; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E240",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-2",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E260",
+      "sourceRow": 27,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-16",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "原案",
+        "note": "4回目支払い"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M001; plan_id=P002; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E220",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E230",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E250",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E270",
+      "sourceRow": 28,
+      "eventType": "EXAM_FEE",
+      "sourceDate": "2027-07-16",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "EXAM-TEST",
+        "paymentMethod": "",
+        "sourceCategory": "要仕様確認",
+        "note": "審査費申込・受付。EXAM-TESTの扱いを確認"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "審査費受付",
+        "input": "member_id=M002; plan_id=P001; 決済=要確認; 金額・請求ID=未確定; extra_code=EXAM-TEST",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E240",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E260",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "SOURCE_SPECIFICATION_ISSUE",
+          "source": "審査費の申込・請求・入金の順序要確認",
+          "confirmationMethod": "Excel原本の仕様課題を業務仕様として決定し、原本を変えず補完メタデータへ記録する。",
+          "priority": "P0"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": "審査費の申込・請求・入金の順序要確認"
+      }
+    },
+    {
+      "eventId": "902-E280",
+      "sourceRow": 29,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M001; 出席日=2027/07/23; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E270",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E290",
+      "sourceRow": 30,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M002; 出席日=2027/07/23; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E280",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E300",
+      "sourceRow": 31,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M005-1",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M005-1; 出席日=2027/07/23; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E290",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-1",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E310",
+      "sourceRow": 32,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M005-3",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M005-3; 出席日=2027/07/23; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E300",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-3",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E320",
+      "sourceRow": 33,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "原案",
+        "note": "5回目支払い"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M001; plan_id=P002; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E260",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E280",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E310",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E330",
+      "sourceRow": 34,
+      "eventType": "ATTENDANCE_CANCEL",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "出席画面／取消"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "要仕様確認",
+        "note": "直前の出席を取り消し、有効出席は4回相当"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "対象出席のみ取消。会費再計算と既払い金への影響を確認",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席取消",
+        "input": "member_id=M001; 取消対象出席ID=未確定; 理由=未確定",
+        "webConnectAction": "未照合",
+        "httpMethod": "未照合"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E280",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E320",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "未照合",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "SOURCE_SPECIFICATION_ISSUE",
+          "source": "取消対象ID・取消後請求の仕様要確認",
+          "confirmationMethod": "Excel原本の仕様課題を業務仕様として決定し、原本を変えず補完メタデータへ記録する。",
+          "priority": "P0"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": "取消対象ID・取消後請求の仕様要確認"
+      }
+    },
+    {
+      "eventId": "902-E340",
+      "sourceRow": 35,
+      "eventType": "PAYMENT_CANCEL",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "入金画面／取消"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "追加・要仕様確認",
+        "note": "追加：取消済出席に対応する5回目入金の扱いを確認"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定入金のみ取消または取消不可を明示。履歴を保持",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "支払い取消",
+        "input": "member_id=M001; 入金ID=未確定; 取消理由=未確定",
+        "webConnectAction": "未照合",
+        "httpMethod": "未照合"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E320",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E330",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E330",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "未照合",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "SOURCE_SPECIFICATION_ISSUE",
+          "source": "支払い取消API・返金／充当仕様未確認",
+          "confirmationMethod": "Excel原本の仕様課題を業務仕様として決定し、原本を変えず補完メタデータへ記録する。",
+          "priority": "P0"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": "支払い取消API・返金／充当仕様未確認"
+      }
+    },
+    {
+      "eventId": "902-E350",
+      "sourceRow": 36,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "要仕様確認",
+        "note": "追加の2時間枠（合計4時間）。同一枠重複か別枠か要確認"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M002; 出席日=2027/07/23; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E290",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E340",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E360",
+      "sourceRow": 37,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "要仕様確認",
+        "note": "追加の2時間枠（合計6時間）。同一枠重複か別枠か要確認"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M002; 出席日=2027/07/23; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E350",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E350",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E370",
+      "sourceRow": 38,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-23",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "要仕様確認",
+        "note": "追加の2時間枠（合計8時間）。同一枠重複か別枠か要確認"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M002; 出席日=2027/07/23; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E360",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E360",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E380",
+      "sourceRow": 39,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-26",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": "M001は有効出席5回目"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M001; 出席日=2027/07/26; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E330",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E370",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E390",
+      "sourceRow": 40,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-26",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M002",
+      "planId": "P001",
+      "conditions": {
+        "feeTypeLabel": "月払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M002; 出席日=2027/07/26; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E380",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M002",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P001",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E400",
+      "sourceRow": 41,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-26",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M005-2",
+      "planId": "P011",
+      "conditions": {
+        "feeTypeLabel": "家族",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": ""
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M005-2; 出席日=2027/07/26; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E390",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M005-2",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "PLAN_MASTER",
+          "source": "P011",
+          "confirmationMethod": "DEVのread-only WebConnectで料金マスタ実値と適用条件を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E410",
+      "sourceRow": 42,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-26",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "要仕様確認",
+        "note": "5回目支払いの扱いは7/23取消と連動"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "請求と入金が整合し、二重計上されない",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M001; plan_id=P002; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E340",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E380",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E400",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E420",
+      "sourceRow": 43,
+      "eventType": "ATTENDANCE_REGISTER",
+      "sourceDate": "2027-07-28",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "会員",
+        "operationRole": "出席登録画面／登録"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": "6回目の出席"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "出席登録",
+        "input": "member_id=M001; 出席日=2027/07/28; 稽古枠・時間=要確認",
+        "webConnectAction": "attendance_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E410",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "PROVISIONAL",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "attendance_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E430",
+      "sourceRow": 44,
+      "eventType": "CASH_PAYMENT",
+      "sourceDate": "2027-07-28",
+      "sourceTimeCategory": "稽古時",
+      "executionDateTime": null,
+      "executionDateTimeSource": "UNRESOLVED",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・会員",
+        "operationRole": "先生画面／会費・審査費受付"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "要仕様確認",
+        "note": "6回目・上限により追加請求なしを想定"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "追加請求がない場合の受付可否と誤操作時の表示を確認",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費受付",
+        "input": "member_id=M001; plan_id=P002; 決済=現金; 金額・請求ID=未確定",
+        "webConnectAction": "payment_batch（要確認）",
+        "httpMethod": "POST（要確認）"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E410",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E420",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E420",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "EXECUTION_TIME",
+          "source": "稽古時",
+          "confirmationMethod": "同日イベントの順序と時刻補完ルールを仕様決定し、manifest補完値として承認する。",
+          "priority": "P0"
+        },
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "payment_batch（要確認）",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "SOURCE_SPECIFICATION_ISSUE",
+          "source": "過入金・無料会員への受付仕様要確認",
+          "confirmationMethod": "Excel原本の仕様課題を業務仕様として決定し、原本を変えず補完メタデータへ記録する。",
+          "priority": "P0"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": "過入金・無料会員への受付仕様要確認"
+      }
+    },
+    {
+      "eventId": "902-E440",
+      "sourceRow": 45,
+      "eventType": "PAYMENT_REPLAY_CASH",
+      "sourceDate": "2027-07-30",
+      "sourceTimeCategory": "12:30",
+      "executionDateTime": "2027-07-30T12:30:00+09:00",
+      "executionDateTimeSource": "EXCEL",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "集金担当・運用管理者",
+        "operationRole": "先生／集金担当の入金操作を再送"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "現金",
+        "sourceCategory": "追加・要仕様確認",
+        "note": "追加：同一現金入金データの再送。元入金の指定が必要"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "同一入金の二重計上なし。現金とPayPayを個別に検証",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費入金の重複投入",
+        "input": "元入金イベントNo、決済識別子、再送payload=要指定",
+        "webConnectAction": "未照合",
+        "httpMethod": "未照合"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": []
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E430",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "未照合",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "SOURCE_SPECIFICATION_ISSUE",
+          "source": "現金・PayPayは別イベントへ分割し、元取引を指定",
+          "confirmationMethod": "Excel原本の仕様課題を業務仕様として決定し、原本を変えず補完メタデータへ記録する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": "現金・PayPayは別イベントへ分割し、元取引を指定"
+      }
+    },
+    {
+      "eventId": "902-E450",
+      "sourceRow": 46,
+      "eventType": "PAYMENT_REPLAY_PAYPAY",
+      "sourceDate": "2027-07-30",
+      "sourceTimeCategory": "12:30",
+      "executionDateTime": "2027-07-30T12:30:00+09:00",
+      "executionDateTimeSource": "EXCEL",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "集金担当・運用管理者",
+        "operationRole": "先生／集金担当の入金操作を再送"
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "PayPay",
+        "sourceCategory": "追加・要仕様確認",
+        "note": "追加：7/9の同一PayPay決済データを再送。二重計上防止"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "同一入金の二重計上なし。現金とPayPayを個別に検証",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費入金の重複投入",
+        "input": "元入金イベントNo、決済識別子、再送payload=要指定",
+        "webConnectAction": "未照合",
+        "httpMethod": "未照合"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E150",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E440",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "未照合",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "SOURCE_SPECIFICATION_ISSUE",
+          "source": "現金・PayPayは別イベントへ分割し、元取引を指定",
+          "confirmationMethod": "Excel原本の仕様課題を業務仕様として決定し、原本を変えず補完メタデータへ記録する。",
+          "priority": "P0"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": "現金・PayPayは別イベントへ分割し、元取引を指定"
+      }
+    },
+    {
+      "eventId": "902-E460",
+      "sourceRow": 47,
+      "eventType": "PAYMENT_DOUBLE_PAYPAY",
+      "sourceDate": "2027-07-30",
+      "sourceTimeCategory": "12:30",
+      "executionDateTime": "2027-07-30T12:30:00+09:00",
+      "executionDateTimeSource": "EXCEL",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "集金担当・運用管理者",
+        "operationRole": ""
+      },
+      "memberId": "M001",
+      "planId": "P002",
+      "conditions": {
+        "feeTypeLabel": "都度払い",
+        "extraFeeCode": "",
+        "paymentMethod": "PayPay",
+        "sourceCategory": "追加・要仕様確認",
+        "note": "追加：同じ請求へ異なる決済IDで入金する場合の扱い"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "未確定",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "会費入金の二重払い",
+        "input": "",
+        "webConnectAction": "未照合",
+        "httpMethod": "未照合"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E150",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E450",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "未照合",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "M001",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": ""
+      }
+    },
+    {
+      "eventId": "902-E470",
+      "sourceRow": 48,
+      "eventType": "MONTH_END_VERIFY",
+      "sourceDate": "2027-07-31",
+      "sourceTimeCategory": "23:50",
+      "executionDateTime": "2027-07-31T23:50:00+09:00",
+      "executionDateTimeSource": "EXCEL",
+      "executionDateTimeSupplement": null,
+      "actor": {
+        "person": "先生・各担当",
+        "operationRole": "集計画面／確認"
+      },
+      "memberId": null,
+      "planId": null,
+      "conditions": {
+        "feeTypeLabel": "",
+        "extraFeeCode": "",
+        "paymentMethod": "",
+        "sourceCategory": "原案",
+        "note": "月次請求・出席・入金・審査費・取消の整合性確認"
+      },
+      "payload": {
+        "sourceText": "未照合（画面コードから採取）",
+        "specificationStatus": "UNRESOLVED",
+        "value": null
+      },
+      "expected": {
+        "http": {
+          "sourceText": "未確定",
+          "specificationStatus": "UNRESOLVED"
+        },
+        "databaseAndScreen": {
+          "sourceText": "会員別出席・請求・入金・取消・未収の最終整合性が成立",
+          "specificationStatus": "SOURCE_DEFINED"
+        }
+      },
+      "operation": {
+        "name": "月末集計",
+        "input": "対象月=2027-07; 集計範囲=要確認",
+        "webConnectAction": "未照合",
+        "httpMethod": "未照合"
+      },
+      "dependencies": {
+        "sourceText": "",
+        "businessData": [],
+        "executionOrder": [],
+        "candidates": [
+          {
+            "eventId": "902-E010",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E020",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E030",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E040",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E050",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E060",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E070",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E080",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E090",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E100",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E110",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E120",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E130",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E140",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E150",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E160",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E170",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E180",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E190",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E200",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E210",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E220",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E230",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E240",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E250",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E260",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E270",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E280",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E290",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E300",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E310",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E320",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E330",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E340",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E350",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E360",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E370",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E380",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E390",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E400",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E410",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E420",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E430",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E440",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E450",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          },
+          {
+            "eventId": "902-E460",
+            "kind": "BUSINESS_DATA_OR_SEQUENCE",
+            "status": "PROVISIONAL",
+            "reason": "備考・期待結果から推定した候補。Excelの参照イベント欄は空欄のため確定依存ではない。"
+          }
+        ]
+      },
+      "rowOrderCandidate": {
+        "previousEventId": "902-E460",
+        "status": "PROVISIONAL",
+        "reason": "Excel行順は初期実行順の候補であり、確定依存関係ではない。"
+      },
+      "specificationStatus": "UNRESOLVED",
+      "implementation": {
+        "status": "NOT_STARTED",
+        "source": "PHASE_A_PROGRESS_BASELINE"
+      },
+      "testExecution": {
+        "individual": {
+          "status": "NOT_RUN",
+          "evidenceKind": null,
+          "note": "未実行"
+        },
+        "batch47": {
+          "status": "NOT_RUN",
+          "note": "47件一括runnerは未実装・未実行"
+        }
+      },
+      "unresolvedItems": [
+        {
+          "code": "PAYLOAD",
+          "source": "未照合（画面コードから採取）",
+          "confirmationMethod": "既存WebConnect DTOとExcel入力欄を照合し、eventType別Adapter契約を確定する。",
+          "priority": "P0"
+        },
+        {
+          "code": "EXPECTED_HTTP",
+          "source": "未確定",
+          "confirmationMethod": "既存WebConnectの成功・業務エラー契約を確認し、Expected/Judgeへ反映する。",
+          "priority": "P1"
+        },
+        {
+          "code": "WEBCONNECT_CONTRACT",
+          "source": "未照合",
+          "confirmationMethod": "Firebase/GAS双方の既存actionを照合する。契約不足は共通ランナー実装前に設計判断する。",
+          "priority": "P0"
+        },
+        {
+          "code": "FIXTURE",
+          "source": "",
+          "confirmationMethod": "Excel人物IDをSTORY902専用fixture IDへ対応付け、初期状態と所有証跡を確認する。",
+          "priority": "P1"
+        },
+        {
+          "code": "SOURCE_SPECIFICATION_ISSUE",
+          "source": "期待件数・金額の算出と画面API照合が必要",
+          "confirmationMethod": "Excel原本の仕様課題を業務仕様として決定し、原本を変えず補完メタデータへ記録する。",
+          "priority": "P0"
+        },
+        {
+          "code": "DEPENDENCIES",
+          "source": "Excel参照イベント欄は空欄",
+          "confirmationMethod": "候補依存を業務データ依存と実行順序制約に分けて承認する。",
+          "priority": "P0"
+        }
+      ],
+      "sourceMetadata": {
+        "reconciliationStatus": "要コード照合",
+        "specificationIssue": "期待件数・金額の算出と画面API照合が必要"
+      }
+    }
+  ]
+}
