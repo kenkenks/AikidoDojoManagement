@@ -11,6 +11,7 @@ const {createAttendanceSavedState}=require('../cloud/attendance/saved-state.cjs'
 const {createAdminApi}=require('../cloud/api/admin-api.cjs');
 const {createDispatch}=require('../cloud/api/webConnect.cjs');
 const {monthlySelectionDocumentId}=require('../cloud/attendance/monthly-selection-key.cjs');
+const {projectAttendanceProgress}=require('../cloud/attendance/progress-summary.cjs');
 
 // Optimistic transaction double: validate the snapshot version and rerun on
 // concurrent commit; never publish failed or partially staged transactions.
@@ -191,5 +192,35 @@ test('existing WebConnect dispatch authorizes every batch item before writing',a
   assert.equal((await dispatch({action:'attendance_member_options',input:{action:'attendance_member_options'},method:'GET',context:{authorization:'Bearer member'}})).status,403);
   assert.equal((await dispatch({action:'qr_generator_options',input:{},method:'GET',context:{authorization:'Bearer teacher'}})).status,403);
   assert.equal(rows(db,'attendances').length,2);
+});
+test('member paper submission is pending, idempotent, billing-free and excluded from progress',async()=>{
+  const {db,core}=fixture(),memberInput=input(['S1'],{teacher_id:'',source:'paper_attendance_member',skip_billing:true,member_submission_authorized:true});
+  const first=await core.register(memberInput),second=await core.register(memberInput),attendance=rows(db,'attendances');
+  assert.equal(first.registered_count,1);assert.equal(second.registered_count,0);assert.equal(second.retained_count,1);
+  assert.equal(attendance.length,1);assert.equal(attendance[0]['状態'],'確認待ち');assert.equal(attendance[0].teacher_id,'');
+  assert.equal(rows(db,'monthly_selections').length,0);assert.equal(rows(db,'invoices').length,0);assert.equal(rows(db,'payment_status_views').length,0);
+  const saved=createAttendanceSavedState({memberDao:{readById:async()=>db.records()['members/M1']},attendanceDao:{queryEqual:async()=>attendance}});
+  const state=await saved({member_id:'M1',location_id:'L1',billing_block_id:'B1',attendance_date:'2099-07-09'});
+  assert.deepEqual(state.selected_slot_ids,['S1']);assert.deepEqual(state.pending_slot_ids,['S1']);
+  const progress=projectAttendanceProgress({member:db.records()['members/M1'],attendanceRows:attendance,
+    standard:{required_training_count:10,required_training_days:1,progress_display_enabled:true,next_rank:'初段'},rankOption:{rank_id:'R1',sort_order:1}});
+  assert.equal(progress.recorded_training_count,0);assert.deepEqual(progress.attendance_by_date,[]);
+});
+test('member paper authorization forces own pending route and rejects escalation or another member',async()=>{
+  const {db,core}=fixture();let calls=0,lastInput;
+  const dispatch=createDispatch(createAdminApi({verifyIdToken:async token=>token==='none'?null:{uid:token},
+    getTimeTravel:async()=>({}),saveTimeTravel:async()=>({}),getSystemContext:async()=>({}),readMember:async()=>null,readMembers:async()=>[],
+    resolveDojoPrincipal:async user=>user.uid==='member'?{member_id:'M1'}:user.uid==='teacher'?{teacher_id:'T1'}:null,isActiveTeacher:async id=>id==='T1',
+    registerAttendanceBatch:async data=>{calls++;lastInput=data;return core.register(data);}}));
+  const send=(token,data)=>dispatch({action:'attendance_batch',input:data,context:{authorization:token&&'Bearer '+token}});
+  const pending=input(['S1'],{teacher_id:'',source:'paper_attendance_member',skip_billing:true,initial_status:'有効',autoApprove:true});
+  assert.equal((await send(null,pending)).status,401);
+  assert.equal((await send('member',{...pending,attendance_items:[{...pending.attendance_items[0],member_id:'M2'}]})).status,403);
+  assert.equal((await send('member',{...pending,teacher_id:'T1'})).status,400);
+  assert.equal((await send('member',{...pending,source:'paper_attendance_review',teacher_id:'T1'})).status,403);
+  assert.equal(calls,0);
+  assert.equal((await send('member',pending)).status,200);assert.equal(calls,1);
+  assert.equal(lastInput.member_submission_authorized,true);assert.equal(lastInput.paper_import_authorized,undefined);assert.equal(lastInput.teacher_id,'');
+  assert.equal(rows(db,'attendances')[0]['状態'],'確認待ち');
 });
 module.exports={memoryFirestore,seed,input};

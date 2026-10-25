@@ -29,7 +29,7 @@
   </section>
   <section class="card">
     <h2>2. 画像とAI読み取り結果</h2>
-    <p class="note">画像と認識結果はこの画面のメモリ内だけで扱います。確認待ち送信機能を接続するまでは、Firestoreへ出席を送信しません。</p>
+    <p class="note">画像と認識結果は確認中はこの画面のメモリ内だけで扱います。登録した出席は先生の確認待ちとなり、承認されるまで確定出席時間には加算されません。</p>
     <p class="note">横向きで、用紙の四隅がすべて写るように撮影してください。黒い台紙または濃い背景を推奨します。白い机で境界が不明瞭な場合は撮影場所を変えてください。</p>
     <div class="toolbar"><label>帳票画像 <input id="imageFile" type="file" accept="image/*" disabled></label><label>画像縮小率 <input id="imageScale" type="range" min="50" max="100" step="5" value="100"><output id="imageScaleValue">100%</output></label><label>最大辺 <input id="maxDimension" type="number" min="1200" max="4000" step="200" value="2400" style="width:90px">px</label><label>JPEG品質 <input id="jpegQuality" type="number" min="0.55" max="0.98" step="0.01" value="0.86" style="width:75px"></label><button id="runOcrButton" type="button" disabled>画像補正＋AI読み取り</button><button id="cancelProcessingButton" type="button" disabled>処理をキャンセル</button><button id="clearButton" type="button">画面をクリア</button></div>
     <div class="toolbar"><label>四隅の調整対象 <select id="cornerMode"><option value="paper">用紙外周</option><option value="grid">20×20格子外周</option></select></label><span id="paperDetectionStatus" class="note">画像選択後に用紙外周を自動検出します。</span></div>
@@ -53,18 +53,18 @@
     <div id="differencePlanStatus" class="note">会員を選択すると差分計画を表示します。</div>
     <div class="cell-grid-wrap"><table id="differencePlanTable" class="summary-table difference-table hidden"><thead><tr><th>稽古日</th><th>登録済み</th><th>AI読取（参考）</th><th>紙の記録・修正後の合計</th><th>今回追加する時間</th><th>登録後の合計</th><th>状態・理由</th></tr></thead><tbody id="differencePlanBody"></tbody></table></div>
   </section>
-  <section id="registrationPanel" class="card hidden">
-    <h2>確認済み出席の登録</h2>
-    <p class="note">既存の出席登録処理へ1枠ずつ順番に送信します。既存出席は保持し、同じ日・同じ会員で既に同数以上ある記録は送信しません。紙取込では月次選択・請求・会費Viewを更新しません。</p>
+  <section id="registrationPanel" class="card">
+    <h2>確認待ち出席の送信</h2>
+    <p class="note">本人の不足分だけを先生の確認待ちとして送信します。既存出席は保持し、確認待ちを含む同じ記録は二重送信しません。承認されるまで出席時間・審査進捗・請求には反映されません。</p>
     <div class="toolbar">
       <label>記録年 <input id="registrationYear" type="number" min="1900" max="2200" step="1" style="width:88px"></label>
-      <button id="prepareRegistrationButton" type="button" disabled>登録内容を確認</button>
-      <button id="executeRegistrationButton" type="button" disabled>追加対象なし</button>
+      <button id="prepareRegistrationButton" type="button" disabled>送信内容を確認</button>
+      <button id="executeRegistrationButton" type="button" disabled>送信対象なし</button>
     </div>
     <div id="registrationScope" class="note">先生・道場・課金枠・稽古枠を確認中です。</div>
     <div id="registrationPreview" class="note">会員を選択し、400セルの確認を完了してください。</div>
     <div id="registrationResult" class="note"></div>
   </section>
   <p class="note"><a id="teacherHomeLink" href="member_home.html">会員ホームへ戻る</a></p>
-  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script><script src="auth_gate.js"></script><script src="page_initialization_manager.js"></script><script src="paper_attendance_paper_detector.js"></script><script src="paper_attendance_member_adapter.js"></script><script src="paper_attendance_reader.js"></script><script src="paper_attendance_review.js"></script>
+  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script><script src="auth_gate.js"></script><script src="page_initialization_manager.js"></script><script src="attendance_firebase_read.js"></script><script src="paper_attendance_scope.js"></script><script src="paper_attendance_paper_detector.js"></script><script src="paper_attendance_member_adapter.js"></script><script src="paper_attendance_reader.js"></script><script src="paper_attendance_review.js"></script>
 </body></html>

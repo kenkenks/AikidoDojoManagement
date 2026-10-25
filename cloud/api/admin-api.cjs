@@ -68,13 +68,20 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
     if(paperOcr){
       if(String(request.method||'').toUpperCase()!=='POST')return reply(405,{error:'METHOD_NOT_ALLOWED'});
-      let allowed=user.admin===true;
-      if(!allowed&&typeof resolveDojoPrincipal==='function'&&typeof isActiveTeacher==='function'){
-        try{const principal=await resolveDojoPrincipal(user);allowed=!!principal?.teacher_id&&await isActiveTeacher(principal.teacher_id)===true;}catch{allowed=false;}
+      let allowed=user.admin===true,ocrInput=operationInput;
+      if(!allowed&&typeof resolveDojoPrincipal==='function'){
+        try{
+          const principal=await resolveDojoPrincipal(user),memberId=operationInput?.member_id;
+          const teacher=!!principal?.teacher_id&&typeof isActiveTeacher==='function'&&await isActiveTeacher(principal.teacher_id)===true;
+          const ownMember=canAccessMember(principal,memberId);
+          allowed=teacher||ownMember;
+          if(ownMember){const {member_id:_memberId,...imageInput}=operationInput;ocrInput=imageInput;}
+        }catch{allowed=false;}
       }
       if(!allowed)return reply(403,{error:'FORBIDDEN'});
+      if(ocrInput?.member_id){const {member_id:_memberId,...imageInput}=ocrInput;ocrInput=imageInput;}
       if(typeof readPaperAttendanceOcr!=='function')return reply(503,{error:'PAPER_OCR_UNAVAILABLE'});
-      try{return reply(200,await readPaperAttendanceOcr(operationInput));}
+      try{return reply(200,await readPaperAttendanceOcr(ocrInput));}
       catch(error){const status=[400,413].includes(error?.status)?error.status:503,code=status===503?'PAPER_OCR_UNAVAILABLE':error.code||'INVALID_PAPER_OCR_INPUT';return reply(status,{error:code});}
     }
     if(memberManagementList||memberManagementSave||memberManagementGroupSave||memberManagementWithdraw){
@@ -166,21 +173,26 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
       try { validateAttendanceInput(operationInput); }
       catch { return reply(400,{error:'INVALID_ATTENDANCE_INPUT'}); }
       let principal=null;
-      if (user.admin !== true) {
+      const memberPaper=operationInput.source==='paper_attendance_member';
+      if (user.admin !== true || memberPaper) {
         if (typeof resolveDojoPrincipal !== 'function') return reply(403,{error:'FORBIDDEN'});
         principal = await resolveDojoPrincipal(user);
         const ownMember = operationInput.attendance_items.every(item=>canAccessMember(principal,item.member_id));
         const ownTeacher = principal?.teacher_id && principal.teacher_id === operationInput.teacher_id;
-        if (!ownMember && !ownTeacher) return reply(403,{error:'FORBIDDEN'});
+        if (memberPaper ? !ownMember : (!ownMember && !ownTeacher)) return reply(403,{error:'FORBIDDEN'});
       }
       const paperSkip=operationInput.skip_billing===true;
-      if(paperSkip&&user.admin!==true){
+      if(memberPaper&&(!paperSkip||operationInput.teacher_id))return reply(403,{error:'FORBIDDEN'});
+      if(paperSkip&&!memberPaper&&user.admin!==true){
         if(!principal?.teacher_id||principal.teacher_id!==operationInput.teacher_id||typeof isActiveTeacher!=='function')return reply(403,{error:'FORBIDDEN'});
         try{if(await isActiveTeacher(principal.teacher_id)!==true)return reply(403,{error:'FORBIDDEN'});}catch{return reply(403,{error:'FORBIDDEN'});}
       }
       if (typeof registerAttendanceBatch !== 'function') return reply(503,{error:'ATTENDANCE_WRITE_UNAVAILABLE'});
       try {
-        const result = await registerAttendanceBatch(paperSkip?{...operationInput,paper_import_authorized:true}:operationInput);
+        const trustedInput=memberPaper
+          ?{...operationInput,teacher_id:'',skip_billing:true,member_submission_authorized:true}
+          :(paperSkip?{...operationInput,paper_import_authorized:true}:operationInput);
+        const result = await registerAttendanceBatch(trustedInput);
         return reply(result?.ok === true ? 200 : 400,result);
       } catch (error) {
         console.error('[ATTENDANCE_WRITE_ERROR]',{code:/^[A-Z][A-Z0-9_]{2,80}$/.test(error?.message || '') ? error.message : 'UNCLASSIFIED_EXCEPTION'});

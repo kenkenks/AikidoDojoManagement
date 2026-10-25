@@ -321,9 +321,11 @@ function registerAttendanceBatchLocked_(data, ctx) {
   const locationId = normalizeId_(data.location_id);
   const billingBlockId = normalizeId_(data.billing_block_id);
   const skipBilling = data.skip_billing === true;
+  const memberSubmissionAuthorized = data.member_submission_authorized === true &&
+    String(data.source || "") === "paper_attendance_member";
   const paperImportAuthorized = data.paper_import_authorized === true &&
     String(data.source || "") === "paper_attendance_review";
-  if (skipBilling && !paperImportAuthorized) {
+  if (skipBilling && !paperImportAuthorized && !memberSubmissionAuthorized) {
     return { ok: false, message: "紙取込の請求スキップ権限を確認できません。" };
   }
 
@@ -387,12 +389,12 @@ function registerAttendanceBatchLocked_(data, ctx) {
     attendance_session_id: data.attendance_session_id,
     attendance_items: data.attendance_items,
     source: data.source || ATTENDANCE_SOURCE_QR,
-    require_teacher: true,
-    initial_status: "有効",
-    sync_unselected: true,
+    require_teacher: !memberSubmissionAuthorized,
+    initial_status: memberSubmissionAuthorized ? "確認待ち" : "有効",
+    sync_unselected: memberSubmissionAuthorized ? false : true,
     skip_payment_view: skipBilling,
     allow_duplicate_members: false,
-    remarks: "",
+    remarks: memberSubmissionAuthorized ? "会員紙出席登録・先生確認待ち" : "",
     cancel_reason: "出席確認画面との同期による選択解除",
     message: ""
   }, ctx);

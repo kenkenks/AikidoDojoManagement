@@ -15,15 +15,18 @@ const SOURCES = Object.freeze({members:'members',fees:'fees',planSelectionRules:
 const MASTERS = {fees:'Fee',planSelectionRules:'PlanSelectionRule',teachers:'Teacher',
   locations:'Dojo',billingBlocks:'BillingBlock',trainingSlots:'TrainingSlot'};
 function validateAttendanceInput(input, options = {}) {
+  const memberPaper=input?.source==='paper_attendance_member';
   if (!input || typeof input !== 'object' || Array.isArray(input) ||
-      !['teacher_id','location_id','billing_block_id'].every(key => ID.test(input[key] || '')) ||
+      !['location_id','billing_block_id'].every(key => ID.test(input[key] || '')) ||
+      (!memberPaper&&!ID.test(input.teacher_id || '')) ||
+      (memberPaper&&input.teacher_id!==''&&input.teacher_id!==undefined) ||
       !Array.isArray(input.attendance_items) || input.attendance_items.length < 1 ||
       input.attendance_items.length > 50) throw new Error('INVALID_ATTENDANCE_INPUT');
   if (input.skip_billing !== undefined && typeof input.skip_billing !== 'boolean')
     throw new Error('INVALID_ATTENDANCE_INPUT');
-  if (input.skip_billing === true && input.source !== 'paper_attendance_review')
+  if (input.skip_billing === true && !['paper_attendance_review','paper_attendance_member'].includes(input.source))
     throw new Error('INVALID_ATTENDANCE_INPUT');
-  if (input.paper_import_authorized !== undefined && options.trusted !== true)
+  if ((input.paper_import_authorized !== undefined || input.member_submission_authorized !== undefined) && options.trusted !== true)
     throw new Error('INVALID_ATTENDANCE_INPUT');
   if (input.attendance_date !== undefined && (typeof input.attendance_date !== 'string' ||
       !/^\d{4}-\d{2}-\d{2}$/.test(input.attendance_date) ||
@@ -54,7 +57,9 @@ function createAttendanceCore(db, {createRegistration, clock = () => new Date(),
   async function register(input) {
     validateAttendanceInput(input,{trusted:true});
     const skipBilling=input.skip_billing===true;
-    if(skipBilling && (input.source!=='paper_attendance_review'||input.paper_import_authorized!==true))
+    const memberSubmission=input.source==='paper_attendance_member'&&input.member_submission_authorized===true;
+    const teacherPaper=input.source==='paper_attendance_review'&&input.paper_import_authorized===true;
+    if(skipBilling && !teacherPaper && !memberSubmission)
       throw new Error('PAPER_ATTENDANCE_BILLING_SKIP_FORBIDDEN');
     return db.runTransaction(async tx => {
       const tables = Object.fromEntries(Object.keys(SOURCES).map(name=>[name,[]]));

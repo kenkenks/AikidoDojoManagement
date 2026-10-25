@@ -13,6 +13,7 @@ function activeMember(member) {
 function isActiveAttendance(row) {
   return row && ['', '有効', '在籍', 'TRUE'].includes(normalize(row['状態']));
 }
+function isPendingAttendance(row) { return row && normalize(row['状態']) === '確認待ち'; }
 function createAttendanceSavedState({memberDao, attendanceDao}) {
   if (!memberDao || typeof memberDao.readById !== 'function') throw new TypeError('memberDao.readById required');
   if (!attendanceDao || typeof attendanceDao.queryEqual !== 'function') throw new TypeError('attendanceDao.queryEqual required');
@@ -33,10 +34,12 @@ function createAttendanceSavedState({memberDao, attendanceDao}) {
       {field:'location_id',value:locationId}, {field:'billing_block_id',value:blockId}
     ]);
     if (!Array.isArray(rows)) throw new Error('INVALID_ATTENDANCE_ROWS');
+    const activeRows=rows.filter(row=>isActiveAttendance(row)||isPendingAttendance(row));
+    const pendingSlotIds=[...new Set(rows.filter(isPendingAttendance).map(row=>normalize(row.slot_id)).filter(Boolean))];
     return {
       ok:true, member_id:memberId, current_rank:normalize(member.current_rank),
-      selected_slot_ids:[...new Set(rows.filter(isActiveAttendance)
-        .map(row => normalize(row.slot_id)).filter(Boolean))]
+      selected_slot_ids:[...new Set(activeRows.map(row => normalize(row.slot_id)).filter(Boolean))],
+      ...(pendingSlotIds.length?{pending_slot_ids:pendingSlotIds}:{})
     };
   };
 }

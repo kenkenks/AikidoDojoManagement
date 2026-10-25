@@ -37,7 +37,7 @@ test('paper attendance keeps OCR as required auth capability and audience data a
   assert.match(js,/const preparationTask=teacherMode\?\{name:"registrationPreparation",capability:"registrationPreparation"/);
   assert.match(js,/\{name:"memberPreparation",capability:"memberPreparation"/);
   assert.match(js,/optionalTasks:\[preparationTask\]/);
-  assert.match(js,/registrationCapability=registrationEnabled&&state\.capabilities\.registrationPreparation===true/);
+  assert.match(js,/registrationCapability=registrationEnabled&&\(teacherMode\?state\.capabilities\.registrationPreparation===true:state\.capabilities\.memberPreparation===true\)/);
   assert.match(js,/会員一覧・業務年を取得できないため、紙取込を開始できません/);
   assert.match(js,/会員情報を確認できないため、紙取込を開始できません/);
   assert.match(js,/registrationRead\("attendance_member_options"\)/);

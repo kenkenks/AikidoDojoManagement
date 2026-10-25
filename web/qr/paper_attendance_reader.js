@@ -182,6 +182,26 @@
     return result;
   }
 
+  async function registerPendingDifferencePlan({desiredCells,memberId,year,scope,successfulKeys=new Set(),readProgress,readState,register,onProgress=()=>{},requestId=()=>"PAPER-MEMBER-"+Date.now()}={}){
+    if(typeof readProgress!=="function"||typeof readState!=="function"||typeof register!=="function")throw Error("INVALID_REGISTRATION_EXECUTOR");
+    const slots=Array.isArray(scope?.slots)?scope.slots:[];if(!scope?.location_id||!scope?.billing_block_id||slots.length<8)throw Error("REGISTRATION_SCOPE_REQUIRED");
+    const initial=await readProgress(),records=buildDifferenceRegistrationRecords(desiredCells,{memberId,year,confirmedByDate:initial.attendance_by_date,confirmedState:"ready"}),result={success:0,duplicate:0,failed:0,skipped:0,items:[]};
+    for(const record of records){
+      const key=String(memberId)+"|"+record.attendance_date+"|pending-target:"+record.desiredMinutes;
+      try{
+        if(successfulKeys.has(key)){result.skipped++;result.items.push({...record,key,status:"awaiting_confirmation"});onProgress(result,record);continue;}
+        const state=await readState(record),selected=[...new Set(Array.isArray(state?.selected_slot_ids)?state.selected_slot_ids:[])],pending=[...new Set(Array.isArray(state?.pending_slot_ids)?state.pending_slot_ids:[])];
+        const requiredCount=record.addMinutes/60;
+        if(pending.length>=requiredCount){successfulKeys.add(key);result.duplicate++;result.items.push({...record,key,status:"already_pending"});onProgress(result,record);continue;}
+        const free=slots.map(slot=>slot.slot_id).filter(id=>!selected.includes(id)),needed=requiredCount-pending.length;
+        if(free.length<needed)throw Error("ATTENDANCE_SLOT_CAPACITY_EXCEEDED");
+        const additions=free.slice(0,needed),input={mode:"attendance_batch",request_id:requestId({...record,key}),attendance_session_id:String(scope.attendance_session_id||"PAPER_MEMBER").slice(0,128),attendance_date:record.attendance_date,teacher_id:"",location_id:scope.location_id,billing_block_id:scope.billing_block_id,attendance_items:[{member_id:String(memberId),current_rank:String(state.current_rank||""),plan_id:"",slot_ids:[...selected,...additions]}],source:"paper_attendance_member",skip_billing:true};
+        await register(input,record);successfulKeys.add(key);result.success+=additions.length;result.items.push({...record,key,status:"pending",slot_ids:additions});
+      }catch(error){result.failed++;result.items.push({...record,key,status:"failed",error:String(error?.message||error)});}onProgress(result,record);
+    }
+    return result;
+  }
+
   function inkScorePixels(data,width,height){
     const x0=Math.floor(width*.09),x1=Math.ceil(width*.91),y0=Math.floor(height*.1),y1=Math.ceil(height*.9);let sum=0,count=0;
     for(let y=y0;y<y1;y+=2)for(let x=x0;x<x1;x+=2){const index=(y*width+x)*4;sum+=(data[index]*299+data[index+1]*587+data[index+2]*114)/1000;count++;}
@@ -190,7 +210,7 @@
     return dark;
   }
 
-  const api={ROWS,COLS,INK_CELL_WIDTH,INK_CELL_HEIGHT,INK_THRESHOLD,IDEAL_CORNERS,DEFAULT_CORNERS,validateGridCorners,normalizeImageScale,normalizePaperDetection,blankCells,normalizeDate,fullDate,buildAttendanceDifferencePlan,buildDifferenceRegistrationRecords,buildRegistrationRecords,registerDifferencePlan,registerSequential,paperOwnerKey,normalizeAttendanceByDate,perspective,toUnit,fromUnit,cellIndexForPoint,cellIndexForCandidate,mapOcr,aggregate,nextPendingIndex,paperCellSequence,clearCellsFromPaperOrder,confirmTrailingEmptyCells,inkScorePixels};
+  const api={ROWS,COLS,INK_CELL_WIDTH,INK_CELL_HEIGHT,INK_THRESHOLD,IDEAL_CORNERS,DEFAULT_CORNERS,validateGridCorners,normalizeImageScale,normalizePaperDetection,blankCells,normalizeDate,fullDate,buildAttendanceDifferencePlan,buildDifferenceRegistrationRecords,buildRegistrationRecords,registerDifferencePlan,registerPendingDifferencePlan,registerSequential,paperOwnerKey,normalizeAttendanceByDate,perspective,toUnit,fromUnit,cellIndexForPoint,cellIndexForCandidate,mapOcr,aggregate,nextPendingIndex,paperCellSequence,clearCellsFromPaperOrder,confirmTrailingEmptyCells,inkScorePixels};
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
   root.DOJO_PAPER_ATTENDANCE_READER=api;
 })(typeof window!=="undefined"?window:globalThis);
