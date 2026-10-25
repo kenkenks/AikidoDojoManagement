@@ -37,6 +37,7 @@ test('Attendance GET WebConnect contracts cover existing GAS actions', () => {
     member_attendance_state:'attendance.memberState',
     attendance_saved_state:'attendance.savedState',
     teacher_attendance_today:'attendance.teacherToday',
+    teacher_attendance_progress:'attendance.teacherProgress',
     teacher_attendance_state:'attendance.teacherState',
     teacher_attendance_identity:'attendance.teacherIdentity',
     teacher_attendance_monthly_summary:'attendance.teacherMonthlySummary',

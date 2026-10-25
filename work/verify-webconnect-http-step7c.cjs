@@ -22,6 +22,7 @@ const handle = createAdminApi({
   readAttendanceSavedState: async input => { calls.push(['saved', input]); return { ok: true }; },
   readAttendanceSessionInfo: async input => { calls.push(['session', input]); return { ok: true }; },
   readTeacherAttendanceToday:async input=>{calls.push(['teacherToday',input]);return {ok:true,member_count:0,attendance_items:[]};},
+  readTeacherAttendanceProgress:async()=>{calls.push(['teacherProgress']);return {ok:true,member_count:0,progress_items:[]};},
   readAttendanceProgressSummary:async id=>{calls.push(['progress',id]);return {ok:true,member_id:id};},
   readBillingMemberInfo:async id=>{calls.push(['billing',id]);return {ok:true,memberId:id};},
   readPaymentReceptionSummary:async input=>{calls.push(['reception',input]);return {ok:true};},
@@ -43,7 +44,7 @@ const modules = {
   './dojo-account-firestore.cjs': { createFirestoreDojoPrincipalResolver: () => async () => null },
   '../attendance/rank-options.cjs': { createAttendanceRankOptions: () => async () => ({}) },
   '../attendance/member-state-firestore.cjs': { createFirestoreMemberAttendanceState: () => async () => ({}) },
-  '../attendance/progress-firestore.cjs': { createFirestoreProgressReader: () => async () => ({}) },
+  '../attendance/progress-firestore.cjs': { createFirestoreProgressReader: () => async () => ({}),createFirestoreProgressBatchReader:()=>async()=>({}) },
   '../billing/member-info-firestore.cjs': { createBillingMemberInfoReader: () => async () => ({}) },
   '../billing/reception-summary-firestore.cjs': { createReceptionSummaryReader: () => async () => ({}) },
   '../billing/payment-screen-firestore.cjs': { createPaymentScreenReader: () => async () => ({}) },
@@ -106,6 +107,14 @@ test('progress summary uses authenticated GET and rejects POST before reader',as
   assert.equal(calls.length,0);
   const result=await request('GET','/api/webconnect?action=attendance_progress_summary&member_id=M1',undefined,'Bearer admin');
   assert.equal(result.status,200);assert.equal(result.body.member_id,'M1');assert.equal(calls[0][0],'progress');
+});
+test('teacher progress uses authenticated GET and rejects POST before reader',async()=>{
+  calls=[];
+  assert.equal((await request('GET','/api/webconnect?action=teacher_attendance_progress')).status,401);
+  assert.equal((await request('POST','/api/webconnect',{action:'teacher_attendance_progress',input:{}},'Bearer admin')).status,405);
+  assert.equal(calls.length,0);
+  const result=await request('GET','/api/webconnect?action=teacher_attendance_progress',undefined,'Bearer admin');
+  assert.equal(result.status,200);assert.equal(result.body.member_count,0);assert.deepEqual(calls,[['teacherProgress']]);
 });
 
 test('billing getMemberInfo GET is admin-only and POST is rejected before reader',async()=>{

@@ -28,7 +28,7 @@ const {createPendingAttendanceApproval}=require('../attendance/pending-approval-
 const { createSystemSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createFirestoreMemberAttendanceState } = require('../attendance/member-state-firestore.cjs');
-const { createFirestoreProgressReader } = require('../attendance/progress-firestore.cjs');
+const { createFirestoreProgressReader,createFirestoreProgressBatchReader } = require('../attendance/progress-firestore.cjs');
 const { createBillingMemberInfoReader } = require('../billing/member-info-firestore.cjs');
 const {createReceptionSummaryReader}=require('../billing/reception-summary-firestore.cjs');
 const {createPaymentScreenReader}=require('../billing/payment-screen-firestore.cjs');
@@ -187,6 +187,7 @@ const handle = createAdminApi({
   }),
   readBillingMemberInfo: billingMemberReader,
   readAttendanceProgressSummary: createFirestoreProgressReader(memberCore),
+  readTeacherAttendanceProgress:createFirestoreProgressBatchReader(memberCore),
   isActiveTeacher:async id=>{
     const row=await memberCore.readById({collection:'teachers'},id);
     return !!row&&['','有効','在籍','TRUE'].includes(String(row.status??'').trim())&&(!row.teacher_id||row.teacher_id===id);
@@ -274,7 +275,7 @@ createServer(async (req, res) => {
         res.end(JSON.stringify({error:'INVALID_PAPER_OCR_ENVELOPE'}));return;
       }
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_member_options', 'attendance_rank_options', 'member_attendance_state', 'member_read','member_management_list', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','attendance_pending_list','getMemberInfo','payment_reception_summary','payment_screen_read']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_member_options', 'attendance_rank_options', 'member_attendance_state', 'member_read','member_management_list', 'qr_generator_options','teacher_attendance_today','teacher_attendance_progress','attendance_progress_summary','attendance_pending_list','getMemberInfo','payment_reception_summary','payment_screen_read']);
       const postOnlyActions = new Set(['time_travel_set', 'members_read','member_management_save','member_management_group_save','member_management_withdraw', 'attendance_batch','attendance_pending_confirm','payment_cash_accept','payment_paypay_post_selected','paypay_code_start','paypay_code_record','paper_attendance_ocr']);
       if ((req.method === 'GET' && postOnlyActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {

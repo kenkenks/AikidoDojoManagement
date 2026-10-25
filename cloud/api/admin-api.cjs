@@ -4,7 +4,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
 const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readMemberManagementList,saveManagedMember,saveManagedMemberGroup,withdrawManagedMember,readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode,readPaperAttendanceOcr,readPendingAttendances,confirmPendingAttendance }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readMemberManagementList,saveManagedMember,saveManagedMemberGroup,withdrawManagedMember,readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,readTeacherAttendanceProgress,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode,readPaperAttendanceOcr,readPendingAttendances,confirmPendingAttendance }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -32,6 +32,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const paypayCodeStart = operation === 'billing.paypayCodeStart';
     const paypayCodeRecord = operation === 'billing.paypayCodeRecord';
     const teacherToday=operation==='attendance.teacherToday';
+    const teacherProgress=operation==='attendance.teacherProgress';
     const paperOcr=operation==='attendance.paperOcr';
     const pendingList=operation==='attendance.pendingList';
     const pendingConfirm=operation==='attendance.pendingConfirm';
@@ -47,7 +48,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberManagementWithdraw=operation==='memberManagement.withdraw';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!paperOcr&&!pendingList&&!pendingConfirm&&!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !attendanceMemberOptions && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!paperOcr&&!pendingList&&!pendingConfirm&&!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !teacherProgress && !registration && !qrOptions && !rankOptions && !attendanceSession && !attendanceMemberOptions && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -221,13 +222,14 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     // Only a verified, server-resolved member can read their own saved attendance.
     // All other operations retain their existing admin-only boundary.
     if (user.admin !== true) {
-      if ((!progressSummary && !teacherToday && !attendance && !attendanceSession && !attendanceMemberOptions && !rankOptions && !memberState) || typeof resolveDojoPrincipal !== 'function') return reply(403, { error: 'FORBIDDEN' });
+      if ((!progressSummary && !teacherToday && !teacherProgress && !attendance && !attendanceSession && !attendanceMemberOptions && !rankOptions && !memberState) || typeof resolveDojoPrincipal !== 'function') return reply(403, { error: 'FORBIDDEN' });
       const principal = await resolveDojoPrincipal(user);
       let teacher=false;
       if(principal?.teacher_id && typeof isActiveTeacher==='function'){
         try{teacher=await isActiveTeacher(principal.teacher_id)===true;}catch{return reply(403,{error:'FORBIDDEN'});}
       }
       if(teacherToday&&!teacher)return reply(403,{error:'FORBIDDEN'});
+      if(teacherProgress&&!teacher)return reply(403,{error:'FORBIDDEN'});
       if(attendanceMemberOptions&&!teacher)return reply(403,{error:'FORBIDDEN'});
       if (attendance || memberState || progressSummary) {
         const requestedMember = operation ? operationInput?.member_id : new URL(url, 'http://localhost').searchParams.get('member_id');
@@ -245,6 +247,12 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
       if(typeof readAttendanceProgressSummary!=='function')return reply(503,{error:'PROGRESS_UNAVAILABLE'});
       try{const result=await readAttendanceProgressSummary(operationInput.member_id);return reply(result?.ok===true?200:400,result);}
       catch{return reply(503,{error:'PROGRESS_UNAVAILABLE'});}
+    }
+    if(teacherProgress){
+      if(!operationInput||Object.keys(operationInput).some(key=>key!=='action'))return reply(400,{error:'INVALID_TEACHER_PROGRESS_PARAMS'});
+      if(typeof readTeacherAttendanceProgress!=='function')return reply(503,{error:'TEACHER_PROGRESS_UNAVAILABLE'});
+      try{const result=await readTeacherAttendanceProgress();return reply(result?.ok===true?200:400,result);}
+      catch{return reply(503,{error:'TEACHER_PROGRESS_UNAVAILABLE'});}
     }
     if(teacherToday){
       const allowed=['action','location_id','billing_block_id','attendance_date'];

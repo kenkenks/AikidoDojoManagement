@@ -21,6 +21,7 @@ var WebConnectCore = (function () {
     if (action === 'attendance_session_info') return { operation: 'attendance.sessionInfo', input: input || {} };
     if (action === 'attendance_member_options') return { operation: 'attendance.memberOptions', input: input || {} };
     if (action === 'teacher_attendance_today') return { operation: 'attendance.teacherToday', input: input || {} };
+    if (action === 'teacher_attendance_progress') return { operation: 'attendance.teacherProgress', input: input || {} };
     if (action === 'attendance_rank_options') return { operation: 'attendance.rankOptions', input: input || {} };
     if (action === 'member_attendance_state') return { operation: 'attendance.memberState', input: input || {} };
     if (action === 'attendance_progress_summary') return { operation: 'attendance.progressSummary', input: input || {} };
@@ -50,6 +51,7 @@ var WebConnectCore = (function () {
       member_attendance_state: 'attendance.memberState',
       attendance_saved_state: 'attendance.savedState',
       teacher_attendance_today: 'attendance.teacherToday',
+      teacher_attendance_progress: 'attendance.teacherProgress',
       teacher_attendance_state: 'attendance.teacherState',
       teacher_attendance_identity: 'attendance.teacherIdentity',
       teacher_attendance_monthly_summary: 'attendance.teacherMonthlySummary',
