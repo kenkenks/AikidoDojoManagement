@@ -29,14 +29,17 @@ test('time travel preserves GAS save and restore while Firebase API stays manage
   assert.match(html,/settingDirty = false/);
 });
 
-test('paper attendance keeps OCR as required auth capability and registration data as optional',()=>{
-  const html=read('web/qr/paper_attendance_review.html'),js=read('web/qr/paper_attendance_review.js');
-  for(const asset of ['auth_gate.js','page_initialization_manager.js'])assert.match(html,new RegExp(asset.replace('.','\\.')));
+test('paper attendance keeps OCR as required auth capability and audience data as optional',()=>{
+  const html=read('web/qr/paper_attendance_review.html'),memberHtml=read('web/qr/paper_attendance_member.html'),js=read('web/qr/paper_attendance_review.js');
+  for(const page of [html,memberHtml])for(const asset of ['auth_gate.js','page_initialization_manager.js'])assert.match(page,new RegExp(asset.replace('.','\\.')));
   assert.match(js,/dependencies:\[\{name:"auth",run:\(\)=>authGate\.requireAuthenticated\(\)\}\]/);
   assert.match(js,/requiredTasks:\[\{name:"ocrReady"/);
-  assert.match(js,/optionalTasks:\[\{name:"registrationPreparation",capability:"registrationPreparation"/);
-  assert.match(js,/registrationCapability=state\.capabilities\.registrationPreparation===true/);
+  assert.match(js,/const preparationTask=teacherMode\?\{name:"registrationPreparation",capability:"registrationPreparation"/);
+  assert.match(js,/\{name:"memberPreparation",capability:"memberPreparation"/);
+  assert.match(js,/optionalTasks:\[preparationTask\]/);
+  assert.match(js,/registrationCapability=registrationEnabled&&state\.capabilities\.registrationPreparation===true/);
   assert.match(js,/会員一覧・業務年を取得できないため、紙取込を開始できません/);
+  assert.match(js,/会員情報を確認できないため、紙取込を開始できません/);
   assert.match(js,/registrationRead\("attendance_member_options"\)/);
   assert.match(js,/registrationRead\("attendance_progress_summary",\{member_id:memberId\}\)/);
   assert.match(js,/registrationRead\("system_context"\)/);
