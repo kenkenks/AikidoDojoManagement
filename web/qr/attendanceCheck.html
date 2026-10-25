@@ -98,6 +98,7 @@
 
   <section class="card">
     <h2><span id="overviewTitle">稽古・審査進捗</span> <span id="overviewCount">0名</span></h2>
+    <p id="overviewForecastNote" class="empty">到達時期は直近90日の承認済み稽古実績に基づく参考値です。</p>
     <div class="overview-toolbar">
       <label>並び順
         <select id="overviewSort" onchange="renderTeacherOverview()">
@@ -622,7 +623,8 @@
             const detail=document.createElement('span');detail.className='overview-detail';
             detail.textContent="承認済み "+Number(item.recorded_training_count||0)+"枠／必要 "+item.required_training_count+"枠"+
               (Number(item.carried_training_count||0)>0?"（繰越"+item.carried_training_count+"枠）":"");
-            progress.append(headline,detail);
+            const forecast=document.createElement('span');forecast.className='overview-detail';forecast.textContent="到達目安: "+item.forecast_label;
+            progress.append(headline,detail,forecast);
           }else{
             progress.textContent = item.training_count + "/" + item.required_training_count + "枠" +
               (item.required_training_days > 0 ? "・" + (item.training_days || 0) + "/" + item.required_training_days + "日" : "");

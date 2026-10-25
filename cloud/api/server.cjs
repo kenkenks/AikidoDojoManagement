@@ -187,7 +187,7 @@ const handle = createAdminApi({
   }),
   readBillingMemberInfo: billingMemberReader,
   readAttendanceProgressSummary: createFirestoreProgressReader(memberCore),
-  readTeacherAttendanceProgress:createFirestoreProgressBatchReader(memberCore),
+  readTeacherAttendanceProgress:createFirestoreProgressBatchReader(memberCore,{getSystemContext:()=>application.getSystemContext()}),
   isActiveTeacher:async id=>{
     const row=await memberCore.readById({collection:'teachers'},id);
     return !!row&&['','有効','在籍','TRUE'].includes(String(row.status??'').trim())&&(!row.teacher_id||row.teacher_id===id);

@@ -2,6 +2,7 @@
 const {restoreMasterFields} = require('./master-fields.cjs');
 // Read-only adapter. WebConnect callers must authorize identity before invoking this reader.
 const {projectAttendanceProgress} = require('./progress-summary.cjs');
+const {estimateProgressForecast}=require('./progress-forecast.cjs');
 const clean = v => String(v ?? '').trim();
 const active = row => ['', '有効', '在籍', 'TRUE'].includes(clean(row?.['状態']));
 async function allRows(core, collection, {restoreType='', maxPages=100}={}) {
@@ -65,11 +66,16 @@ function createFirestoreProgressReader(core) {
       standard,rankOption});
   };
 }
-function createFirestoreProgressBatchReader(core) {
+function tokyoToday(){return new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo'}).format(new Date());}
+function createFirestoreProgressBatchReader(core,{getSystemContext}={}) {
   if (typeof core?.readPage !== 'function') throw new TypeError('PROGRESS_DAO_REQUIRED');
   return async function readProgressBatch() {
-    const [members,attendanceRows,standards,ranks]=await Promise.all([
-      allRows(core,'members'),allRows(core,'attendances'),allMasterRows(core,'examination_standards'),allMasterRows(core,'ranks')]);
+    const [members,attendanceRows,standards,ranks,systemContext]=await Promise.all([
+      allRows(core,'members'),allRows(core,'attendances'),allMasterRows(core,'examination_standards'),allMasterRows(core,'ranks'),
+      typeof getSystemContext==='function'?getSystemContext():null]);
+    const asOfDate=systemContext===null?tokyoToday():String(systemContext?.system_now||'').slice(0,10);
+    if(systemContext!==null&&(systemContext?.ok!==true||systemContext.timezone&&systemContext.timezone!=='Asia/Tokyo'))
+      throw new Error('SYSTEM_CONTEXT_UNAVAILABLE');
     const activeMembers=members.filter(member=>['','有効','在籍','TRUE'].includes(clean(member.status)));
     const memberIds=new Set(activeMembers.map(member=>clean(member.member_id)));
     if(memberIds.has('')||memberIds.size!==activeMembers.length||activeMembers.some(member=>clean(member.__document_id)!==clean(member.member_id)))
@@ -83,7 +89,8 @@ function createFirestoreProgressBatchReader(core) {
       const {standard,rankOption}=projectionMasters(member,standards,ranks);
       const summary=projectAttendanceProgress({member,attendanceRows:grouped.get(member.member_id),standard,rankOption});
       return {...summary,progress_percent:summary.required_training_count>0
-        ?Math.min(100,Math.round(summary.training_count*100/summary.required_training_count)):null};
+        ?Math.min(100,Math.round(summary.training_count*100/summary.required_training_count)):null,
+        ...estimateProgressForecast({summary,attendanceRows:grouped.get(member.member_id),asOfDate})};
     });
     return {ok:true,member_count:progressItems.length,progress_items:progressItems};
   };

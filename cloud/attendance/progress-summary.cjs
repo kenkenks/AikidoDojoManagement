@@ -1,14 +1,14 @@
 'use strict';
 // Pure business projection from 04_AttendanceProgress.js; storage/authorization remain caller responsibilities.
 const str = value => String(value ?? '').trim();
-const active = row => ['', '有効', '在籍', 'TRUE', '確認済'].includes(str(row?.['状態']));
+const isProgressAttendanceActive = row => ['', '有効', '在籍', 'TRUE', '確認済'].includes(str(row?.['状態']));
 function nonnegative(value) {
   if (value == null || str(value) === '') return 0;
   const n = Number(value);
   if (!Number.isFinite(n) || n < 0) throw new Error('INVALID_PROGRESS_COUNT');
   return Math.floor(n);
 }
-function date(value) {
+function normalizeProgressDate(value) {
   if (value == null || str(value) === '') return '';
   const s = str(value);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || new Date(s + 'T00:00:00Z').toISOString().slice(0,10) !== s)
@@ -25,7 +25,7 @@ function projectAttendanceProgress({member, attendanceRows, standard, rankOption
   if (!member || !Array.isArray(attendanceRows) || !standard || !rankOption ||
       !str(member.member_id) || !['', '有効', '在籍', 'TRUE'].includes(str(member.status)))
     throw new Error('PROGRESS_INPUT_UNAVAILABLE');
-  const start = date(member.rank_start_date);
+  const start = normalizeProgressDate(member.rank_start_date);
   const carried = nonnegative(member.carried_training_count);
   const override = nonnegative(member.eligible_training_count);
   const standardCount = standard.progress_display_enabled === true ? nonnegative(standard.required_training_count) : 0;
@@ -34,8 +34,8 @@ function projectAttendanceProgress({member, attendanceRows, standard, rankOption
   const keys = new Set(), dates = new Set(), minutesByDate = new Map();
   for (const row of attendanceRows) {
     if (!row || typeof row !== 'object') throw new Error('INVALID_PROGRESS_ATTENDANCE');
-    if (str(row.member_id) !== str(member.member_id) || !active(row)) continue;
-    const d = date(row['稽古日']);
+    if (str(row.member_id) !== str(member.member_id) || !isProgressAttendanceActive(row)) continue;
+    const d = normalizeProgressDate(row['稽古日']);
     if (!d) continue;
     minutesByDate.set(d, (minutesByDate.get(d) || 0) + durationMinutes(row['稽古時間分']));
     if (start && d < start) continue;
@@ -63,4 +63,4 @@ function projectAttendanceProgress({member, attendanceRows, standard, rankOption
       attendance_date, training_minutes, training_hours:training_minutes / 60
     }))};
 }
-module.exports = {projectAttendanceProgress};
+module.exports = {projectAttendanceProgress,isProgressAttendanceActive,normalizeProgressDate};

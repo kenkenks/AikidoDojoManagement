@@ -39,7 +39,8 @@ test('batch equals the existing per-member DTO and excludes inactive members',as
   assert.deepEqual(batch.progress_items.map(item=>item.member_id),['M1','M2']);
   for(const item of batch.progress_items){
     const single=await createFirestoreProgressReader(coreFixture().core)(item.member_id);
-    const {progress_percent,...batchSummary}=item;
+    const {progress_percent,forecast_status,forecast_label,forecast_reason,forecast_weeks,weekly_training_slots,
+      recent_training_days,recent_training_slots,...batchSummary}=item;
     assert.deepEqual(batchSummary,single);
     assert.equal(item.progress_percent,Math.min(100,Math.round(single.training_count*100/single.required_training_count)));
   }
@@ -69,6 +70,12 @@ test('storage reads are collection-page based and do not grow with member count'
   await createFirestoreProgressBatchReader(fixture.core)();
   assert.equal(fixture.calls.filter(call=>call[0]==='readById'||call[0]==='queryEqual').length,0);
   assert.deepEqual(fixture.calls,[['readPage','members'],['readPage','attendances'],['readPage','examination_standards'],['readPage','ranks']]);
+});
+test('system business date drives forecast without adding member-scoped reads',async()=>{
+  const fixture=coreFixture();
+  const result=await createFirestoreProgressBatchReader(fixture.core,{getSystemContext:async()=>({ok:true,timezone:'Asia/Tokyo',system_now:'2026-03-15 12:00:00'})})();
+  assert.equal(result.progress_items[0].forecast_label,'算出不可');
+  assert.equal(fixture.calls.filter(call=>call[0]==='readById'||call[0]==='queryEqual').length,0);
 });
 test('pagination is supported without per-member queries',async()=>{
   const fixture=coreFixture(1);
