@@ -67,7 +67,7 @@ function attendanceProgress_getMemberSummaries(memberIds, ctx) {
   });
 
   getAttendances(ctx).forEach(function(row) {
-    if (!isActiveMasterRow_(row)) return;
+    if (!isActiveMasterRow_(row) && normalizeId_(row["状態"]) !== "確認済") return;
     const memberId = normalizeId_(row["member_id"]);
     const state = states[memberId];
     if (!state) return;

@@ -1,7 +1,7 @@
 'use strict';
 // Pure business projection from 04_AttendanceProgress.js; storage/authorization remain caller responsibilities.
 const str = value => String(value ?? '').trim();
-const active = row => ['', '有効', '在籍', 'TRUE'].includes(str(row?.['状態']));
+const active = row => ['', '有効', '在籍', 'TRUE', '確認済'].includes(str(row?.['状態']));
 function nonnegative(value) {
   if (value == null || str(value) === '') return 0;
   const n = Number(value);

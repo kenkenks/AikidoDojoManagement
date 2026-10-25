@@ -24,6 +24,7 @@ const { createAttendanceRankOptions } = require('../attendance/rank-options.cjs'
 const { createSessionMasterReader } = require('../attendance/session-masters.cjs');
 const {createTeacherTodayReader}=require('../attendance/teacher-today-firestore.cjs');
 const {createPaperOcrGemini}=require('../attendance/paper-ocr-gemini.cjs');
+const {createPendingAttendanceApproval}=require('../attendance/pending-approval-firestore.cjs');
 const { createSystemSessionInfo } = require('../attendance/session-info.cjs');
 const { createAttendanceSavedState } = require('../attendance/saved-state.cjs');
 const { createFirestoreMemberAttendanceState } = require('../attendance/member-state-firestore.cjs');
@@ -93,6 +94,9 @@ async function readMemberManagementList(){
 }
 const attendanceCore = createAttendanceCore(getFirestore(firebaseApp),{
   createRegistration:createAttendanceRegistrationTarget
+});
+const pendingAttendance=createPendingAttendanceApproval(getFirestore(firebaseApp),{
+  serverTimestamp:()=>FieldValue.serverTimestamp()
 });
 const paymentCashExecutor=createPaymentCashAcceptFirestoreExecutor(getFirestore(firebaseApp),{
   getSystemContext:()=>application.getSystemContext(),
@@ -165,6 +169,8 @@ const readMemberAttendanceState = createFirestoreMemberAttendanceState(memberCor
 
 const handle = createAdminApi({
   readPaperAttendanceOcr,
+  readPendingAttendances:input=>pendingAttendance.list(input),
+  confirmPendingAttendance:(input,actor)=>pendingAttendance.confirm(input,actor),
   readMemberManagementList,
   saveManagedMember:(input,user)=>memberManagement.save(input,user),
   saveManagedMemberGroup:(input,user)=>memberManagement.saveGroup(input,user),
@@ -268,8 +274,8 @@ createServer(async (req, res) => {
         res.end(JSON.stringify({error:'INVALID_PAPER_OCR_ENVELOPE'}));return;
       }
       // The transport method cannot be used to invoke a different operation's method.
-      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_member_options', 'attendance_rank_options', 'member_attendance_state', 'member_read','member_management_list', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','getMemberInfo','payment_reception_summary','payment_screen_read']);
-      const postOnlyActions = new Set(['time_travel_set', 'members_read','member_management_save','member_management_group_save','member_management_withdraw', 'attendance_batch','payment_cash_accept','payment_paypay_post_selected','paypay_code_start','paypay_code_record','paper_attendance_ocr']);
+      const readActions = new Set(['system_context', 'time_travel_admin', 'attendance_saved_state', 'attendance_session_info', 'attendance_member_options', 'attendance_rank_options', 'member_attendance_state', 'member_read','member_management_list', 'qr_generator_options','teacher_attendance_today','attendance_progress_summary','attendance_pending_list','getMemberInfo','payment_reception_summary','payment_screen_read']);
+      const postOnlyActions = new Set(['time_travel_set', 'members_read','member_management_save','member_management_group_save','member_management_withdraw', 'attendance_batch','attendance_pending_confirm','payment_cash_accept','payment_paypay_post_selected','paypay_code_start','paypay_code_record','paper_attendance_ocr']);
       if ((req.method === 'GET' && postOnlyActions.has(action)) ||
           (req.method === 'POST' && readActions.has(action))) {
         res.writeHead(405, { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' });

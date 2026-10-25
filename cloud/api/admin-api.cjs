@@ -4,7 +4,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
 const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readMemberManagementList,saveManagedMember,saveManagedMemberGroup,withdrawManagedMember,readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode,readPaperAttendanceOcr }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readMemberManagementList,saveManagedMember,saveManagedMemberGroup,withdrawManagedMember,readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode,readPaperAttendanceOcr,readPendingAttendances,confirmPendingAttendance }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -33,6 +33,8 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const paypayCodeRecord = operation === 'billing.paypayCodeRecord';
     const teacherToday=operation==='attendance.teacherToday';
     const paperOcr=operation==='attendance.paperOcr';
+    const pendingList=operation==='attendance.pendingList';
+    const pendingConfirm=operation==='attendance.pendingConfirm';
     const qrOptions = operation === 'qrGenerator.options';
     const rankOptions = operation === 'attendance.rankOptions';
     const attendance = url.split('?')[0] === '/api/admin/attendance/saved-state' || operation === 'attendance.savedState';
@@ -45,7 +47,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberManagementWithdraw=operation==='memberManagement.withdraw';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!paperOcr&&!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !attendanceMemberOptions && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!paperOcr&&!pendingList&&!pendingConfirm&&!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !registration && !qrOptions && !rankOptions && !attendanceSession && !attendanceMemberOptions && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -66,6 +68,23 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     try { user = await verifyIdToken(match[1], true); }
     catch { return reply(401, { error: 'UNAUTHENTICATED' }); }
     if (!user || !user.uid) return reply(403, { error: 'FORBIDDEN' });
+    if(pendingList||pendingConfirm){
+      if(String(request.method||'').toUpperCase()!==(pendingList?'GET':'POST'))return reply(405,{error:'METHOD_NOT_ALLOWED'});
+      if(typeof resolveDojoPrincipal!=='function'||typeof isActiveTeacher!=='function')return reply(403,{error:'FORBIDDEN'});
+      let principal;
+      try{principal=await resolveDojoPrincipal(user);if(!principal?.teacher_id||await isActiveTeacher(principal.teacher_id)!==true)return reply(403,{error:'FORBIDDEN'});}
+      catch{return reply(403,{error:'FORBIDDEN'});}
+      const allowed=pendingList?['action','attendance_date']:['attendance_id'];
+      if(!operationInput||Object.keys(operationInput).some(key=>!allowed.includes(key)))return reply(400,{error:pendingList?'INVALID_PENDING_ATTENDANCE_PARAMS':'INVALID_PENDING_CONFIRM_PARAMS'});
+      const execute=pendingList?readPendingAttendances:confirmPendingAttendance;
+      if(typeof execute!=='function')return reply(503,{error:'PENDING_ATTENDANCE_UNAVAILABLE'});
+      try{return reply(200,await execute(operationInput||{},{teacher_id:principal.teacher_id,uid:user.uid}));}
+      catch(error){
+        const code=typeof error?.message==='string'&&/^[A-Z][A-Z0-9_]{2,80}$/.test(error.message)?error.message:'PENDING_ATTENDANCE_UNAVAILABLE';
+        const status=[400,404,409].includes(error?.status)?error.status:503;
+        return reply(status,{error:status===503?'PENDING_ATTENDANCE_UNAVAILABLE':code});
+      }
+    }
     if(paperOcr){
       if(String(request.method||'').toUpperCase()!=='POST')return reply(405,{error:'METHOD_NOT_ALLOWED'});
       let allowed=user.admin===true,ocrInput=operationInput;

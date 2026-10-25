@@ -20,6 +20,13 @@
       <a class="button teacher-link" href="#">📢 お知らせ（準備中）</a>
     </div>
   </section>
+  <section class="card" id="pendingAttendancePanel">
+    <h2>確認待ちの紙出席</h2>
+    <p class="note"><span id="pendingAttendanceAuth">認証確認中</span> ／ 会員が送信した本人分の出席です。承認後に確定出席として集計されます。</p>
+    <div class="toolbar"><button id="pendingAttendanceLogin" type="button" hidden>Firebaseログイン</button><button id="pendingAttendanceReload" type="button" disabled>一覧を更新</button></div>
+    <div style="overflow:auto"><table><thead><tr><th>会員</th><th>出席日</th><th>時間</th><th>稽古枠</th><th>操作</th></tr></thead><tbody id="pendingAttendanceRows"></tbody></table></div>
+    <p id="pendingAttendanceEmpty" class="note" hidden>確認待ちの出席はありません。</p><p id="pendingAttendanceResult" class="note"></p>
+  </section>
   <p class="note"><a href="index.html">入口へ戻る</a></p>
   <section class="card">
     <h2>操作ログ</h2>
@@ -77,4 +84,7 @@
   </script>
   <script src="runtime_config.js"></script>
   <script src="system_context.js"></script>
+  <script src="firebase_auth.js"></script>
+  <script src="dojo_api_client.js"></script>
+  <script src="paper_attendance_pending.js"></script>
 </body></html>

@@ -25,6 +25,8 @@ var WebConnectCore = (function () {
     if (action === 'member_attendance_state') return { operation: 'attendance.memberState', input: input || {} };
     if (action === 'attendance_progress_summary') return { operation: 'attendance.progressSummary', input: input || {} };
     if (action === 'attendance_saved_state') return { operation: 'attendance.savedState', input: input || {} };
+    if (action === 'attendance_pending_list') return { operation: 'attendance.pendingList', input: input || {} };
+    if (action === 'attendance_pending_confirm') return { operation: 'attendance.pendingConfirm', input: input || {} };
     if (action === 'attendance_batch') return { operation: 'attendance.registerBatch', input: input || {} };
     if (action === 'paper_attendance_ocr') return { operation: 'attendance.paperOcr', input: input || {} };
     if (action === 'time_travel_set') {
@@ -53,14 +55,15 @@ var WebConnectCore = (function () {
       teacher_attendance_monthly_summary: 'attendance.teacherMonthlySummary',
       attendance_progress_summary: 'attendance.progressSummary',
       attendance_rank_options: 'attendance.rankOptions',
+      attendance_pending_list: 'attendance.pendingList',
       post_receipt: 'attendance.postReceipt'
     };
     if (method === 'GET' && Object.prototype.hasOwnProperty.call(attendanceReads, action)) {
       return { operation: attendanceReads[action], input: request.params || {} };
     }
     var data = request && request.data || {};
-    if (method === 'POST' && (action === 'attendance_batch' || action === 'teacher_attendance_sync')) {
-      return { operation: action === 'attendance_batch' ? 'attendance.registerBatch' : 'attendance.teacherSync', input: data };
+    if (method === 'POST' && (action === 'attendance_batch' || action === 'teacher_attendance_sync' || action === 'attendance_pending_confirm')) {
+      return { operation: action === 'attendance_batch' ? 'attendance.registerBatch' : action === 'attendance_pending_confirm' ? 'attendance.pendingConfirm' : 'attendance.teacherSync', input: data };
     }
     if (method === 'GET' && action === 'time_travel_admin') {
       return { operation: 'timeTravel.read', input: null };

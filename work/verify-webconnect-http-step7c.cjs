@@ -59,6 +59,7 @@ const modules = {
   '../attendance/session-masters.cjs': { createSessionMasterReader: () => async () => ({}) },
   '../attendance/teacher-today-firestore.cjs': {createTeacherTodayReader:()=>async()=>({})},
   '../attendance/paper-ocr-gemini.cjs': {createPaperOcrGemini:()=>async()=>({ok:true,candidates:[]})},
+  '../attendance/pending-approval-firestore.cjs': {createPendingAttendanceApproval:()=>({list:async()=>({ok:true,count:0,attendance_items:[]}),confirm:async()=>({ok:true,confirmed_count:1})})},
   '../attendance/session-info.cjs': { createSystemSessionInfo: ({getSystemContext}) => {
     assert.equal(typeof getSystemContext,'function');return async () => ({});
   } },

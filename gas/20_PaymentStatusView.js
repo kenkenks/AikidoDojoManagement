@@ -101,7 +101,7 @@ function paymentStatusView_collectContext(memberId, targetMonth, ctx) {
   });
 
   const attendanceItems = (attendances || []).filter(function(attendance) {
-    return isActiveMasterRow_(attendance) &&
+    return (isActiveMasterRow_(attendance) || normalizeId_(attendance["状態"]) === "確認済") &&
       normalizeId_(attendance["member_id"]) === normalizeId_(memberId) &&
       normalizeMonth(attendance["target_month"] || attendance["稽古日"]) === normalizedTargetMonth;
   }).map(function(attendance) {
@@ -774,7 +774,7 @@ function paymentStatusView_isAttendedToday(memberId, attendances, ctx) {
   const today = sup_today(ctx);
 
   return attendances.some(a => {
-    if (!isActiveMasterRow_(a) || !a["稽古日"]) return false;
+    if ((!isActiveMasterRow_(a) && normalizeId_(a["状態"]) !== "確認済") || !a["稽古日"]) return false;
 
     const attendanceDate = formatAttendanceDate_(a["稽古日"], ctx);
 

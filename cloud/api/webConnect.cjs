@@ -13,7 +13,7 @@ function createDispatch(handle) {
       'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store'
     }, body });
     if (!contract) return reply(404, { error: 'UNKNOWN_ACTION' });
-    if (['billing.cashAccept', 'billing.paypayPostSelected', 'billing.paypayCodeStart', 'billing.paypayCodeRecord', 'attendance.paperOcr'].includes(contract.operation) && String(method || '').toUpperCase() !== 'POST') {
+    if (['billing.cashAccept', 'billing.paypayPostSelected', 'billing.paypayCodeStart', 'billing.paypayCodeRecord', 'attendance.paperOcr', 'attendance.pendingConfirm'].includes(contract.operation) && String(method || '').toUpperCase() !== 'POST') {
       return reply(405, { error: 'METHOD_NOT_ALLOWED' });
     }
     // GET query includes the routing action; memberState accepts only its four domain keys.

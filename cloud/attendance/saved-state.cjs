@@ -11,7 +11,7 @@ function activeMember(member) {
 }
 // GAS isActiveMasterRow_ accepts only these values; unknown states must not count.
 function isActiveAttendance(row) {
-  return row && ['', '有効', '在籍', 'TRUE'].includes(normalize(row['状態']));
+  return row && ['', '有効', '在籍', 'TRUE', '確認済'].includes(normalize(row['状態']));
 }
 function isPendingAttendance(row) { return row && normalize(row['状態']) === '確認待ち'; }
 function createAttendanceSavedState({memberDao, attendanceDao}) {
