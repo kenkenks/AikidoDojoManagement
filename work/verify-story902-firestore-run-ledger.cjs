@@ -143,7 +143,7 @@ test("Event結果とTimeTrip状態を独立管理", async () => {
 
 test("Mock証跡をlive Repositoryへ保存しない", async () => {
   const { repository } = setup();
-  await rejectsCode(repository.reserve(input({ evidenceKind: "MOCK_ONLY" })), "DEV_LIVE_EVIDENCE_REQUIRED");
+  await rejectsCode(repository.reserve(input({ evidenceKind: "MOCK_ONLY" })), "REPOSITORY_EVIDENCE_KIND_REQUIRED");
 });
 
 test("DEV証跡のprovenanceを維持", async () => {

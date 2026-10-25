@@ -27,19 +27,22 @@ function claimState(eventState) {
   return TERMINAL_STATES.has(eventState) ? "TERMINAL" : eventState;
 }
 
-function assertDevLive(input) {
+function assertRepositoryEvidence(input, requiredEvidenceKind) {
   if (input?.projectId !== PROJECT_ID || input?.target !== TARGET || input?.storyId !== STORY_ID)
     throw failure("DEV_ENVIRONMENT_REQUIRED");
-  if (input?.evidenceKind !== "DEV_LIVE") throw failure("DEV_LIVE_EVIDENCE_REQUIRED");
+  if (input?.evidenceKind !== requiredEvidenceKind) throw failure("REPOSITORY_EVIDENCE_KIND_REQUIRED", requiredEvidenceKind);
 }
 
 function createFirestoreRunLedgerRepository(firestore, {
   clock = () => new Date().toISOString(),
-  serverTimestamp = clock
+  serverTimestamp = clock,
+  evidenceKind = "DEV_LIVE"
 } = {}) {
   validateFirestore(firestore);
   if (typeof clock !== "function" || typeof serverTimestamp !== "function")
     throw new TypeError("CLOCK_REQUIRED");
+  if (!new Set(["DEV_LIVE", "EMULATOR_ONLY"]).has(evidenceKind))
+    throw new TypeError("REPOSITORY_EVIDENCE_KIND_INVALID");
 
   function refs(input) {
     const key = stableEventKey(input);
@@ -132,7 +135,7 @@ function createFirestoreRunLedgerRepository(firestore, {
   }
 
   async function reserve(input) {
-    assertDevLive(input);
+    assertRepositoryEvidence(input, evidenceKind);
     const reference = refs(input);
     const now = clock();
     const timestamp = serverTimestamp();

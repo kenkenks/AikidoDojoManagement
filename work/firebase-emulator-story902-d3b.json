@@ -1,0 +1,24 @@
+{
+  "firestore": {
+    "rules": "firestore-emulator-deny-all.rules",
+    "indexes": "../firestore.indexes.json"
+  },
+  "emulators": {
+    "firestore": {
+      "host": "127.0.0.1",
+      "port": 8087
+    },
+    "hub": {
+      "host": "127.0.0.1",
+      "port": 4403
+    },
+    "logging": {
+      "host": "127.0.0.1",
+      "port": 4503
+    },
+    "ui": {
+      "enabled": false
+    },
+    "singleProjectMode": true
+  }
+}

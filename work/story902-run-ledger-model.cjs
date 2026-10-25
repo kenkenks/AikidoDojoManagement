@@ -10,7 +10,7 @@ const EVENT_STATES = new Set([
   "PASS", "FAIL", "BLOCKED", "UNKNOWN"
 ]);
 const TERMINAL_STATES = new Set(["PASS", "FAIL", "BLOCKED", "UNKNOWN"]);
-const EVIDENCE_KINDS = new Set(["MOCK_ONLY", "DEV_LIVE", "MANUAL_RESOLUTION"]);
+const EVIDENCE_KINDS = new Set(["MOCK_ONLY", "EMULATOR_ONLY", "DEV_LIVE", "MANUAL_RESOLUTION"]);
 const TIME_TRIP_STATES = new Set([
   "NOT_STARTED", "BASELINE_CAPTURED", "SET_VERIFIED",
   "RESTORED", "RESTORE_FAILED", "RECOVERY_REQUIRED"
@@ -182,6 +182,7 @@ function updateTimeTrip(record, state, evidenceDigest = null) {
 function projectContinuationResult(record, provenance = {}) {
   assertRecord(record);
   if (record.evidenceKind === "MOCK_ONLY") throw failure("MOCK_EVIDENCE_NOT_EXECUTABLE");
+  if (record.evidenceKind === "EMULATOR_ONLY") throw failure("EMULATOR_EVIDENCE_NOT_EXECUTABLE");
   if (provenance.runId !== record.runId || provenance.eventId !== record.eventId ||
       provenance.manifestFingerprint !== record.manifestFingerprint ||
       provenance.fixtureFingerprint !== record.fixtureFingerprint ||
