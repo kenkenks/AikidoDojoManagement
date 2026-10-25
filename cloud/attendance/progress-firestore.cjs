@@ -81,7 +81,9 @@ function createFirestoreProgressBatchReader(core) {
     }
     const progressItems=activeMembers.map(member=>{
       const {standard,rankOption}=projectionMasters(member,standards,ranks);
-      return projectAttendanceProgress({member,attendanceRows:grouped.get(member.member_id),standard,rankOption});
+      const summary=projectAttendanceProgress({member,attendanceRows:grouped.get(member.member_id),standard,rankOption});
+      return {...summary,progress_percent:summary.required_training_count>0
+        ?Math.min(100,Math.round(summary.training_count*100/summary.required_training_count)):null};
     });
     return {ok:true,member_count:progressItems.length,progress_items:progressItems};
   };

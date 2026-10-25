@@ -42,11 +42,13 @@
     .progress.ready { background: #dff3e6; color: #176b45; font-weight: bold; }
     .overview-toolbar { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
     .overview-list { margin-top:10px; }
-    .overview-row { display:grid; grid-template-columns:minmax(0,1fr) auto auto; gap:6px; align-items:center; padding:9px 3px; border-top:1px solid #e5e5e5; font-size:13px; }
+    .overview-row { display:grid; grid-template-columns:minmax(120px,1.2fr) minmax(100px,.8fr) minmax(180px,1.4fr); gap:8px; align-items:center; padding:10px 3px; border-top:1px solid #e5e5e5; font-size:13px; }
     .overview-row:first-child { border-top:0; }
     .overview-name { font-weight:bold; }
     .overview-rank { text-align:right; font-weight:bold; }
-    .overview-progress { grid-column:auto; font-size:12px; padding:5px 6px; border-radius:6px; background:#f4f8fb; white-space:nowrap; }
+    .overview-progress { grid-column:auto; font-size:12px; padding:7px 8px; border-radius:6px; background:#f4f8fb; }
+    .overview-progress strong { font-size:14px; }
+    .overview-detail { display:block; margin-top:2px; color:#555; }
     .overview-row.near .overview-progress { background:#fff3cd; color:#6d4c00; font-weight:bold; }
     .overview-row.ready .overview-progress { background:#dff3e6; color:#176b45; font-weight:bold; }
     .empty { color: #777; }
@@ -54,7 +56,8 @@
     #log { padding-left: 20px; margin-bottom: 0; }
     @media (max-width: 520px) {
       .key-grid { grid-template-columns: 1fr; }
-      .overview-row { grid-template-columns:minmax(0,1fr) auto auto; }
+      .overview-row { grid-template-columns:minmax(0,1fr) auto; }
+      .overview-progress { grid-column:1 / -1; }
     }
     /* 主要業務3画面の共通UI：会費受付画面のコンパクトな構成に合わせる */
     body { padding:10px; max-width:920px; margin:auto; }
@@ -71,7 +74,7 @@
     details > summary { cursor:pointer; font-weight:bold; padding:4px 0; }
     .overview-name { min-width:0; overflow-wrap:anywhere; }
     .overview-rank { font-size:12px; white-space:nowrap; }
-    .overview-progress { max-width:112px; overflow:hidden; text-overflow:ellipsis; }
+    .overview-progress { min-width:0; }
     @media(max-width:520px) { .key-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
   </style>
 </head>
@@ -94,7 +97,7 @@
   </section>
 
   <section class="card">
-    <h2>本日の出席者 <span id="overviewCount">0名</span></h2>
+    <h2><span id="overviewTitle">稽古・審査進捗</span> <span id="overviewCount">0名</span></h2>
     <div class="overview-toolbar">
       <label>並び順
         <select id="overviewSort" onchange="renderTeacherOverview()">
@@ -105,7 +108,7 @@
       </label>
       <button id="overviewReloadButton" type="button" onclick="loadTeacherAttendanceOverview()">更新</button>
     </div>
-    <div id="overviewStatus" class="empty">道場を設定すると本日の出席者を表示します。</div>
+    <div id="overviewStatus" class="empty">稽古・審査進捗を読み込みます。</div>
     <div id="teacherOverview" class="overview-list"></div>
   </section>
 
@@ -147,6 +150,7 @@
   <script>
     const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
     const IS_FIREBASE_ATTENDANCE=window.DOJO_RUNTIME_CONFIG.runtime==='firebase';
+    document.getElementById('overviewTitle').textContent=IS_FIREBASE_ATTENDANCE?'全会員の稽古・審査進捗':'本日の出席者';
     const firebaseAttendanceAuth=IS_FIREBASE_ATTENDANCE?window.DOJO_FIREBASE_AUTH.create({runtimeConfig:window.DOJO_RUNTIME_CONFIG}):null;
     const firebaseAttendanceApi=IS_FIREBASE_ATTENDANCE?window.DOJO_API_CLIENT.create({getCurrentUser:firebaseAttendanceAuth.getCurrentUser}):null;
     const attendanceCheckAuthGate=IS_FIREBASE_ATTENDANCE?window.DOJO_AUTH_GATE.create({
@@ -556,25 +560,24 @@
     function loadTeacherAttendanceOverview(managerContext) {
       if(!businessOperationsEnabled&&!managerContext)return Promise.resolve(false);
       const status = document.getElementById("overviewStatus");
-      if (!currentLocationId) {
+      if (!IS_FIREBASE_ATTENDANCE&&!currentLocationId) {
         teacherOverviewItems = [];
         status.textContent = "道場を設定すると本日の出席者を表示します。";
         renderTeacherOverview();
         return Promise.resolve(false);
       }
-      status.textContent = "本日の出席者を読み込み中…";
-      const params = {
-        action: "teacher_attendance_today",
-        attendance_date: currentAttendanceDate(),
-        location_id: currentLocationId
-      };
-      if (currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
+      status.className="empty";
+      status.textContent = IS_FIREBASE_ATTENDANCE?"全会員の進捗を読み込み中…":"本日の出席者を読み込み中…";
+      const params = IS_FIREBASE_ATTENDANCE?{action:"teacher_attendance_progress"}:{
+        action:"teacher_attendance_today",attendance_date:currentAttendanceDate(),location_id:currentLocationId};
+      if (!IS_FIREBASE_ATTENDANCE&&currentBillingBlockId) params.billing_block_id = currentBillingBlockId;
       return jsonp(GAS_URL, params).then(function(data) {
         if(managerContext&&!managerContext.isCurrent())return false;
-        if (!data.ok) throw new Error(data.message || "本日の出席者を取得できませんでした。");
-        teacherOverviewItems = data.attendance_items || [];
+        if (!data.ok) throw new Error(data.message || "稽古・審査進捗を取得できませんでした。");
+        teacherOverviewItems = (IS_FIREBASE_ATTENDANCE?data.progress_items:data.attendance_items) || [];
         status.className = teacherOverviewItems.length ? "" : "empty";
-        status.textContent = teacherOverviewItems.length ? "" : "本日の出席者はまだ登録されていません。";
+        status.textContent = teacherOverviewItems.length ? "" :
+          (IS_FIREBASE_ATTENDANCE?"表示対象の在籍会員はいません。":"本日の出席者はまだ登録されていません。");
         document.getElementById("overviewCount").textContent = data.member_count + "名";
         renderTeacherOverview();
         return true;
@@ -609,18 +612,28 @@
         name.textContent = item.member_name || item.member_id;
         const rank = document.createElement("div");
         rank.className = "overview-rank";
-        rank.textContent = item.current_rank || "未登録";
+        rank.textContent = (item.current_rank || "未登録")+" → "+(item.next_rank || "次回未設定");
         const progress = document.createElement("div");
         progress.className = "overview-progress";
         if (item.required_training_count > 0) {
           const target = item.next_rank ? item.next_rank : "次回審査";
-          progress.textContent = item.training_count + "/" + item.required_training_count + "H" +
-            (item.required_training_days > 0 ? "・" + (item.training_days || 0) + "/" + item.required_training_days + "日" : "");
+          if(IS_FIREBASE_ATTENDANCE){
+            const headline=document.createElement('strong');headline.textContent=Number(item.progress_percent)+"%・残り"+item.remaining_training_count+"枠";
+            const detail=document.createElement('span');detail.className='overview-detail';
+            detail.textContent="承認済み "+Number(item.recorded_training_count||0)+"枠／必要 "+item.required_training_count+"枠"+
+              (Number(item.carried_training_count||0)>0?"（繰越"+item.carried_training_count+"枠）":"");
+            progress.append(headline,detail);
+          }else{
+            progress.textContent = item.training_count + "/" + item.required_training_count + "枠" +
+              (item.required_training_days > 0 ? "・" + (item.training_days || 0) + "/" + item.required_training_days + "日" : "");
+          }
           progress.title = item.examination_ready
             ? target + "の必要稽古数到達・先生確認"
-            : target + "まであと " + item.remaining_training_count + "回";
+            : target + "まであと " + item.remaining_training_count + "枠";
         } else {
-          progress.textContent = item.training_count + "回";
+          progress.textContent = IS_FIREBASE_ATTENDANCE
+            ?"承認済み "+Number(item.recorded_training_count||0)+"枠（審査基準未設定）"
+            :item.training_count+"枠";
           progress.title = "審査基準未設定";
         }
         row.append(name, rank, progress);

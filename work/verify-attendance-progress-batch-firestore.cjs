@@ -39,7 +39,9 @@ test('batch equals the existing per-member DTO and excludes inactive members',as
   assert.deepEqual(batch.progress_items.map(item=>item.member_id),['M1','M2']);
   for(const item of batch.progress_items){
     const single=await createFirestoreProgressReader(coreFixture().core)(item.member_id);
-    assert.deepEqual(item,single);
+    const {progress_percent,...batchSummary}=item;
+    assert.deepEqual(batchSummary,single);
+    assert.equal(item.progress_percent,Math.min(100,Math.round(single.training_count*100/single.required_training_count)));
   }
 });
 test('pending rows are excluded, confirmed duplicates collapse, carry and rank start remain intact',async()=>{
