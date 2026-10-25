@@ -1,8 +1,30 @@
 'use strict';
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 const legacy = require('../web/qr/paper_attendance_review.js');
 const shared = require('../web/qr/paper_attendance_reader.js');
+
+const root = path.resolve(__dirname, '..');
+const reviewSource = fs.readFileSync(path.join(root, 'web/qr/paper_attendance_review.js'), 'utf8');
+const reviewHtml = fs.readFileSync(path.join(root, 'web/qr/paper_attendance_review.html'), 'utf8');
+const adapterSource = fs.readFileSync(path.join(root, 'web/qr/paper_attendance_teacher_adapter.js'), 'utf8');
+const adapterContext = {window:{}};
+vm.runInNewContext(adapterSource, adapterContext);
+
+assert.equal(adapterContext.window.DOJO_PAPER_ATTENDANCE_ADAPTER.audience, 'teacher');
+assert.equal(adapterContext.window.DOJO_PAPER_ATTENDANCE_ADAPTER.autoApprove, true);
+assert.ok(reviewSource.includes('DOJO_PAPER_ATTENDANCE_READER'), 'teacher screen uses shared reader');
+for (const duplicate of ['function mapOcr(', 'function buildAttendanceDifferencePlan(', 'function registerDifferencePlan(', 'function clearCellsFromPaperOrder(']) {
+  assert.equal(reviewSource.includes(duplicate), false, `${duplicate} is not duplicated in teacher screen`);
+}
+const adapterIndex = reviewHtml.indexOf('paper_attendance_teacher_adapter.js');
+const readerIndex = reviewHtml.indexOf('paper_attendance_reader.js');
+const reviewIndex = reviewHtml.indexOf('paper_attendance_review.js');
+assert.ok(adapterIndex >= 0 && adapterIndex < readerIndex && readerIndex < reviewIndex, 'adapter and reader load before teacher UI');
+assert.equal(reviewSource.includes('autoApprove:'), false, 'UI option is not sent as registration authority');
 
 const comparableFunctions = [
   'validateGridCorners','normalizeImageScale','normalizePaperDetection','blankCells',
@@ -17,6 +39,7 @@ assert.deepEqual(Object.keys(shared).sort(), Object.keys(legacy).sort());
 for (const name of comparableFunctions) assert.equal(typeof shared[name], 'function', `${name} is shared`);
 assert.equal(shared.ROWS, 20);
 assert.equal(shared.COLS, 20);
+assert.deepEqual(shared.IDEAL_CORNERS, [{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}]);
 assert.deepEqual(shared.DEFAULT_CORNERS, legacy.DEFAULT_CORNERS);
 
 for (const value of [null, 49, 50, 73, 95, 101]) {

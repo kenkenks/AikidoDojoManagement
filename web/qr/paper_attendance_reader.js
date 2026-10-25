@@ -2,6 +2,7 @@
   "use strict";
 
   const ROWS=20,COLS=20,INK_CELL_WIDTH=300,INK_CELL_HEIGHT=160,INK_THRESHOLD=3500;
+  const IDEAL_CORNERS=[{x:0,y:0},{x:1,y:0},{x:1,y:1},{x:0,y:1}];
   const DEFAULT_CORNERS=[
     {x:270/4284,y:1622/5712},{x:3255/4284,y:1622/5712},
     {x:3255/4284,y:3754/5712},{x:270/4284,y:3754/5712}
@@ -189,7 +190,7 @@
     return dark;
   }
 
-  const api={ROWS,COLS,INK_CELL_WIDTH,INK_CELL_HEIGHT,INK_THRESHOLD,DEFAULT_CORNERS,validateGridCorners,normalizeImageScale,normalizePaperDetection,blankCells,normalizeDate,fullDate,buildAttendanceDifferencePlan,buildDifferenceRegistrationRecords,buildRegistrationRecords,registerDifferencePlan,registerSequential,paperOwnerKey,normalizeAttendanceByDate,perspective,toUnit,fromUnit,cellIndexForPoint,cellIndexForCandidate,mapOcr,aggregate,nextPendingIndex,paperCellSequence,clearCellsFromPaperOrder,confirmTrailingEmptyCells,inkScorePixels};
+  const api={ROWS,COLS,INK_CELL_WIDTH,INK_CELL_HEIGHT,INK_THRESHOLD,IDEAL_CORNERS,DEFAULT_CORNERS,validateGridCorners,normalizeImageScale,normalizePaperDetection,blankCells,normalizeDate,fullDate,buildAttendanceDifferencePlan,buildDifferenceRegistrationRecords,buildRegistrationRecords,registerDifferencePlan,registerSequential,paperOwnerKey,normalizeAttendanceByDate,perspective,toUnit,fromUnit,cellIndexForPoint,cellIndexForCandidate,mapOcr,aggregate,nextPendingIndex,paperCellSequence,clearCellsFromPaperOrder,confirmTrailingEmptyCells,inkScorePixels};
   if(typeof module!=="undefined"&&module.exports)module.exports=api;
   root.DOJO_PAPER_ATTENDANCE_READER=api;
 })(typeof window!=="undefined"?window:globalThis);
