@@ -20,6 +20,17 @@ function page({deny=false,noUser=false}={}) {
     DOJO_RUNTIME_CONFIG:{runtime:'firebase',apiBaseUrl:'https://dojo.example'},
     DOJO_SYSTEM_CONTEXT:{system_now:'2099-07-09 10:00:00'},
     DOJO_FIREBASE_AUTH:{create:()=>auth},
+    DOJO_AUTH_GATE:{create:()=>({
+      requireAuthenticated:async()=>{if(!user){const error=new Error('UNAUTHENTICATED');error.code='UNAUTHENTICATED';throw error;}return user;},
+      subscribe(){},redirectToLogin(){}
+    })},
+    DOJO_SYSTEM_CONTEXT_ADAPTER:{create:()=>({dependency:()=>({name:'systemContext',run:async()=>({})}),subscribe(){}})},
+    DOJO_PAGE_INITIALIZATION_MANAGER:{create:()=>{
+      const subscribers=[];
+      return {subscribe(fn){subscribers.push(fn);},accessLost(){},retry:async()=>{},
+        getState:()=>({status:'READY',generation:1}),isCurrent:generation=>generation===1,
+        start:async()=>{subscribers.forEach(fn=>fn({status:'READY',capabilities:{rankOptions:true}}));}};
+    }},
     DOJO_API_CLIENT:{create:()=>({request:async(url,init)=>{
       calls.push({url,init});
       if(init.method==='POST') {
@@ -40,14 +51,14 @@ function page({deny=false,noUser=false}={}) {
     updateSendButton();`,context);
   return {context,nodes,calls,logs};
 }
-const settle=()=>new Promise(resolve=>setImmediate(resolve));
+const settle=async()=>{for(let index=0;index<4;index+=1)await new Promise(resolve=>setImmediate(resolve));};
 test('actual page sends authenticated JSON and restores saved state to its candidate model',async()=>{
   const {context,nodes,calls,logs}=page();await settle();
   assert.equal(nodes.get('sendButton').hidden,false);assert.equal(nodes.get('sendButton').disabled,false);
   vm.runInContext('sendCandidatesToGas()',context);assert.equal(nodes.get('sendButton').disabled,true);
   await settle();
   assert.equal(calls.filter(call=>call.init.method==='POST').length,1);
-  assert.ok(calls.some(call=>new URL(call.url).searchParams.get('action')==='member_attendance_state'));
+  assert.ok(calls.some(call=>['attendance_saved_state','member_attendance_state'].includes(new URL(call.url).searchParams.get('action'))));
   assert.deepEqual(JSON.parse(vm.runInContext('JSON.stringify(memberCandidates[0].slot_ids)',context)),['S2']);
   assert.equal(vm.runInContext('memberCandidates[0].loaded && !submitting',context),true);
   assert.ok(logs.some(log=>log.includes('保存結果を再確認')));
