@@ -51,11 +51,11 @@ test('admin read uses existing operation and DAO without widening access', async
   assert.deepEqual(calls.map(x => x[0]), ['session', 'saved']);
 });
 
-test('unconnected attendance write and receipt fail closed even for admin', async () => {
+test('connected attendance operations validate input before any DAO access', async () => {
   calls.length = 0;
-  for (const action of ['attendance_batch', 'post_receipt', 'member_attendance_state', 'attendance_rank_options']) {
-    assert.equal((await call(action, { member_id: 'M001' }, 'admin')).status, 404, action);
-  }
+  const expected={attendance_batch:400,post_receipt:404,member_attendance_state:400,attendance_rank_options:400};
+  for (const [action,status] of Object.entries(expected))
+    assert.equal((await call(action, { member_id: 'M001' }, 'admin')).status,status,action);
   assert.deepEqual(calls, []);
 });
 
@@ -65,6 +65,6 @@ test('URL member_id is not Firebase identity and virtual session is browser-only
   assert.match(attendance, /query\.get\("member_id"\)/);
   assert.match(attendance, /DojoVirtualSession\.loginMember\(urlMemberId/);
   assert.match(virtual, /loginMember:/);
-  assert.equal(WebConnectCore.resolve('attendance_batch', {}), null);
+  assert.equal(WebConnectCore.resolve('attendance_batch', {})?.operation, 'attendance.registerBatch');
   assert.equal(WebConnectCore.resolve('post_receipt', {}), null);
 });
