@@ -1,0 +1,23 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),http=require('node:http'),os=require('node:os'),path=require('node:path');
+const {spawn}=require('node:child_process');
+const root=path.resolve(__dirname,'..'),poc=path.join(root,'work','paper-attendance-grid-auto-detect-pyodide-poc');
+const input='C:\\Users\\pxk07\\.codex\\codex-remote-attachments\\019ef72d-1623-7161-8d17-02d052a3f15e\\CDBAA115-3440-4148-B65B-CAA0B4EE6011\\1-写真1.jpg';
+const browser=['C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe','C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe','C:\\Program Files\\Microsoft\\Edge\\Application\\msedge.exe'].find(fs.existsSync);
+assert.ok(browser);assert.ok(fs.existsSync(input),'original iPhone image');
+const types={'.html':'text/html; charset=utf-8','.js':'text/javascript','.py':'text/plain','.jpg':'image/jpeg'};
+const server=http.createServer((req,res)=>{const url=new URL(req.url,'http://127.0.0.1');let file;
+  if(url.pathname==='/poc-input.jpg')file=input;
+  else if(url.pathname==='/web/qr/paper_attendance_preprocess.py')file=path.join(root,'web','qr','paper_attendance_preprocess.py');
+  else file=path.resolve(poc,url.pathname==='/'?'index.html':url.pathname.replace(/^\//,''));
+  if(!fs.existsSync(file)){res.writeHead(404).end();return;}res.setHeader('Content-Type',types[path.extname(file)]||'application/octet-stream');res.setHeader('Cache-Control','no-store');fs.createReadStream(file).pipe(res);
+});
+server.listen(0,'127.0.0.1',()=>{const port=server.address().port,profile=fs.mkdtempSync(path.join(os.tmpdir(),'paper-auto-grid-pyodide-'));
+  const child=spawn(browser,['--headless=new','--disable-gpu','--no-first-run','--no-default-browser-check',`--user-data-dir=${profile}`,'--remote-debugging-port=0',`http://127.0.0.1:${port}/`],{windowsHide:true});let stderr='',done=false;
+  const finish=(error,result)=>{if(done)return;done=true;child.kill();server.close();setTimeout(()=>{try{fs.rmSync(profile,{recursive:true,force:true});}catch{}},250);if(error){console.error(stderr);console.error(error);process.exitCode=1;}else{fs.writeFileSync(path.join(poc,'pyodide-result.json'),JSON.stringify(result,null,2));console.log('PASS Pyodide whole-paper + auto-grid + 400-card PoC');console.log(JSON.stringify(result,null,2));}};
+  child.stderr.on('data',async chunk=>{stderr+=chunk;const match=stderr.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//);if(!match||child.cdpStarted)return;child.cdpStarted=true;try{
+    const targets=await fetch(`http://127.0.0.1:${match[1]}/json/list`).then(r=>r.json()),target=targets.find(x=>x.url===`http://127.0.0.1:${port}/`);assert.ok(target);const socket=new WebSocket(target.webSocketDebuggerUrl);let id=1;const pending=new Map();socket.onmessage=e=>{const m=JSON.parse(e.data);if(m.id&&pending.has(m.id)){pending.get(m.id)(m);pending.delete(m.id);}};await new Promise((resolve,reject)=>{socket.onopen=resolve;socket.onerror=reject;});
+    const evaluate=expression=>new Promise(resolve=>{const n=id++;pending.set(n,resolve);socket.send(JSON.stringify({id:n,method:'Runtime.evaluate',params:{expression,returnByValue:true}}));});const deadline=Date.now()+600000;
+    while(Date.now()<deadline){const reply=await evaluate('window.__pocResult||null'),value=reply.result?.result?.value;if(value){if(value.type==='error')throw Error(`${value.message}\n${value.stack||''}`);assert.equal(value.type,'result');assert.equal(value.cardFileCount,400);assert.equal(value.report.cards,400);assert.equal(value.report.detection.x_lines.length,21);assert.equal(value.report.detection.y_lines.length,21);assert.equal(value.report.written_truth_detected,27);assert.deepEqual(value.report.written_truth_missed,[]);socket.close();finish(null,value);return;}await new Promise(r=>setTimeout(r,1000));}throw Error('PYODIDE_POC_TIMEOUT');
+  }catch(error){finish(error);}});child.on('error',finish);child.on('close',code=>{if(!done)finish(Error(`browser exited ${code}`));});
+});

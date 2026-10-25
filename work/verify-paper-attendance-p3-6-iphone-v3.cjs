@@ -1,0 +1,13 @@
+'use strict';
+const assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const root=path.join(__dirname,'paper-attendance-grid-auto-detect-pyodide-poc');
+const read=name=>fs.readFileSync(path.join(root,name),'utf8');
+const html=read('iphone-v2.html'),ui=read('iphone_ui.js'),alias=read('iphone_worker.js');
+const worker=read('profile_worker.js'),runner=read('profile_runner.py');
+assert.match(html,/capture="environment"/);assert.match(ui,/imageOrientation:'from-image'/);
+assert.match(ui,/paperCorners:corners/);assert.match(html,/処理をキャンセル/);
+assert.match(html,/WASMヒープ/);assert.match(html,/エラー詳細/);assert.match(html,/400カード/);
+assert.match(alias,/profile_worker\.js/);assert.match(worker,/pyodide\/v0\.27\.7/);
+assert.match(worker,/loadPackage\(\['numpy','pillow'\]\)/);assert.match(worker,/error\.json/);
+assert.match(runner,/quadrant_/);assert.doesNotMatch(ui+worker+runner,/paper_attendance_ocr|attendance_batch|api\/webconnect/i);
+console.log('PASS P3-6 independent iPhone page contract');

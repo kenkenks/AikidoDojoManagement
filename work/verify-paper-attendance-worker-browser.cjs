@@ -55,7 +55,7 @@ server.listen(0,'127.0.0.1',()=>{
     `--user-data-dir=${profile}`,'--remote-debugging-port=0',`http://127.0.0.1:${port}/`
   ],{windowsHide:true});
   let stderr='',finished=false;
-  const finish=error=>{if(finished)return;finished=true;child.kill();server.close();setTimeout(()=>fs.rmSync(profile,{recursive:true,force:true}),250);if(error){console.error(stderr);console.error(error);process.exitCode=1;}else console.log('PASS browser Pyodide progress/result/error structured-clone paths');};
+  const finish=error=>{if(finished)return;finished=true;child.kill();server.close();setTimeout(()=>{try{fs.rmSync(profile,{recursive:true,force:true});}catch(_){}},250);if(error){console.error(stderr);console.error(error);process.exitCode=1;}else console.log('PASS browser Pyodide progress/result/error structured-clone paths');};
   child.stderr.on('data',async chunk=>{
     stderr+=chunk;
     const match=stderr.match(/DevTools listening on ws:\/\/127\.0\.0\.1:(\d+)\//);

@@ -1,0 +1,11 @@
+<!doctype html><meta charset="utf-8"><title>Pyodide auto-grid PoC</title>
+<pre id="status">RUNNING</pre><script>
+const paperCorners=[[370/2880,1067/3840],[2520/2880,1105/3840],[2745/2880,2638/3840],[99/2880,2598/3840]];
+(async()=>{try{
+  const bytes=await fetch('/poc-input.jpg',{cache:'no-store'}).then(r=>{if(!r.ok)throw Error('INPUT_UNAVAILABLE');return r.arrayBuffer();});
+  const worker=new Worker('./worker.js');
+  worker.onmessage=event=>{window.__pocResult=event.data;document.querySelector('#status').textContent=JSON.stringify(event.data);worker.terminate();};
+  worker.onerror=event=>{window.__pocResult={type:'error',message:event.message};document.querySelector('#status').textContent=JSON.stringify(window.__pocResult);};
+  worker.postMessage({bytes,paperCorners},[bytes]);
+}catch(error){window.__pocResult={type:'error',message:String(error)};document.querySelector('#status').textContent=JSON.stringify(window.__pocResult);}})();
+</script>
