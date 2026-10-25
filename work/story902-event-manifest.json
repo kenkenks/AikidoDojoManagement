@@ -204,6 +204,14 @@
         "databaseAndScreen": {
           "sourceText": "指定会員・日時・枠の出席記録が正しく登録される",
           "specificationStatus": "SOURCE_DEFINED"
+        },
+        "businessValues": {
+          "source": "EXISTING_E010_MANIFEST_AND_JUDGE",
+          "specificationStatus": "CONFIRMED",
+          "registered_count": 1,
+          "cancelled_count": 0,
+          "usage_billing_charge_count": 1,
+          "planned_amount": 1500
         }
       },
       "operation": {
