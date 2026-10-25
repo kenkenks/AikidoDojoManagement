@@ -30,14 +30,16 @@
   <section class="card">
     <h2>2. 画像とAI読み取り結果</h2>
     <p class="note">画像と認識結果はこの画面のメモリ内だけで扱います。下部で先生が確定操作を行うまではFirestoreへ出席を送信しません。</p>
-    <div class="toolbar"><label>帳票画像 <input id="imageFile" type="file" accept="image/*" disabled></label><label>最大辺 <input id="maxDimension" type="number" min="1200" max="4000" step="200" value="2400" style="width:90px">px</label><label>JPEG品質 <input id="jpegQuality" type="number" min="0.55" max="0.98" step="0.01" value="0.86" style="width:75px"></label><button id="runOcrButton" type="button" disabled>画像補正＋AI読み取り</button><button id="cancelProcessingButton" type="button" disabled>処理をキャンセル</button><button id="clearButton" type="button">画面をクリア</button></div>
+    <p class="note">横向きで、用紙の四隅がすべて写るように撮影してください。黒い台紙または濃い背景を推奨します。白い机で境界が不明瞭な場合は撮影場所を変えてください。</p>
+    <div class="toolbar"><label>帳票画像 <input id="imageFile" type="file" accept="image/*" disabled></label><label>画像縮小率 <input id="imageScale" type="range" min="50" max="100" step="5" value="100"><output id="imageScaleValue">100%</output></label><label>最大辺 <input id="maxDimension" type="number" min="1200" max="4000" step="200" value="2400" style="width:90px">px</label><label>JPEG品質 <input id="jpegQuality" type="number" min="0.55" max="0.98" step="0.01" value="0.86" style="width:75px"></label><button id="runOcrButton" type="button" disabled>画像補正＋AI読み取り</button><button id="cancelProcessingButton" type="button" disabled>処理をキャンセル</button><button id="clearButton" type="button">画面をクリア</button></div>
+    <div class="toolbar"><label>四隅の調整対象 <select id="cornerMode"><option value="paper">用紙外周</option><option value="grid">20×20格子外周</option></select></label><span id="paperDetectionStatus" class="note">画像選択後に用紙外周を自動検出します。</span></div>
     <div id="preprocessStatus" class="preprocess-status hidden"><progress id="preprocessProgress" max="100" value="0"></progress><span id="preprocessElapsed" class="elapsed">経過 0:00</span><div id="preprocessMessage">待機中</div><details id="preprocessErrorDetails" class="hidden"><summary>エラー詳細</summary><pre id="preprocessErrorText"></pre></details></div>
     <details><summary>OCR JSONを貼り付ける</summary><textarea id="ocrText" rows="5" style="width:100%" placeholder="paper-attendance-ocr-prototype.cjs のJSON出力"></textarea><button id="applyOcrButton" type="button" disabled>認識結果を反映</button></details>
     <div id="message" class="note">帳票画像とAI読み取り結果を選択してください。</div>
   </section>
   <section class="card source-layout">
-    <div><h2>補正済み画像・セル確認</h2><div id="imageStage" class="image-stage"><img id="sheetImage" class="sheet-image" alt="選択した出席管理表"><svg id="cornerLayer" class="corner-layer hidden" viewBox="0 0 1000 1000" preserveAspectRatio="none"><polygon id="cornerPolygon"></polygon><circle data-corner="0" r="18"></circle><circle data-corner="1" r="18"></circle><circle data-corner="2" r="18"></circle><circle data-corner="3" r="18"></circle></svg></div><p class="note">選択直後は元画像を表示します。画像補正後は20×20の直交格子へ正規化した画像を表示し、Geminiとセル確認に使用します。</p></div>
-    <div><h2>確認状況</h2><p class="review-warning">AIが「認識済み」とした日付にも誤読が含まれる場合があります。登録前に、記入のある全セルを元画像と照合してください。</p><p id="progress"></p><div class="legend"><span class="recognized">認識済み</span><span class="detected">日付不明</span><span class="review">読み取り注意</span><span class="empty">空白</span></div><p class="toolbar"><button id="nextReviewButton" type="button">次の未確認マスへ</button><button id="confirmBlankButton" type="button">空白セルを一括確認</button><button id="confirmTrailingBlankButton" type="button">選択マス以降の空白を確定</button></p><p class="note">日付は同じ値でもセルごとに保持します。AIの要確認判定だけに頼らず、認識済みを含む記入セルをすべて確認してください。</p></div>
+    <div><h2>補正済み画像・セル確認</h2><div id="imageStage" class="image-stage"><img id="sheetImage" class="sheet-image" alt="選択した出席管理表"><svg id="cornerLayer" class="corner-layer hidden" viewBox="0 0 1000 1000" preserveAspectRatio="none"><polygon id="cornerPolygon"></polygon><circle data-corner="0" r="18"></circle><circle data-corner="1" r="18"></circle><circle data-corner="2" r="18"></circle><circle data-corner="3" r="18"></circle></svg></div><p class="note">選択直後は元画像と自動検出した用紙外周を表示します。用紙外周と20×20格子外周は別々に保持します。画像補正後は直交格子へ正規化した画像を表示します。</p></div>
+    <div><h2>確認状況</h2><p class="review-warning">AIが「認識済み」とした日付にも誤読が含まれる場合があります。登録前に、記入のある全セルを元画像と照合してください。</p><p id="progress"></p><div class="legend"><span class="recognized">認識済み</span><span class="detected">日付不明</span><span class="review">読み取り注意</span><span class="empty">空白</span></div><p class="toolbar"><button id="nextReviewButton" type="button">次の未確認マスへ</button><button id="confirmBlankButton" type="button">空白セルを一括確認</button><button id="confirmTrailingBlankButton" type="button">指定セル以降を空白</button></p><p class="note">「指定セル以降を空白」は、各列を下から上へ進んで次の列へ移る紙面の記入順で適用します。日付不明セルも対象です。</p><p class="note">日付は同じ値でもセルごとに保持します。AIの要確認判定だけに頼らず、認識済みを含む記入セルをすべて確認してください。</p></div>
   </section>
   <section class="card"><h2>20×20 認識結果</h2><div class="cell-grid-wrap"><div id="cellGrid" class="cell-grid"></div></div></section>
   <section class="card detail-grid">
@@ -47,9 +49,9 @@
   <section id="attendanceSummary" class="card hidden"><h2>日付別の出席回数</h2><table class="summary-table"><thead><tr><th>日付</th><th>稽古回数</th></tr></thead><tbody id="summaryBody"></tbody></table></section>
   <section id="differencePlan" class="card">
     <h2>日付別の追加予定時間</h2>
-    <p class="note">確定済み出席は削除・取消せず優先します。OCR読取時間と手修正後時間を分け、不足する時間だけを表示します。この表は確認用であり、登録処理は実行しません。</p>
+    <p class="note">紙のセルは「追加分」ではなく、登録後に希望する合計時間を表します。登録済み出席は削除・取消せず優先し、不足する時間だけを「今回追加する時間」として表示します。</p>
     <div id="differencePlanStatus" class="note">会員を選択すると差分計画を表示します。</div>
-    <div class="cell-grid-wrap"><table id="differencePlanTable" class="summary-table difference-table hidden"><thead><tr><th>稽古日</th><th>確定済み時間</th><th>OCR読取時間</th><th>手修正後時間</th><th>追加予定時間</th><th>状態</th></tr></thead><tbody id="differencePlanBody"></tbody></table></div>
+    <div class="cell-grid-wrap"><table id="differencePlanTable" class="summary-table difference-table hidden"><thead><tr><th>稽古日</th><th>登録済み</th><th>AI読取（参考）</th><th>紙の記録・修正後の合計</th><th>今回追加する時間</th><th>登録後の合計</th><th>状態・理由</th></tr></thead><tbody id="differencePlanBody"></tbody></table></div>
   </section>
   <section id="registrationPanel" class="card">
     <h2>確認済み出席の登録</h2>
@@ -57,12 +59,12 @@
     <div class="toolbar">
       <label>記録年 <input id="registrationYear" type="number" min="1900" max="2200" step="1" style="width:88px"></label>
       <button id="prepareRegistrationButton" type="button" disabled>登録内容を確認</button>
-      <button id="executeRegistrationButton" type="button" disabled>確認済みデータを登録</button>
+      <button id="executeRegistrationButton" type="button" disabled>追加対象なし</button>
     </div>
     <div id="registrationScope" class="note">先生・道場・課金枠・稽古枠を確認中です。</div>
     <div id="registrationPreview" class="note">会員を選択し、400セルの確認を完了してください。</div>
     <div id="registrationResult" class="note"></div>
   </section>
   <p class="note"><a id="teacherHomeLink" href="teacher_home.html">先生ホームへ戻る</a></p>
-  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script><script src="auth_gate.js"></script><script src="page_initialization_manager.js"></script><script src="attendance_firebase_read.js"></script><script src="paper_attendance_scope.js"></script><script src="paper_attendance_review.js"></script>
+  <script src="virtual_session.js"></script><script src="runtime_config.js"></script><script src="firebase_auth.js"></script><script src="dojo_api_client.js"></script><script src="auth_gate.js"></script><script src="page_initialization_manager.js"></script><script src="attendance_firebase_read.js"></script><script src="paper_attendance_scope.js"></script><script src="paper_attendance_paper_detector.js"></script><script src="paper_attendance_review.js"></script>
 </body></html>

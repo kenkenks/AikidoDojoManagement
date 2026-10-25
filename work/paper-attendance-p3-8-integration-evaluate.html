@@ -1,0 +1,18 @@
+<!doctype html><meta charset="utf-8"><script src="/qr/paper_attendance_paper_detector.js"></script><body><pre id="status">starting</pre><script>
+(async()=>{try{
+  const query=new URLSearchParams(location.search),scale=Math.max(50,Math.min(100,Number(query.get('scale'))||100));
+  const input=await fetch('/input.jpg',{cache:'no-store'}).then(response=>response.blob());
+  const bitmap=await createImageBitmap(input,{imageOrientation:'from-image'}).catch(()=>createImageBitmap(input));
+  const preview=document.createElement('canvas');preview.width=bitmap.width;preview.height=bitmap.height;preview.getContext('2d').drawImage(bitmap,0,0);
+  const normalized=await new Promise((resolve,reject)=>preview.toBlob(value=>value?resolve(value):reject(Error('ENCODE_FAILED')),'image/jpeg',.94));
+  let detection=await PaperDetector.detectPaper(normalized),corners=detection.corners.map(point=>({x:point[0],y:point[1]}));
+  if(detection.aspectRatio<1){corners=[corners[1],corners[2],corners[3],corners[0]];detection={...detection,aspectRatio:1/detection.aspectRatio,documentRotationDegrees:-90};}
+  if(query.get('manual')==='1')corners=[{x:370/2880,y:1067/3840},{x:2520/2880,y:1105/3840},{x:2745/2880,y:2638/3840},{x:99/2880,y:2598/3840}];
+  const reduced=document.createElement('canvas');reduced.width=Math.round(bitmap.width*scale/100);reduced.height=Math.round(bitmap.height*scale/100);reduced.getContext('2d').drawImage(bitmap,0,0,reduced.width,reduced.height);
+  const reducedBlob=await new Promise((resolve,reject)=>reduced.toBlob(value=>value?resolve(value):reject(Error('ENCODE_FAILED')),'image/jpeg',.94)),bytes=await reducedBlob.arrayBuffer();
+  const worker=new Worker('/qr/paper_attendance_preprocess_worker.js');
+  worker.onmessage=event=>{let data=event.data;if(typeof data==='string')data=JSON.parse(data);if(data.type==='progress')return;window.__p38Result={...data,paperDetection:{...detection,corners},scale,sourceSize:[bitmap.width,bitmap.height],scaledSize:[reduced.width,reduced.height]};worker.terminate();};
+  worker.onerror=event=>{window.__p38Result={type:'error',message:event.message,stack:event.filename+':'+event.lineno};};
+  worker.postMessage({bytes,paperCorners:corners,imageScale:scale},[bytes]);
+}catch(error){window.__p38Result={type:'error',message:String(error?.message||error),stack:String(error?.stack||'')};}})();
+</script></body>

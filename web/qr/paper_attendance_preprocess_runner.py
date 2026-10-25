@@ -36,20 +36,16 @@ class PreprocessStageError(RuntimeError):
         self.traceback = traceback.format_exc()
 
 
-def validated_seed(path: str) -> tuple[float, float, float, float] | None:
-    if not path:
-        return None
-    payload = json.loads(Path(path).read_text(encoding="utf-8"))
-    corners = payload.get("corners")
+def validated_points(corners, code="INVALID_GRID_CORNERS"):
     if not isinstance(corners, list) or len(corners) != 4:
-        raise ValueError("INVALID_GRID_CORNERS")
+        raise ValueError(code)
     points = []
     for point in corners:
         if not isinstance(point, dict):
-            raise ValueError("INVALID_GRID_CORNERS")
+            raise ValueError(code)
         x, y = float(point.get("x", -1)), float(point.get("y", -1))
         if not (0 <= x <= 1 and 0 <= y <= 1):
-            raise ValueError("INVALID_GRID_CORNERS")
+            raise ValueError(code)
         points.append((x, y))
     sign = 0
     twice_area = 0.0
@@ -59,11 +55,15 @@ def validated_seed(path: str) -> tuple[float, float, float, float] | None:
         cross = ((following[0] - point[0]) * (after[1] - following[1]) -
                  (following[1] - point[1]) * (after[0] - following[0]))
         if abs(cross) < 1e-6 or (sign and (cross > 0) != (sign > 0)):
-            raise ValueError("INVALID_GRID_CORNERS")
+            raise ValueError(code)
         sign = cross
         twice_area += point[0] * following[1] - following[0] * point[1]
     if abs(twice_area) / 2 < .01:
-        raise ValueError("INVALID_GRID_CORNERS")
+        raise ValueError(code)
+    return points
+
+
+def points_to_seed(points) -> tuple[float, float, float, float]:
     top_left, top_right, bottom_right, bottom_left = points
     x0 = (top_left[0] + bottom_left[0]) / 2
     x1 = (top_right[0] + bottom_right[0]) / 2
@@ -74,6 +74,15 @@ def validated_seed(path: str) -> tuple[float, float, float, float] | None:
     return x0, y0, x1, y1
 
 
+def transform_point(coefficients, point):
+    a, b, c, d, e, f, g, h = coefficients
+    x, y = point
+    denominator = g*x + h*y + 1
+    if abs(denominator) < 1e-9:
+        raise ValueError("INVALID_GRID_CORNERS")
+    return ((a*x+b*y+c)/denominator, (d*x+e*y+f)/denominator)
+
+
 def main() -> None:
     algorithm, image_path, output_path = sys.argv[1:4]
     mode = sys.argv[4] if len(sys.argv) > 4 else "half-fast"
@@ -81,20 +90,21 @@ def main() -> None:
     cards_dir = out / "cards"
     cards_dir.mkdir(parents=True, exist_ok=True)
     ns = runpy.run_path(algorithm, run_name="paper_attendance_frozen")
-    seed_path = sys.argv[5] if len(sys.argv) > 5 else ""
-    manual_seed = validated_seed(seed_path)
-    if manual_seed is not None:
-        # detect_grid reads SEED from the runpy namespace.  Supplying a hint
-        # must never silently fall back to the frozen reference-image seed.
-        ns["detect_grid"].__globals__["SEED"] = manual_seed
+    rectifier_path = sys.argv[5] if len(sys.argv) > 5 else ""
+    hint_path = sys.argv[6] if len(sys.argv) > 6 else ""
+    hints = json.loads(Path(hint_path).read_text(encoding="utf-8")) if hint_path else {}
+    grid_points = validated_points(hints.get("grid_corners"), "INVALID_GRID_CORNERS") if hints.get("grid_corners") else None
+    paper_points = validated_points(hints.get("paper_corners"), "INVALID_PAPER_CORNERS") if hints.get("paper_corners") else None
     rows, cols, card_w, card_h, subdiv = (ns[x] for x in
         ("ROWS", "COLS", "CARD_W", "CARD_H", "MESH_SUBDIV"))
     timings: dict[str, int] = {}
 
     stage_progress = {
         "decode": (8, 11, "画像を読み込んでいます"),
-        "grayscale": (11, 13, "濃淡画像を準備しています"),
-        "grid_detection": (13, 17, "20×20格子を検出しています"),
+        "paper_rectification": (11, 13, "用紙全体を正面化しています"),
+        "auto_grid_detection": (13, 15, "正面化した用紙から20×20格子を探索しています"),
+        "grayscale": (15, 16, "濃淡画像を準備しています"),
+        "grid_detection": (16, 19, "20×20格子を検出しています"),
         "horizontal_tracking": (17, 42, "横罫線を追跡しています"),
         "vertical_intersections_half": (42, 74, "1/2画像で縦罫線を粗探索し、元画像で交点を確定しています"),
         "vertical_tracking": (74, 82, "元画像で縦罫線を精密追跡しています"),
@@ -114,6 +124,38 @@ def main() -> None:
         return value
 
     source = stage("decode", lambda: Image.open(image_path).convert("RGB"))
+    original_size = list(source.size)
+    paper_detection = None
+    if paper_points is not None:
+        if not rectifier_path:
+            raise PreprocessStageError("paper_rectification", RuntimeError("PAPER_RECTIFIER_UNAVAILABLE"))
+        adapter = runpy.run_path(rectifier_path, run_name="paper_attendance_rectifier")
+        source_paper = np.asarray(paper_points, dtype=np.float64) * np.asarray(source.size, dtype=np.float64)
+        scale_percent = max(50, min(100, int(hints.get("image_scale_percent", 100))))
+        output_size = tuple(max(1, round(value*scale_percent/100)) for value in adapter["OUTPUT_SIZE"])
+        destination = np.asarray([[0, 0], [output_size[0]-1, 0], [output_size[0]-1, output_size[1]-1], [0, output_size[1]-1]], dtype=np.float64)
+        source_before_rectification = source
+        source = stage("paper_rectification", lambda: source_before_rectification.transform(
+            output_size, Image.Transform.PERSPECTIVE,
+            adapter["projective_coefficients"](destination, source_paper), Image.Resampling.BICUBIC))
+        if grid_points is None:
+            paper_detection = stage("auto_grid_detection", lambda: adapter["auto_detect"](source))
+            manual_seed = (paper_detection["x_lines"][0]/source.width,
+                           paper_detection["y_lines"][0]/source.height,
+                           paper_detection["x_lines"][-1]/source.width,
+                           paper_detection["y_lines"][-1]/source.height)
+        else:
+            source_grid = np.asarray(grid_points, dtype=np.float64) * np.asarray(source_before_rectification.size, dtype=np.float64)
+            forward = adapter["projective_coefficients"](source_paper, destination)
+            rectified_grid = [transform_point(forward, point) for point in source_grid]
+            manual_seed = points_to_seed([(x/source.width, y/source.height) for x, y in rectified_grid])
+        del source_before_rectification, source_paper, destination
+    else:
+        manual_seed = points_to_seed(grid_points) if grid_points is not None else None
+    if manual_seed is not None:
+        # detect_grid reads SEED from the runpy namespace. A supplied or
+        # automatically detected hint must never fall back to the frozen seed.
+        ns["detect_grid"].__globals__["SEED"] = manual_seed
     gray = stage("grayscale", lambda: np.asarray(source.convert("L")))
     x_lines, y_lines, dark = stage("grid_detection", lambda: ns["detect_grid"](gray))
     horizontal = stage("horizontal_tracking", lambda: ns["trace_horizontal_rules"](
@@ -249,7 +291,11 @@ def main() -> None:
     manifest.sort(key=lambda x: x["number"])
     counts = {name: sum(1 for x in manifest if x["status"] == name)
               for name in ("candidate", "review", "blank")}
-    report = {"source_size": list(source.size), "grid": {"rows": rows, "columns": cols,
+    report = {"source_size": list(source.size), "original_source_size": original_size,
+              "paper_rectification": {"applied": paper_points is not None,
+                  "paper_corners": hints.get("paper_corners"),
+                  "auto_grid_detection": paper_detection},
+              "grid": {"rows": rows, "columns": cols,
                   "point_comparison": point_comparison},
               "screening": {"candidate_min": 900, "review_min": 180, "counts": counts},
               "timings_ms": timings, "quadrant_alignment": quadrant_alignment,

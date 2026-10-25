@@ -7,20 +7,22 @@ self.onmessage=async event=>{
     const pyodide=await loadPyodide({indexURL:PYODIDE_BASE});
     postMessage({type:'progress',stage:'packages',percent:3,message:'NumPyとPillowを読み込んでいます'});
     await pyodide.loadPackage(['numpy','pillow']);
-    const [algorithmResponse,runnerResponse]=await Promise.all([
+    const [algorithmResponse,runnerResponse,rectifierResponse]=await Promise.all([
       fetch('./paper_attendance_preprocess.py',{cache:'no-store'}),
-      fetch('./paper_attendance_preprocess_runner.py',{cache:'no-store'})
+      fetch('./paper_attendance_preprocess_runner.py',{cache:'no-store'}),
+      fetch('./paper_attendance_rectify.py',{cache:'no-store'})
     ]);
-    if(!algorithmResponse.ok||!runnerResponse.ok)throw Error('PAPER_PREPROCESS_ASSET_UNAVAILABLE');
-    const [algorithm,runner]=await Promise.all([algorithmResponse.text(),runnerResponse.text()]);
+    if(!algorithmResponse.ok||!runnerResponse.ok||!rectifierResponse.ok)throw Error('PAPER_PREPROCESS_ASSET_UNAVAILABLE');
+    const [algorithm,runner,rectifier]=await Promise.all([algorithmResponse.text(),runnerResponse.text(),rectifierResponse.text()]);
     pyodide.FS.mkdirTree('/work/output');
     pyodide.FS.writeFile('/work/input.jpg',new Uint8Array(event.data.bytes));
     pyodide.FS.writeFile('/work/algorithm.py',new TextEncoder().encode(algorithm));
     pyodide.FS.writeFile('/work/runner.py',new TextEncoder().encode(runner));
-    const corners=event.data.corners;
-    if(corners!==undefined)pyodide.FS.writeFile('/work/grid-hint.json',new TextEncoder().encode(JSON.stringify({corners})));
+    pyodide.FS.writeFile('/work/rectifier.py',new TextEncoder().encode(rectifier));
+    const hints={paper_corners:event.data.paperCorners,grid_corners:event.data.gridCorners,image_scale_percent:event.data.imageScale};
+    pyodide.FS.writeFile('/work/image-hints.json',new TextEncoder().encode(JSON.stringify(hints)));
     const started=performance.now();
-    await pyodide.runPythonAsync("import runpy,sys\nsys.argv=['/work/runner.py','/work/algorithm.py','/work/input.jpg','/work/output','half-fast','/work/grid-hint.json' if __import__('os').path.exists('/work/grid-hint.json') else '']\nrunpy.run_path('/work/runner.py',run_name='__main__')");
+    await pyodide.runPythonAsync("import runpy,sys\nsys.argv=['/work/runner.py','/work/algorithm.py','/work/input.jpg','/work/output','half-fast','/work/rectifier.py','/work/image-hints.json']\nrunpy.run_path('/work/runner.py',run_name='__main__')");
     if(pyodide.FS.analyzePath('/work/output/error.json').exists){
       const failure=JSON.parse(new TextDecoder().decode(pyodide.FS.readFile('/work/output/error.json')));
       postMessage({type:'error',...failure});return;
