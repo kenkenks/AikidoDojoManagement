@@ -13,7 +13,17 @@ async function allRows(core, collection, {restoreType='', maxPages=100}={}) {
       throw new Error('INVALID_PROGRESS_PAGE');
     for (const doc of result.documents) {
       if (!doc || !doc.fields || typeof doc.fields !== 'object') throw new Error('INVALID_PROGRESS_ROW');
-      rows.push(restoreType ? restoreMasterFields(restoreType,doc.fields,doc.id) : {...doc.fields,__document_id:doc.id});
+        rows.push(
+          restoreType
+            ? restoreMasterFields(restoreType, doc.fields, doc.id)
+            : collection === 'members'
+              ? {
+                  ...doc.fields,
+                  member_id: clean(doc.fields.member_id) || doc.id,
+                  __document_id: doc.id
+                }
+              : { ...doc.fields, __document_id: doc.id }
+        );
     }
     if (!result.nextPageToken) return rows;
     if (seen.has(result.nextPageToken)) throw new Error('PROGRESS_PAGINATION_LOOP');
