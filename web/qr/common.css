@@ -27,3 +27,7 @@ button.primary.member { color:#fff; background:var(--member); border-color:var(-
 .login-message { padding:10px; border-radius:8px; background:#f4f5f2; }
 .login-message.ok { color:#176b45; background:#e5f4ea; font-weight:bold; }
 .login-message.error { color:#b3261e; background:#fde7e5; font-weight:bold; }
+.portal .entry-actions { margin-top:10px; }
+.portal .entry-actions button { width:100%; margin:0; padding:14px; border-radius:10px; font-weight:bold; }
+.portal .entry-actions .entry-primary { color:#fff; background:var(--teacher); border-color:var(--teacher); }
+.portal .entry-actions .entry-secondary { color:#444; background:#fff; border-color:#bbb; }

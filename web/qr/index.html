@@ -7,12 +7,31 @@
     <h2>入口</h2>
     <div id="loginState" class="login-message">先生または会員のQRを読み取ってください。</div>
     <div id="normalEntryControls">
-      <button id="scanButton" onclick="startLoginScan()">QR読み取り開始</button>
-      <button id="stopButton" onclick="stopLoginScan()">停止</button>
+      <div class="grid entry-actions">
+        <button id="scanButton" class="entry-primary" onclick="startLoginScan()">QR読み取り開始</button>
+        <button id="stopButton" class="entry-secondary" onclick="stopLoginScan()">停止</button>
+      </div>
       <div id="loginReader"></div>
       <p class="note">このログインは同じタブのページ間で保持されます。タブを閉じるか、ログアウトすると解除されます。</p>
     </div>
     <button id="firebaseLoginButton" type="button" hidden>Googleでログイン</button>
+  </section>
+  <section class="card" id="entryHelpCard">
+    <h2>❓ 困ったとき</h2>
+    <ul class="note">
+      <li>ログインには先生または会員のQRコードが必要です。</li>
+      <li>カメラの使用を確認されたら、許可してください。</li>
+      <li>QRコードをカメラの中央に映してください。</li>
+      <li>読み取れない場合は、道場の先生に確認してください。</li>
+    </ul>
+  </section>
+  <section class="card" id="entryInformationCard">
+    <h2>📢 ご案内</h2>
+    <ul class="note">
+      <li>システムのお知らせ：現在は案内事項なし</li>
+      <li>道場公式WEBサイト：連携予定</li>
+      <li>見学・体験のご案内：連携予定</li>
+    </ul>
   </section>
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
