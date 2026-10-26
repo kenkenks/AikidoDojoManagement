@@ -2,6 +2,7 @@
 
 const { validateManifest } = require("./story902-manifest-loader.cjs");
 const { evaluateContinuationGates } = require("./story902-continuation-gate.cjs");
+const planJudge = require("./story902-attendance-plan-judge.cjs");
 
 const EVENT_TYPE = "ATTENDANCE_REGISTER";
 const ACTION = "attendance_batch";
@@ -15,13 +16,7 @@ function block(code, detail) { return result("BLOCKED", { reason: { code, detail
 function findEvent(manifest, eventId) {
   return Array.isArray(manifest?.events) ? manifest.events.find(event => event?.eventId === eventId) || null : null;
 }
-function readExpected(event) {
-  const value = event?.expected?.businessValues;
-  if (!value || value.specificationStatus !== "CONFIRMED") return null;
-  const expected = { registered_count: value.registered_count, cancelled_count: value.cancelled_count,
-    charge_count: value.usage_billing_charge_count, planned_amount: value.planned_amount };
-  return Object.values(expected).every(Number.isFinite) ? Object.freeze(expected) : null;
-}
+const { readExpected, normalizeResponse, compareExpected, validReadEvidence } = planJudge;
 function normalizeFixture(value) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const fixture = { source_member_id: value.source_member_id, member_id: value.member_id, teacher_id: value.teacher_id,
@@ -79,27 +74,6 @@ function createAttendanceCommand({ manifest, eventId, eventResults, runId, reque
   });
 }
 
-function normalizeResponse(body, memberId) {
-  if (!body || typeof body !== "object" || Array.isArray(body) || body.ok !== true) return null;
-  if (![body.registered_count, body.cancelled_count].every(Number.isFinite) || !Array.isArray(body.usage_billing)) return null;
-  const matching = body.usage_billing.filter(item => item && item.member_id === memberId);
-  if (matching.length !== 1 || !Number.isFinite(matching[0].charge_count) || !Number.isFinite(matching[0].planned_amount)) return null;
-  return Object.freeze({ registered_count: body.registered_count, cancelled_count: body.cancelled_count,
-    charge_count: matching[0].charge_count, planned_amount: matching[0].planned_amount });
-}
-function compareExpected(expected, actual) {
-  return Object.freeze(Object.keys(expected).map(name => Object.freeze({ name, expected: expected[name],
-    actual: actual ? actual[name] : null, status: actual && Object.is(expected[name], actual[name]) ? "PASS" : "FAIL" })));
-}
-function validReadEvidence(attendance, billing, ready) {
-  const input = ready.command.input, item = input.attendance_items[0];
-  return attendance?.ok === true && attendance.member_id === item.member_id
-    && Array.isArray(attendance.selected_slot_ids) && attendance.selected_slot_ids.includes(item.slot_ids[0])
-    && attendance.billing_plan_selected === true && attendance.billing_plan_id === item.plan_id
-    && billing?.ok === true && billing.memberId === item.member_id
-    && billing.targetMonth === input.attendance_date.slice(0, 7)
-    && Number(billing.billedTotal) === ready.expected.planned_amount;
-}
 function transportFailure(error) {
   const code = String(error && (error.code || error.name) || "TRANSPORT_FAILURE");
   return result("UNKNOWN", { reason: { code, detail: "write outcome cannot be established" } });
@@ -124,7 +98,7 @@ function createAttendanceBusinessAdapter({ manifest, transport } = {}) {
     if (response.body?.ok === false) return result("FAIL", { httpStatus: response.status, reason: { code: "BUSINESS_ERROR", detail: response.body || null } });
     if (response.status < 200 || response.status >= 300)
       return result("UNKNOWN", { httpStatus: response.status, reason: { code: "HTTP_OUTCOME_UNCERTAIN", detail: response.body || null } });
-    const actual = normalizeResponse(response.body, ready.fixture.member_id);
+    const actual = normalizeResponse(response.body, ready.fixture.member_id, ready.expected);
     if (!actual) return result("UNKNOWN", { httpStatus: response.status, reason: { code: "RESPONSE_FORMAT_INVALID" } });
     let attendance, billing;
     try {

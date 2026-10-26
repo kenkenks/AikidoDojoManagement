@@ -49,11 +49,14 @@ test("execution time remains a user-approved specification gap", () => {
   assert.equal(contract.userDecisionsRequired[0].code, "EXECUTION_TIME");
   assert.ok(contract.blockers.includes("EXECUTION_TIME_UNRESOLVED"));
 });
-test("monthly usage response is not misread as the E010 usage-charge shape", () => {
+test("monthly usage response is handled by the monthly Judge contract", () => {
   const monthly = { ok: true, registered_count: 1, cancelled_count: 0,
     usage_billing: [{ ok: true, skipped: true, plan_id: "P001", message: "回数料金ではないため同期対象外です。" }] };
-  assert.equal(normalizeResponse(monthly, "STORY902_M002"), null);
-  assert.ok(contract.blockers.includes("MONTHLY_RESPONSE_JUDGE_UNSUPPORTED"));
+  const expected = { billing_contract: "MONTHLY", plan_id: "P001" };
+  const actual = normalizeResponse(monthly, "STORY902_M002", expected);
+  assert.equal(actual.billing_contract, "MONTHLY");
+  assert.deepEqual(actual, { registered_count: 1, cancelled_count: 0, plan_id: "P001", usage_billing_skipped: true });
+  assert.equal(contract.expected.judgeSupport, "AVAILABLE_WHEN_EXPECTED_CONFIRMED");
 });
 test("common attendance adapter keeps E020 blocked and does not invent fixture data", () => {
   const result = inspectAttendanceEventContract({ manifest, eventId: "902-E020" });
@@ -66,7 +69,7 @@ test("common attendance adapter keeps E020 blocked and does not invent fixture d
 test("E020 manifest is not promoted while readiness blockers remain", () => {
   assert.equal(event.specificationStatus, "PROVISIONAL");
   assert.equal(contract.readiness, "BLOCKED");
-  assert.equal(contract.blockers.length, 5);
+  assert.equal(contract.blockers.length, 4);
 });
 test("readiness artifact defines only offline lookup metadata", () => {
   const source = fs.readFileSync(path.join(__dirname, "story902-e020-contract-readiness.json"), "utf8");

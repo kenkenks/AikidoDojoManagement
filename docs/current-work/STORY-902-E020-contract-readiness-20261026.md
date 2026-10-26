@@ -46,7 +46,7 @@ Excel「902イベント」3行目の記載は次のとおりである。
 | P001実値・適用条件 | 未確認 | DEV認証済み`qr_generator_options`のread-only GETで確認する。接続は本工程では未実施 |
 | Expected HTTP | 未確定 | 既存成功応答を基礎に、月額Expected確定後にManifestへ記録 |
 | 月額請求額 | 未確定 | P001マスタ実値と請求生成結果を使用。Adapterで料金計算しない |
-| read-after-write Judge | 未対応 | 月額は`usage_billing`数値ではなく、月次選択・invoice・`getMemberInfo`で照合する契約が必要 |
+| read-after-write Judge | 対応済み・Expected待ち | 月額は`skipped:true`だけでなく、月次選択、plan、invoice件数、`getMemberInfo.billedTotal`を照合する |
 
 ## fixture・Expected
 
@@ -67,4 +67,4 @@ Expectedとして、クリーンな専用fixtureと1枠が確定した場合の`
 
 ## 次の確認
 
-実環境へのread-only接続前に、(1) E020の稽古枠・実行時刻、(2) DEVで`qr_generator_options`を使うこと、を確認する。その後P001実値を取得し、M002 fixtureと月額Judgeを整備する。Firestore書込み、TimeTrip変更、実Event送信は本工程では行っていない。
+実環境へのread-only接続前に、(1) E020の稽古枠・実行時刻、(2) DEVで`qr_generator_options`を使うこと、を確認する。その後P001実値を取得し、M002 fixtureと月額Expectedを整備する。月額Judge自体は料金プラン別Judge工程で対応済みである。Firestore書込み、TimeTrip変更、実Event送信は本工程では行っていない。
