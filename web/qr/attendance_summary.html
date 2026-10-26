@@ -52,12 +52,29 @@
   <script src="auth_gate.js"></script>
   <script src="page_initialization_manager.js"></script>
   <script src="dojo_api_client.js"></script>
+  <script src="story902_e470_common.js"></script>
+  <script src="story902_e470_browser_transport.js"></script>
   <script>
     const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
     const isFirebase = window.DOJO_RUNTIME_CONFIG.runtime === 'firebase';
     const summaryAuth = isFirebase ? window.DOJO_FIREBASE_AUTH.create({runtimeConfig:window.DOJO_RUNTIME_CONFIG}) : null;
     const summaryApi = isFirebase ? window.DOJO_API_CLIENT.create({getCurrentUser:summaryAuth.getCurrentUser}) : null;
     const summaryAuthGate = isFirebase ? window.DOJO_AUTH_GATE.create({authClient:summaryAuth,runtimeConfig:window.DOJO_RUNTIME_CONFIG,loginPath:'index.html'}) : null;
+    const story902E470Transport = isFirebase && window.DOJO_RUNTIME_CONFIG.target === 'dev-firebase'
+      ? window.DOJO_STORY902_E470_BROWSER.create({
+          runtimeConfig:window.DOJO_RUNTIME_CONFIG,
+          authClient:summaryAuth,
+          apiClient:summaryApi,
+          common:window.DOJO_STORY902_E470_COMMON
+        }) : null;
+    if (story902E470Transport) {
+      Object.defineProperty(window, 'DOJO_STORY902_E470_SESSION', {
+        value:Object.freeze({runAttendanceProgress:story902E470Transport.runAttendanceProgress}),
+        configurable:false,
+        enumerable:false,
+        writable:false
+      });
+    }
     let summaryInitializationManager = null;
     let summaryAuthUid = '';
     let summaryRedirectStarted = false;
