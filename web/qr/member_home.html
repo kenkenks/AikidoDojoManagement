@@ -3,15 +3,26 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>会員ホーム</title><link rel="stylesheet" href="common.css"></head>
 <body class="member">
   <h1>🥋 会員ホーム</h1>
-  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><span id="gasResponseTime" class="note">GAS応答：計測中...</span><button onclick="logoutSession()">ログアウト</button></section>
+  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><span id="gasResponseTime" class="note">応答：計測中...</span><button onclick="logoutSession()">ログアウト</button></section>
+  <h2>会員メニュー</h2>
   <section class="card">
-    <h2>会員メニュー</h2>
+    <h2>🥋 稽古・審査</h2>
     <div class="grid">
       <a class="button member-link" href="attendance.html">🥋 出席登録</a>
-      <a class="button member-link" href="paypay_code.html">📲 PayPay決済コード登録</a>
-      <a class="button member-link" href="paper_attendance_member.html">📷 紙の出席記録読取</a>
-      <a class="button member-link" href="#">💰 会費状況（準備中）</a>
       <a class="button member-link" id="attendanceSummaryLink" href="attendance_summary.html">📅 出席・審査進捗</a>
+      <a class="button member-link" href="paper_attendance_member.html">📷 紙の出席記録読取</a>
+    </div>
+  </section>
+  <section class="card">
+    <h2>💴 会費・決済</h2>
+    <div class="grid">
+      <a class="button member-link" href="paypay_code.html">📲 PayPay決済コード登録</a>
+      <a class="button member-link" href="#">💰 会費状況（準備中）</a>
+    </div>
+  </section>
+  <section class="card">
+    <h2>📢 お知らせ</h2>
+    <div class="grid">
       <a class="button member-link" href="#">📢 お知らせ（準備中）</a>
     </div>
   </section>
@@ -42,7 +53,7 @@
     let systemContextStartedAt = null;
     function renderGasResponseTime(label) {
       const root = document.getElementById("gasResponseTime");
-      if (root) root.textContent = "GAS応答：" + label;
+      if (root) root.textContent = "応答：" + label;
     }
     window.addEventListener("dojo-system-context", function(event) {
       const data = event.detail || {};

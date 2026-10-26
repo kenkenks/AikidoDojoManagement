@@ -3,20 +3,36 @@
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>先生ホーム</title><link rel="stylesheet" href="common.css"></head>
 <body class="teacher">
   <h1>🥋 先生ホーム</h1>
-  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><span id="gasResponseTime" class="note">GAS応答：計測中...</span><button onclick="logoutSession()">ログアウト</button></section>
+  <section class="card login-state"><strong id="loginIdentity">未ログイン</strong><span id="gasResponseTime" class="note">応答：計測中...</span><button onclick="logoutSession()">ログアウト</button></section>
+  <h2>先生メニュー</h2>
   <section class="card">
-    <h2>先生メニュー</h2>
+    <h2>🥋 稽古・出席</h2>
     <div class="grid">
-      <a class="button teacher-link" href="payment_teacher.html">💴 会費受付</a>
+      <a class="button teacher-link" href="attendanceCheck.html">📅 出席確認</a>
+      <a class="button teacher-link" href="teacher_attendance.html">🥋 先生出席</a>
+      <a class="button teacher-link" href="../examination/member_progress.html">📈 稽古・審査進捗</a>
+      <a class="button teacher-link" href="paper_attendance_review.html">📷 紙の出席記録取込</a>
+    </div>
+  </section>
+  <section class="card">
+    <h2>👥 会員・審査</h2>
+    <div class="grid">
       <a class="button teacher-link" href="member_management.html">👥 会員管理</a>
       <a class="button teacher-link" href="examination/index.html">📋 審査管理（画面試作）</a>
-      <a class="button teacher-link" href="attendanceCheck.html">📅 出席確認</a>
-      <a class="button teacher-link" href="../examination/member_progress.html">📈 稽古・審査進捗</a>
-      <a class="button teacher-link" href="teacher_attendance.html">🥋 先生出席</a>
-      <a class="button teacher-link" href="paper_attendance_review.html">📷 紙の出席記録取込</a>
+      <a class="button teacher-link" href="qr_generator.html">🔳 QR生成</a>
+    </div>
+  </section>
+  <section class="card">
+    <h2>💴 会費・決済</h2>
+    <div class="grid">
+      <a class="button teacher-link" href="payment_teacher.html">💴 会費受付</a>
       <a class="button teacher-link" href="payment_status.html">💰 会費状況</a>
       <a class="button teacher-link" href="paymentEvidence.html">📲 決済コード確認（仮ページ）</a>
-      <a class="button teacher-link" href="qr_generator.html">🔳 QR生成</a>
+    </div>
+  </section>
+  <section class="card">
+    <h2>⚙️ その他</h2>
+    <div class="grid">
       <a class="button teacher-link" href="#">📊 月次処理（準備中）</a>
       <a class="button teacher-link" href="#">📢 お知らせ（準備中）</a>
     </div>
@@ -59,7 +75,7 @@
     let systemContextStartedAt = null;
     function renderGasResponseTime(label) {
       const root = document.getElementById("gasResponseTime");
-      if (root) root.textContent = "GAS応答：" + label;
+      if (root) root.textContent = "応答：" + label;
     }
     window.addEventListener("dojo-system-context", function(event) {
       const data = event.detail || {};
