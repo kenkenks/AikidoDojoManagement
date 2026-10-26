@@ -90,17 +90,17 @@ test('virtual teacher or extra parameters cannot grant rights; active teacher ma
   assert.equal((await d.call('Bearer user',{...params,member_id:'M2'},'member_attendance_state')).status,403);
   assert.equal((await dispatch({teacher:true,readError:true}).call('Bearer user')).status,503);
 });
-test('actual teacher page sends Firebase register/cancel/re-register then full GET readback and overview, never post_receipt',async()=>{
+test('actual teacher page sends Firebase register/cancel/re-register then full GET readback, never progress or post_receipt',async()=>{
   const html=fs.readFileSync('web/qr/attendanceCheck.html','utf8');
   const body=html.slice(html.indexOf('    function sendCandidatesToGas()'),html.indexOf('    function postJsonViaForm('));
-  const calls=[],ctx={IS_FIREBASE_ATTENDANCE:true,businessOperationsEnabled:true,submitting:false,currentTeacherId:'T1',currentLocationId:'L1',currentBillingBlockId:'B1',attendanceSessionId:'SESSION',overviewClockKey:'',
+  const calls=[],ctx={IS_FIREBASE_ATTENDANCE:true,businessOperationsEnabled:true,submitting:false,currentTeacherId:'T1',currentLocationId:'L1',currentBillingBlockId:'B1',attendanceSessionId:'SESSION',
     memberCandidates:[{member_id:'M1',loaded:true,current_rank:'初段',slot_ids:['S1'],billing_plan_id:'P1',billing_plan_selected:true}],
     currentAttendanceDate:()=>date,renderCandidates(){},updateSendButton(){},addLog(){},firebaseAttendanceAuth:{},firebaseAttendanceApi:{},
     postJsonViaForm(){throw Error('NO_GAS');},waitForPostReceipt(){throw Error('NO_RECEIPT');},
-    refreshAllMemberStates:async()=>{calls.push('GET state');return true;},loadTeacherAttendanceOverview:async()=>{calls.push('GET overview');return true;}};
+    refreshAllMemberStates:async()=>{calls.push('GET state');return true;}};
   ctx.window={DOJO_RUNTIME_CONFIG:{},DOJO_ATTENDANCE_FIREBASE_WRITE:{register:async({input})=>calls.push(input.attendance_items[0].slot_ids.slice())}};
   vm.createContext(ctx);vm.runInContext(body,ctx);
   for(const slots of [['S1'],[],['S1']]){ctx.memberCandidates[0].slot_ids=slots;vm.runInContext('sendCandidatesToGas()',ctx);await new Promise(r=>setImmediate(r));assert.equal(ctx.submitting,false);}
-  assert.deepEqual(JSON.parse(JSON.stringify(calls)),[['S1'],'GET state','GET overview',[],'GET state','GET overview',['S1'],'GET state','GET overview']);
+  assert.deepEqual(JSON.parse(JSON.stringify(calls)),[['S1'],'GET state',[],'GET state',['S1'],'GET state']);
   ctx.window.DOJO_ATTENDANCE_FIREBASE_WRITE.register=async()=>{throw Error('403');};calls.length=0;vm.runInContext('sendCandidatesToGas()',ctx);await new Promise(r=>setImmediate(r));assert.deepEqual(calls,[]);assert.equal(ctx.submitting,false);
 });

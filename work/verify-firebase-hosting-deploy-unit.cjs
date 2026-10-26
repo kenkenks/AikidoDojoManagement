@@ -21,6 +21,7 @@ test('dev-firebase target build creates self-contained Firebase Hosting deploy u
   assert.equal(fs.existsSync(firebaseJsonPath), true, 'Hosting deploy unit must include firebase.json');
   assert.equal(fs.existsSync(path.join(hostingRoot, 'qr', 'time_travel.html')), true, 'Hosting deploy unit must preserve /qr URL structure');
   assert.equal(fs.existsSync(path.join(hostingRoot, 'qr', 'runtime_config.js')), true, 'Hosting deploy unit must include generated runtime config');
+  assert.equal(fs.existsSync(path.join(hostingRoot, 'examination', 'member_progress.html')), true, 'Hosting deploy unit must include examination screens');
 
   const config = JSON.parse(fs.readFileSync(firebaseJsonPath, 'utf8'));
   assert.equal(config.hosting.site, 'dojo-management-dev');
