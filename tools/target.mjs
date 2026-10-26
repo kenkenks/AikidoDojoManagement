@@ -56,6 +56,14 @@ function buildFirebase() {
     const rel = normalize(relative(resolve(repoRoot, profile.webSourceDir || "web/qr"), file));
     copy(file, join(firebaseWebOutDir, rel));
   }
+  const examinationSourceDir = resolve(repoRoot, "web/examination");
+  const firebaseExaminationOutDir = join(firebaseOutRoot, "web", "examination");
+  if (existsSync(examinationSourceDir)) {
+    for (const file of walk(examinationSourceDir)) {
+      const rel = normalize(relative(examinationSourceDir, file));
+      copy(file, join(firebaseExaminationOutDir, rel));
+    }
+  }
   writeFileSync(join(firebaseWebOutDir, "runtime_config.js"), renderFirebaseRuntimeConfig(), "utf8");
   writeFileSync(join(firebaseWebOutDir, "base_check_manifest.json"), JSON.stringify(createBaseCheckManifest(firebaseWebOutDir), null, 2) + "\n", "utf8");
   writeFileSync(

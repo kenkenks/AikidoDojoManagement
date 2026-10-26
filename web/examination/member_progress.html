@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>会員 稽古・審査進捗</title>
+  <style>
+    :root { color-scheme:light; --green:#176b45; --amber:#9b6100; --red:#b3261e; }
+    * { box-sizing:border-box; }
+    body { max-width:920px; margin:auto; padding:12px; font-family:sans-serif; background:#e8f5e9; color:#222; }
+    h1 { margin:0 0 8px; font-size:21px; }
+    .role-badge { display:inline-block; margin-bottom:5px; padding:3px 8px; border-radius:999px; background:#d7efe0; color:var(--green); font-size:12px; font-weight:bold; }
+    .top-nav { margin-bottom:10px; }
+    .top-nav a { display:inline-block; padding:6px 9px; border:1px solid #b7d8c4; border-radius:8px; background:#fff; color:var(--green); text-decoration:none; }
+    .card { margin-bottom:10px; padding:12px; border:1px solid #ddd; border-radius:10px; background:#fff; }
+    .toolbar { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:end; }
+    label { font-size:13px; color:#555; }
+    select,button { padding:9px 11px; border:1px solid #aaa; border-radius:8px; background:#fff; font-size:15px; }
+    select { width:100%; }
+    button:disabled { opacity:.45; }
+    .note,.empty { color:#666; font-size:13px; }
+    .error { color:var(--red); font-weight:bold; }
+    .overview-list { margin-top:10px; }
+    .overview-row { display:grid; grid-template-columns:minmax(120px,1.2fr) minmax(100px,.8fr) minmax(180px,1.4fr); gap:8px; align-items:center; padding:10px 3px; border-top:1px solid #e5e5e5; font-size:13px; }
+    .overview-row:first-child { border-top:0; }
+    .overview-name { min-width:0; overflow-wrap:anywhere; font-weight:bold; }
+    .overview-rank { text-align:right; font-size:12px; font-weight:bold; white-space:nowrap; }
+    .overview-progress { min-width:0; padding:7px 8px; border-radius:6px; background:#f4f8fb; font-size:12px; }
+    .overview-progress strong { font-size:14px; }
+    .overview-detail { display:block; margin-top:2px; color:#555; }
+    .overview-row.near .overview-progress { background:#fff3cd; color:#6d4c00; font-weight:bold; }
+    .overview-row.ready .overview-progress { background:#dff3e6; color:var(--green); font-weight:bold; }
+    @media(max-width:520px) { .overview-row { grid-template-columns:minmax(0,1fr) auto; } .overview-progress { grid-column:1 / -1; } }
+  </style>
+</head>
+<body>
+  <div class="role-badge">先生画面</div>
+  <h1>会員 稽古・審査進捗</h1>
+  <nav class="top-nav"><a href="../qr/teacher_home.html">先生ホームへ戻る</a></nav>
+
+  <section id="authCard" class="card">
+    <strong>認証状態</strong><br>
+    <span id="authStatus">確認中です。</span>
+    <button id="loginButton" type="button" hidden>Googleログイン</button>
+  </section>
+
+  <section class="card">
+    <p class="note">到達時期は直近90日の承認済み稽古実績に基づく参考値です。審査資格の確定判定ではありません。</p>
+    <div class="toolbar">
+      <label>並び順
+        <select id="overviewSort" disabled>
+          <option value="exam">審査が近い順</option>
+          <option value="rank">級・段順</option>
+          <option value="name">氏名順</option>
+        </select>
+      </label>
+      <button id="reloadButton" type="button" disabled>更新</button>
+    </div>
+    <p><strong id="overviewCount">0名</strong></p>
+    <div id="overviewStatus" class="empty">進捗を読み込みます。</div>
+    <div id="teacherOverview" class="overview-list"></div>
+  </section>
+
+  <script src="../qr/virtual_session.js"></script>
+  <script src="../qr/runtime_config.js"></script>
+  <script src="../qr/firebase_auth.js"></script>
+  <script src="../qr/auth_gate.js"></script>
+  <script src="../qr/page_initialization_manager.js"></script>
+  <script src="../qr/system_context_adapter.js"></script>
+  <script src="../qr/dojo_api_client.js"></script>
+  <script src="../qr/attendance_firebase_read.js"></script>
+  <script>
+  (function(){
+    'use strict';
+    const runtimeConfig=window.DOJO_RUNTIME_CONFIG;
+    const isFirebase=runtimeConfig.runtime==='firebase';
+    const authStatus=document.getElementById('authStatus');
+    const loginButton=document.getElementById('loginButton');
+    const reloadButton=document.getElementById('reloadButton');
+    const sortSelect=document.getElementById('overviewSort');
+    const overviewStatus=document.getElementById('overviewStatus');
+    let progressItems=[];
+    let firebaseAuth=null;
+    let firebaseApi=null;
+    let authGate=null;
+    let initializationManager=null;
+
+    sortSelect.addEventListener('change',renderOverview);
+    reloadButton.addEventListener('click',function(){loadProgress();});
+
+    if(isFirebase) initializeFirebase();
+    else initializeGas();
+
+    function initializeFirebase(){
+      firebaseAuth=window.DOJO_FIREBASE_AUTH.create({runtimeConfig:runtimeConfig});
+      firebaseApi=window.DOJO_API_CLIENT.create({getCurrentUser:firebaseAuth.getCurrentUser});
+      authGate=window.DOJO_AUTH_GATE.create({authClient:firebaseAuth,runtimeConfig:runtimeConfig,loginPath:'../qr/index.html'});
+      loginButton.addEventListener('click',function(){authGate.redirectToLogin(window.location.href);});
+      initializationManager=window.DOJO_PAGE_INITIALIZATION_MANAGER.create({
+        dependencies:[{name:'auth',run:function(){return authGate.requireAuthenticated();}}],
+        requiredTasks:[{name:'memberProgress',capability:'memberProgress',run:function(context){return loadProgress(context);}}],
+        stopOperations:disableOperations
+      });
+      initializationManager.subscribe(function(state){
+        if(state.status==='WAITING_DEPENDENCIES')authStatus.textContent='Firebase認証を確認しています。';
+        else if(state.status==='INITIALIZING')authStatus.textContent='稽古・審査進捗を読み込んでいます。';
+        else if(state.status==='READY'){authStatus.textContent='Firebase認証済み';enableOperations();}
+        else if(state.status==='ERROR'&&state.error&&state.error.code!=='UNAUTHENTICATED')authStatus.textContent='初期化できませんでした: '+(state.error.message||String(state.error));
+      });
+      authGate.subscribe(function(state){
+        if(state.status==='UNAUTHENTICATED'){
+          initializationManager.accessLost('authentication_lost');
+          authStatus.textContent='Firebase認証が必要です。';loginButton.hidden=false;disableOperations();
+        }else if(state.status==='AUTHENTICATED')loginButton.hidden=true;
+        else if(state.status==='ERROR'){authStatus.textContent='Firebase認証を初期化できませんでした。';disableOperations();}
+      });
+      initializationManager.start().catch(function(error){
+        if(error&&error.code==='UNAUTHENTICATED')return;
+        overviewStatus.textContent=error&&error.message||String(error);overviewStatus.className='error';
+      });
+    }
+
+    function initializeGas(){
+      const queryTeacherId=new URLSearchParams(location.search).get('teacher_id')||'';
+      if(queryTeacherId)window.DojoVirtualSession.loginTeacher(queryTeacherId,'PAGE_URL');
+      const session=window.DojoVirtualSession.get();
+      if(!session||session.role!=='TEACHER'){location.replace('../qr/index.html');return;}
+      authStatus.textContent='先生 '+session.teacher_id+' でログイン中';
+      enableOperations();loadProgress();
+    }
+
+    function enableOperations(){reloadButton.disabled=false;sortSelect.disabled=false;}
+    function disableOperations(){reloadButton.disabled=true;sortSelect.disabled=true;}
+
+    function loadProgress(context){
+      overviewStatus.className='empty';overviewStatus.textContent='全会員の進捗を読み込み中…';disableOperations();
+      return requestProgress().then(function(data){
+        if(context&&!context.isCurrent())return false;
+        if(!data||data.ok!==true)throw new Error(data&&data.message||'稽古・審査進捗を取得できませんでした。');
+        progressItems=Array.isArray(data.progress_items)?data.progress_items:[];
+        document.getElementById('overviewCount').textContent=Number(data.member_count||progressItems.length)+'名';
+        overviewStatus.textContent=progressItems.length?'':'表示対象の在籍会員はいません。';
+        overviewStatus.className=progressItems.length?'':'empty';renderOverview();enableOperations();return true;
+      }).catch(function(error){
+        if(context&&!context.isCurrent())return false;
+        progressItems=[];renderOverview();overviewStatus.textContent=error.message||String(error);overviewStatus.className='error';
+        if(isFirebase&&/HTTP (401|403)\b/.test(String(error&&error.message||error))&&initializationManager)initializationManager.accessLost('authorization_lost');
+        else enableOperations();
+        return false;
+      });
+    }
+
+    function requestProgress(){
+      if(isFirebase)return window.DOJO_ATTENDANCE_FIREBASE_READ.request({
+        action:'teacher_attendance_progress',params:{action:'teacher_attendance_progress'},runtimeConfig:runtimeConfig,
+        authClient:firebaseAuth,apiClient:firebaseApi
+      });
+      return jsonp(runtimeConfig.apiBaseUrl,{action:'teacher_attendance_progress'});
+    }
+
+    function renderOverview(){
+      const mode=sortSelect.value;
+      const items=progressItems.slice().sort(function(left,right){
+        if(mode==='rank')return Number(left.rank_sort_order||999999)-Number(right.rank_sort_order||999999)||(left.member_name||'').localeCompare(right.member_name||'','ja');
+        if(mode==='name')return (left.member_name||'').localeCompare(right.member_name||'','ja');
+        const l=left.remaining_training_count===null?999999:Number(left.remaining_training_count);
+        const r=right.remaining_training_count===null?999999:Number(right.remaining_training_count);
+        return l-r||(left.member_name||'').localeCompare(right.member_name||'','ja');
+      });
+      const container=document.getElementById('teacherOverview');container.replaceChildren();
+      items.forEach(function(item){
+        const row=document.createElement('div');row.className='overview-row'+(item.examination_ready?' ready':(item.remaining_training_count!==null&&Number(item.remaining_training_count)<=5?' near':''));
+        const name=document.createElement('div');name.className='overview-name';name.textContent=item.member_name||item.member_id;
+        const rank=document.createElement('div');rank.className='overview-rank';rank.textContent=(item.current_rank||'未登録')+' → '+(item.next_rank||'次回未設定');
+        const progress=document.createElement('div');progress.className='overview-progress';
+        if(Number(item.required_training_count)>0){
+          const headline=document.createElement('strong');headline.textContent=Number(item.progress_percent)+'%・残り'+item.remaining_training_count+'枠';
+          const detail=document.createElement('span');detail.className='overview-detail';detail.textContent='承認済み '+Number(item.recorded_training_count||0)+'枠／必要 '+item.required_training_count+'枠'+(Number(item.carried_training_count||0)>0?'（繰越'+item.carried_training_count+'枠）':'');
+          const forecast=document.createElement('span');forecast.className='overview-detail';forecast.textContent='到達目安: '+(item.forecast_label||'算出不可');
+          progress.append(headline,detail,forecast);
+        }else progress.textContent='承認済み '+Number(item.recorded_training_count||0)+'枠（審査基準未設定）';
+        row.append(name,rank,progress);container.append(row);
+      });
+    }
+
+    function jsonp(url,params){
+      return new Promise(function(resolve,reject){
+        const callback='memberProgressCallback_'+Date.now()+'_'+Math.floor(Math.random()*10000);
+        const script=document.createElement('script');const timer=setTimeout(function(){cleanup();reject(new Error('進捗取得がタイムアウトしました。'));},30000);
+        function cleanup(){clearTimeout(timer);delete window[callback];script.remove();}
+        window[callback]=function(data){cleanup();resolve(data);};script.onerror=function(){cleanup();reject(new Error('GASへ接続できませんでした。'));};
+        script.src=url+'?'+new URLSearchParams(Object.assign({},params,{callback:callback,_ts:Date.now()})).toString();document.head.append(script);
+      });
+    }
+  })();
+  </script>
+</body>
+</html>
