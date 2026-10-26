@@ -21,11 +21,17 @@ git log --oneline -10
 git push
 ```
 
-## 3. Target Build
+## 3. Schema / Target Build
 
 ``` powershell
+# スキーマ定義を整備
+npm run schema:build
+
+# DEV向けのWeb/API配信成果物を生成
 npm run target:build -- dev-firebase
 ```
+
+既存の配信用worktreeで実行する場合は、対象コミットと `git status --short` を先に確認する。既存 `.build` は別コミット由来の可能性があるため、配信前に再生成する。
 
 成果物:
 
@@ -53,21 +59,82 @@ node --test work/verify-firebase-target-deploy-unit.cjs
 node --test work/verify-time-travel-firestore-composition.cjs
 ```
 
-## 6. Firebase Hosting deploy
+## 6. Firebase Hosting deploy（DEV）
+
+実運用で使用している入口:
 
 ``` powershell
-npm run target:build -- dev-firebase
-
-Push-Location .build/dev-firebase/web
-firebase deploy --only hosting --project dojo-management-dev
-Pop-Location
+# 先に第3章のschema/buildと第4章のWeb verifierを実行する
+npm run target:push -- dev-firebase
 ```
 
-## 7. Cloud Run deploy
+`target:push` が配信する対象・プロジェクト・ファイル範囲は、実行前に `tools/target.mjs` と `targets/dev-firebase.json` で確認する。コマンド集の記載だけでCLI内部処理の同一性は保証しない。
+
+Firebase CLIによる既存の直接配信手順（代替。どちらか一方を使用）:
 
 ``` powershell
-npm run target:build -- dev-firebase
+Push-Location .build/dev-firebase/web
+try {
+  firebase deploy --only hosting --project dojo-management-dev
+} finally {
+  Pop-Location
+}
+```
 
+Webの更新はCloud Runの必要なAPIが配信・検証された後に行う。`target:push` と直接配信を連続実行しない。
+
+## 7. Cloud Run deploy（DEV・段階的切替）
+
+**標準運用:** `--no-traffic` で候補リビジョンを作成 → 候補検証 → 明示的に100%切替。以下は `dojo-management-dev` のDEV専用手順。
+
+### 7.1 候補リビジョンをデプロイ（トラフィック0%）
+
+``` powershell
+# 先に第3章のschema/buildと第5章のAPI verifierを実行する
+gcloud run deploy dojo-time-travel-admin `
+  --source .build/dev-firebase/cloud-run/dojo-time-travel-admin `
+  --project dojo-management-dev `
+  --region asia-northeast1 `
+  --no-traffic
+```
+
+デプロイ結果の**実際のリビジョン名**（例: `dojo-time-travel-admin-00024-728`）を控える。番号・末尾は毎回変わる。`--no-traffic` は新リビジョンへの通常トラフィックを0%にする指定であり、候補URLのアクセス制御そのものではない。既存サービス設定（認証・リソース等）を勝手に変更しない。
+
+### 7.2 候補を確認
+
+``` powershell
+# リビジョン名・トラフィック状態・候補URLを確認
+gcloud run services describe dojo-time-travel-admin `
+  --project dojo-management-dev `
+  --region asia-northeast1 `
+  --format="yaml(status.latestCreatedRevisionName,status.latestReadyRevisionName,status.traffic)"
+```
+
+候補URLの診断エンドポイント、認証必須APIの401/403、権限を持つ利用者による正常系、Cloud Runログを確認する。診断用の `/hello` が成功しても業務APIの正常動作を証明したことにはならない。候補リビジョンがReadyであること、旧リビジョンに通常トラフィックが流れていることも確認する。
+
+### 7.3 検証後にトラフィック切替
+
+``` powershell
+# 例の値をコピーせず、7.1の出力にある実際のリビジョン名を入力
+$revision = "dojo-time-travel-admin-00024-728"
+
+gcloud run services update-traffic dojo-time-travel-admin `
+  --to-revisions "${revision}=100" `
+  --project dojo-management-dev `
+  --region asia-northeast1
+
+# 切替結果を確認
+gcloud run services describe dojo-time-travel-admin `
+  --project dojo-management-dev `
+  --region asia-northeast1 `
+  --format="yaml(status.traffic)"
+```
+
+**注意:** リビジョン名に `-admin` を余分に挿入しない。必ず実際のデプロイ出力に合わせる。切替前のリビジョン名も控え、問題発生時は同じ `update-traffic` コマンドで旧リビジョンに戻す。
+
+### 7.4 旧手順（即時トラフィック切替・通常は使わない）
+
+``` powershell
 gcloud run deploy dojo-time-travel-admin `
   --source .build/dev-firebase/cloud-run/dojo-time-travel-admin `
   --project dojo-management-dev `
@@ -80,9 +147,31 @@ gcloud run deploy dojo-time-travel-admin `
   --concurrency 8
 ```
 
-Cloud Runをinfra上 `--allow-unauthenticated`
-にしているのはBrowserから到達可能にするため。保護APIはApplication側でFirebase
-ID Token / roleを検証する。`/hello` は診断用public endpoint。
+この方式は候補検証前に通常トラフィックが切り替わるため、標準手順にはしない。`--allow-unauthenticated` はBrowserからの到達性のためのインフラ設定であり、保護APIではFirebase ID Token / roleをアプリ側で検証する。`/hello` は診断用public endpoint。
+
+### 7.5 Cloud Runログ調査
+
+``` powershell
+# 実際の対象リビジョン名に変更する
+$revision = "dojo-time-travel-admin-00021-5lv"
+
+# 特定エラーを検索
+gcloud logging read `
+  "resource.type="cloud_run_revision" AND resource.labels.revision_name="$revision" AND textPayload:"MEMBER_STATE_ERROR"" `
+  --project dojo-management-dev `
+  --limit 10 `
+  --format="table(timestamp,textPayload)"
+
+# stderrの内容を確認
+gcloud logging read `
+  "resource.type="cloud_run_revision" AND resource.labels.revision_name="$revision" AND logName="projects/dojo-management-dev/logs/run.googleapis.com%2Fstderr"" `
+  --project dojo-management-dev `
+  --limit 30 `
+  --order asc `
+  --format="value(textPayload)"
+```
+
+PowerShellの引用符が問題になる場合は、元の運用コマンドのようにフィルタ全体をシングルクォートで囲み、リビジョン名を直接記入する。
 
 ## 8. Google Cloud / Firebase login
 
