@@ -14,3 +14,15 @@ __pycache__/
 
 /work/fw001-firestore-runs/
 /work/paper-attendance-dev-snapshots/
+
+# Local Firestore diagnostics and recovery backups
+/firestore-debug.log
+/work/attendance-duplicate-backup-20261021/
+
+# Paper attendance PoC generated images and measurement results
+/work/paper-attendance-grid-auto-detect-poc-output/
+/work/paper-attendance-paper-auto-detect-poc-output/
+/work/paper-attendance-paper-perspective-poc-output/
+/work/paper-attendance-grid-auto-detect-pyodide-poc/baseline-memory-profile-result.json
+/work/paper-attendance-grid-auto-detect-pyodide-poc/memory-profile-result.json
+/work/paper-attendance-grid-auto-detect-pyodide-poc/pyodide-result.json
