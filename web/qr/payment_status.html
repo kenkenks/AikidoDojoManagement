@@ -9,7 +9,7 @@
     .filters { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
     .filters .wide { grid-column:1 / -1; }
     label { display:block; color:#555; font-size:13px; margin-bottom:4px; }
-    input { font-size:16px; padding:9px; }
+    input { box-sizing:border-box; width:100%; max-width:100%; font-size:16px; padding:9px; }
     .summary-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
     .summary-item { padding:10px; border-radius:9px; background:#f4f8fc; }
     .summary-label { color:#555; font-size:13px; }
@@ -36,6 +36,11 @@
     .error { color:#b3261e; font-weight:bold; }
     .loading { color:#0b5cad; }
     @media (min-width:700px) { body { max-width:820px; margin:0 auto; } }
+    @media (max-width:520px) {
+      .filters, .summary-grid, .amounts { grid-template-columns:1fr; }
+      .filters .wide, .summary-item.total { grid-column:auto; }
+      .status-head { flex-wrap:wrap; }
+    }
   </style>
 </head>
 <body class="teacher">
