@@ -20,6 +20,7 @@
 </style></head>
 <body class="teacher">
   <h1>👥 会員管理</h1>
+  <p class="note"><a id="teacherHomeTopLink" href="teacher_home.html">← 先生ホームへ戻る</a></p>
   <section class="card login-state"><strong id="loginIdentity">先生セッションを確認中</strong><button id="authButton">管理者ログイン</button></section>
   <section class="card"><div id="message" class="note">初期化しています。</div></section>
   <section id="listView" class="card">
@@ -75,7 +76,9 @@
     const homeParams=new URLSearchParams();
     if(session&&session.teacher_id)homeParams.set("teacher_id",session.teacher_id);
     if(context.location_id)homeParams.set("location_id",context.location_id);
-    document.getElementById("teacherHomeLink").href="teacher_home.html"+(homeParams.toString()?"?"+homeParams:"");
+    const teacherHomeHref="teacher_home.html"+(homeParams.toString()?"?"+homeParams:"");
+    document.getElementById("teacherHomeLink").href=teacherHomeHref;
+    document.getElementById("teacherHomeTopLink").href=teacherHomeHref;
     document.getElementById("loginIdentity").textContent=session&&session.role==="TEACHER"?"先生 "+session.teacher_id+" の会員管理":"先生セッションがありません";
     const auth=isFirebase?window.DOJO_FIREBASE_AUTH.create({runtimeConfig:cfg}):null;
     const api=auth?window.DOJO_API_CLIENT.create({getCurrentUser:auth.getCurrentUser}):null;
