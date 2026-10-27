@@ -31,7 +31,11 @@ test("member menu and parameter-aware progress link remain intact", () => {
 
 test("page width classes are limited to approved responsive pages", () => {
   const qrDir = path.join(root, "web", "qr");
-  const approvedPages = ["member_home.html", "teacher_home.html", "attendance_summary.html", "attendance.html", "paper_attendance_member.html"];
+  const approvedPages = [
+    "member_home.html", "teacher_home.html", "attendance_summary.html", "attendance.html",
+    "paper_attendance_member.html", "paymentEvidence.html", "teacher_attendance.html",
+    "member_management.html", "attendanceCheck.html", "payment_teacher.html"
+  ];
   const unexpected = fs.readdirSync(qrDir)
     .filter((name) => name.endsWith(".html") && !approvedPages.includes(name))
     .filter((name) => /\bpage-(?:standard|workflow|wide)\b/.test(
@@ -55,4 +59,19 @@ test("page width classes are limited to approved responsive pages", () => {
   assert.match(paperAttendance, /\.cell-grid-wrap\{overflow:auto;max-width:100%/);
   assert.match(paperAttendance, /\.sheet-image\{[^}]*width:auto;height:auto;max-width:100%;max-height:70vh/);
   assert.match(paperAttendance, /id="homeTopLink" href="member_home\.html">← 会員ホームへ戻る<\/a>/);
+  const memberManagement = fs.readFileSync(path.join(qrDir, "member_management.html"), "utf8");
+  assert.match(memberManagement, /<body class="teacher page-workflow">/);
+  assert.match(memberManagement, /\.form-grid\{display:grid;grid-template-columns:repeat\(auto-fit,minmax\(220px,1fr\)\)/);
+  assert.match(memberManagement, /\.choice-list\{[^}]*max-height:320px;overflow:auto/);
+  assert.match(memberManagement, /id="teacherHomeTopLink" href="teacher_home\.html">← 先生ホームへ戻る<\/a>/);
+  const attendanceCheck = fs.readFileSync(path.join(qrDir, "attendanceCheck.html"), "utf8");
+  assert.match(attendanceCheck, /<body class="page-workflow">/);
+  assert.match(attendanceCheck, /body \{ padding:10px; max-width:920px; margin:auto; \}/);
+  assert.match(attendanceCheck, /<a href="teacher_home\.html">先生ホーム<\/a>/);
+  assert.match(attendanceCheck, /id="memberCandidates"/);
+  const paymentTeacher = fs.readFileSync(path.join(qrDir, "payment_teacher.html"), "utf8");
+  assert.match(paymentTeacher, /<body class="page-workflow">/);
+  assert.match(paymentTeacher, /body \{ padding: 10px; max-width: 920px; margin: auto; \}/);
+  assert.match(paymentTeacher, /class="scope-strip card"/);
+  assert.match(paymentTeacher, /<a href="teacher_home\.html">先生ホーム<\/a>/);
 });
