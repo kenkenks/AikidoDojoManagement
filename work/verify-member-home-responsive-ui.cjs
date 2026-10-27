@@ -29,9 +29,9 @@ test("member menu and parameter-aware progress link remain intact", () => {
   assert.match(memberHome, /attendance_summary\.html\?member_id=" \+ encodeURIComponent\(memberId\)/);
 });
 
-test("standard width is limited to the approved member and teacher pages", () => {
+test("page width classes are limited to approved responsive pages", () => {
   const qrDir = path.join(root, "web", "qr");
-  const approvedPages = ["member_home.html", "teacher_home.html", "attendance_summary.html"];
+  const approvedPages = ["member_home.html", "teacher_home.html", "attendance_summary.html", "attendance.html"];
   const unexpected = fs.readdirSync(qrDir)
     .filter((name) => name.endsWith(".html") && !approvedPages.includes(name))
     .filter((name) => /\bpage-(?:standard|workflow|wide)\b/.test(
@@ -43,4 +43,10 @@ test("standard width is limited to the approved member and teacher pages", () =>
   const attendanceSummary = fs.readFileSync(path.join(qrDir, "attendance_summary.html"), "utf8");
   assert.match(attendanceSummary, /<body class="member page-standard">/);
   assert.match(attendanceSummary, /id="backLink">会員ホームへ戻る<\/a>/);
+  const attendance = fs.readFileSync(path.join(qrDir, "attendance.html"), "utf8");
+  assert.match(attendance, /<link rel="stylesheet" href="common\.css">/);
+  assert.match(attendance, /<body class="page-workflow">/);
+  assert.match(attendance, /id="memberCandidates"/);
+  assert.match(attendance, /id="sendButton"[^>]+onclick="sendCandidatesToGas\(\)"/);
+  assert.match(attendance, /<a href="member_home\.html">会員ホーム<\/a>/);
 });
