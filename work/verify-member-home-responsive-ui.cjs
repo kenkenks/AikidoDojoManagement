@@ -35,7 +35,7 @@ test("page width classes are limited to approved responsive pages", () => {
     "member_home.html", "teacher_home.html", "attendance_summary.html", "attendance.html",
     "paper_attendance_member.html", "paymentEvidence.html", "teacher_attendance.html",
     "member_management.html", "attendanceCheck.html", "payment_teacher.html",
-    "paper_attendance_review.html"
+    "paper_attendance_review.html", "index.html"
   ];
   const unexpected = fs.readdirSync(qrDir)
     .filter((name) => name.endsWith(".html") && !approvedPages.includes(name))
@@ -47,13 +47,13 @@ test("page width classes are limited to approved responsive pages", () => {
   assert.match(teacherHome, /<body class="teacher page-standard">/);
   const attendanceSummary = fs.readFileSync(path.join(qrDir, "attendance_summary.html"), "utf8");
   assert.match(attendanceSummary, /<body class="member page-standard">/);
-  assert.match(attendanceSummary, /id="backLink">会員ホームへ戻る<\/a>/);
+  assert.match(attendanceSummary, /id="backLink">← 会員ホームへ戻る<\/a>/);
   const attendance = fs.readFileSync(path.join(qrDir, "attendance.html"), "utf8");
   assert.match(attendance, /<link rel="stylesheet" href="common\.css">/);
-  assert.match(attendance, /<body class="page-workflow">/);
+  assert.match(attendance, /<body class="member page-workflow">/);
   assert.match(attendance, /id="memberCandidates"/);
   assert.match(attendance, /id="sendButton"[^>]+onclick="sendCandidatesToGas\(\)"/);
-  assert.match(attendance, /<a href="member_home\.html">会員ホーム<\/a>/);
+  assert.match(attendance, /<a href="member_home\.html">← 会員ホームへ戻る<\/a>/);
   const paperAttendance = fs.readFileSync(path.join(qrDir, "paper_attendance_member.html"), "utf8");
   assert.match(paperAttendance, /<body class="member page-wide">/);
   assert.match(paperAttendance, /class="cell-grid-wrap"><div id="cellGrid" class="cell-grid">/);
@@ -66,15 +66,15 @@ test("page width classes are limited to approved responsive pages", () => {
   assert.match(memberManagement, /\.choice-list\{[^}]*max-height:320px;overflow:auto/);
   assert.match(memberManagement, /id="teacherHomeTopLink" href="teacher_home\.html">← 先生ホームへ戻る<\/a>/);
   const attendanceCheck = fs.readFileSync(path.join(qrDir, "attendanceCheck.html"), "utf8");
-  assert.match(attendanceCheck, /<body class="page-workflow">/);
+  assert.match(attendanceCheck, /<body class="teacher page-workflow">/);
   assert.match(attendanceCheck, /body \{ padding:10px; max-width:920px; margin:auto; \}/);
-  assert.match(attendanceCheck, /<a href="teacher_home\.html">先生ホーム<\/a>/);
+  assert.match(attendanceCheck, /<a href="teacher_home\.html">← 先生ホームへ戻る<\/a>/);
   assert.match(attendanceCheck, /id="memberCandidates"/);
   const paymentTeacher = fs.readFileSync(path.join(qrDir, "payment_teacher.html"), "utf8");
-  assert.match(paymentTeacher, /<body class="page-workflow">/);
+  assert.match(paymentTeacher, /<body class="teacher page-workflow">/);
   assert.match(paymentTeacher, /body \{ padding: 10px; max-width: 920px; margin: auto; \}/);
   assert.match(paymentTeacher, /class="scope-strip card"/);
-  assert.match(paymentTeacher, /<a href="teacher_home\.html">先生ホーム<\/a>/);
+  assert.match(paymentTeacher, /<a href="teacher_home\.html">← 先生ホームへ戻る<\/a>/);
   const paperAttendanceReview = fs.readFileSync(path.join(qrDir, "paper_attendance_review.html"), "utf8");
   assert.match(paperAttendanceReview, /<body class="teacher page-wide">/);
   assert.match(paperAttendanceReview, /\.source-layout\{display:grid;grid-template-columns:minmax\(0,1\.2fr\) minmax\(260px,\.8fr\)/);

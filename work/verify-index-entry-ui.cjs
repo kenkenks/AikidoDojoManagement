@@ -6,7 +6,7 @@ const fs = require('node:fs');
 const html = fs.readFileSync('web/qr/index.html', 'utf8');
 const css = fs.readFileSync('web/qr/common.css', 'utf8');
 
-assert.match(html, /<body class="portal">/, '入口画面の既存背景クラスを維持する');
+assert.match(html, /<body class="portal page-standard">/, '入口画面の既存背景と共通標準幅を適用する');
 assert.match(html, /<section class="card">\s*<h2>入口<\/h2>/, '既存の入口カードと見出しを維持する');
 assert.match(
   html,

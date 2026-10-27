@@ -20,7 +20,7 @@
 </head>
 <body class="member page-standard">
   <h1>🥋 出席・審査進捗</h1>
-  <p><a href="member_home.html" id="backLink">会員ホームへ戻る</a></p>
+  <p><a href="member_home.html" id="backLink">← 会員ホームへ戻る</a></p>
 
   <section class="card" id="memberInputCard">
     <label for="memberId">会員ID</label>
@@ -45,6 +45,7 @@
   </section>
 
   <section class="card error" id="errorCard" hidden></section>
+  <p><a href="member_home.html" id="backLinkBottom">← 会員ホームへ戻る</a></p>
 
   <script src="virtual_session.js"></script>
   <script src="runtime_config.js"></script>
@@ -211,7 +212,9 @@
       });
       if (!list.children.length) list.innerHTML = "<li>出席記録はまだありません。</li>";
       history.replaceState(null, "", "?member_id=" + encodeURIComponent(data.member_id));
-      document.getElementById("backLink").href = "member_home.html?member_id=" + encodeURIComponent(data.member_id);
+      const homeHref = "member_home.html?member_id=" + encodeURIComponent(data.member_id);
+      document.getElementById("backLink").href = homeHref;
+      document.getElementById("backLinkBottom").href = homeHref;
     }
 
     function showError(message) {
