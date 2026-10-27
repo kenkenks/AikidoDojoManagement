@@ -488,7 +488,7 @@
     function buildFirebaseWebConnectUrl(params) {
       const query = new URLSearchParams(params || {});
       const action = query.get("action");
-      if (action !== "payment_screen_read" && action !== "getMemberInfo") query.set("_ts", Date.now());
+      if (!["payment_screen_read", "getMemberInfo", "attendance_member_options"].includes(action)) query.set("_ts", Date.now());
       return String(RUNTIME_CONFIG.apiBaseUrl || "").replace(/\/+$/, "") +
         "/api/webconnect?" + query.toString();
     }

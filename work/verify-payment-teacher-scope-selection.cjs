@@ -42,6 +42,22 @@ test('initialization reuses member options and preserves URL or session scope pr
   assert.match(initialize, /params\.get\("billing_block_id"\) \|\| sessionContext\.billing_block_id/);
 });
 
+test('member options request matches its action-only Firebase API contract', () => {
+  const buildUrl = new Function(
+    'RUNTIME_CONFIG',
+    'URLSearchParams',
+    'Date',
+    `"use strict"; return function(params) {${functionBody('buildFirebaseWebConnectUrl')}};`
+  )(
+    { apiBaseUrl:'https://dojo-time-travel-admin.example.test/' },
+    URLSearchParams,
+    { now:() => 1720000000000 }
+  );
+  const url = new URL(buildUrl({ action:'attendance_member_options' }));
+  assert.equal(url.pathname, '/api/webconnect');
+  assert.deepEqual(Object.fromEntries(url.searchParams), { action:'attendance_member_options' });
+});
+
 test('manual dojo selection clears the old billing scope and persists the new context', () => {
   const select = functionBody('selectReceptionLocation');
   assert.match(select, /currentLocationId = locationId/);
