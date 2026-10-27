@@ -175,6 +175,12 @@ function validateProfile(value) {
     if (value.mode !== "development") throw new Error(`Target ${targetName}: firebase mode must be development.`);
     if (!value.projectId) throw new Error(`Target ${targetName}: projectId is not configured.`);
     if (!value.apiBaseUrl) throw new Error(`Target ${targetName}: apiBaseUrl is not configured.`);
+    if (!["DEV", "PROD"].includes(value.qrEnvironmentLabel)) {
+      throw new Error(`Target ${targetName}: qrEnvironmentLabel must be DEV or PROD.`);
+    }
+    if (value.mode === "development" && value.qrEnvironmentLabel !== "DEV") {
+      throw new Error(`Target ${targetName}: development QR label must be DEV.`);
+    }
     for (const key of ["apiKey", "authDomain", "projectId", "appId"]) {
       if (!value.firebaseWeb?.[key]) throw new Error(`Target ${targetName}: firebaseWeb.${key} is not configured.`);
     }
@@ -282,6 +288,10 @@ function renderFirebaseRuntimeConfig() {
     target: targetName,
     runtime: profile.runtime,
     apiBaseUrl: profile.apiBaseUrl,
+    qrEnvironment: {
+      label: profile.qrEnvironmentLabel,
+      projectId: profile.projectId
+    },
     paperAttendance: profile.paperAttendance?.apiBaseUrl
       ? { apiBaseUrl: profile.paperAttendance.apiBaseUrl }
       : undefined,

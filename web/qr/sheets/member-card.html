@@ -15,6 +15,7 @@
   <div class="preview-stage">
     <main class="qr-sheet" aria-label="桜風館 会員カード">
       <div class="sheet-inner">
+        <div class="environment-badge" data-qr-environment>UNKNOWN</div>
         <header class="sheet-head">
           <div class="function-icon" aria-hidden="true">
             <!-- 仮アイコン。SVGなので後から差し替え可能 -->
@@ -64,10 +65,12 @@
 
   <div id="error" class="error" role="alert"></div>
 
+  <script src="../runtime_config.js"></script>
   <script src="../qr_generator.js"></script>
   <script>
     (function () {
       "use strict";
+      DojoQrGenerator.applyEnvironmentLabels(document, window.DOJO_RUNTIME_CONFIG);
       const params = new URLSearchParams(location.search);
       const memberId = (params.get("member_id") || "").trim();
       const memberName = (params.get("member_name") || "").trim();

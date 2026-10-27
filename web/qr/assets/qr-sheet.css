@@ -74,6 +74,23 @@ body {
   box-shadow: 0 7px 24px rgba(25, 40, 35, .12);
   page: a7;
 }
+.environment-badge {
+  position: absolute;
+  z-index: 2;
+  top: 2mm;
+  right: 2mm;
+  min-width: 10mm;
+  padding: .8mm 1.4mm;
+  border: .4mm solid #000;
+  border-radius: 1mm;
+  background: #fff;
+  color: #000;
+  font-size: 2.5mm;
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: .08em;
+  text-align: center;
+}
 .qr-sheet::before {
   content: "";
   position: absolute;
@@ -244,6 +261,14 @@ body {
 .label-qr-zone { min-height: 0; height: 100%; display: grid; place-items: center; align-content: center; overflow: hidden; }
 .label-qr-frame { width: 24.5mm; height: 24.5mm; display: grid; place-items: center; background:#fff; border:.22mm solid #e4e8e6; border-radius:1.2mm; }
 .label-qr-frame img { width: 21.5mm; height: 21.5mm; display:block; background:#fff; }
+.qr-sheet--label .environment-badge {
+  top: 1mm;
+  right: 1mm;
+  min-width: 8mm;
+  padding: .55mm 1mm;
+  border-width: .3mm;
+  font-size: 1.8mm;
+}
 
 /* ---------- dojo A5 poster ---------- */
 .qr-sheet--dojo {

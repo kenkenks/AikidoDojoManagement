@@ -762,7 +762,9 @@
         ? "先生・道場情報を設定して開始します。"
         : (isMember ? "受付時にこのQRコードを読み取ってください。" : "用途に応じてこのQRコードを読み取ってください。");
       const secondaryClass = isTeacher ? "print-location" : "teacher-role";
+      const environmentLabel = DojoQrGenerator.resolveEnvironmentLabel(RUNTIME_CONFIG);
       return '<main class="' + cardClass + '"><div class="sheet-inner">' +
+        '<div class="environment-badge" data-qr-environment aria-label="環境 ' + environmentLabel + '">' + environmentLabel + '</div>' +
         '<header class="sheet-head"><div class="function-icon" aria-hidden="true">' + personIconSvg() + '</div>' +
         '<div><div class="dojo-name">桜風館</div><div class="sheet-kind">' + sheetKind + '</div></div></header>' +
         '<section class="member-block"><div class="eyebrow">' + eyebrow + '</div>' +

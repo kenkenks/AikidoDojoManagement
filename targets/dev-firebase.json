@@ -3,6 +3,7 @@
   "runtime": "firebase",
   "mode": "development",
   "projectId": "dojo-management-dev",
+  "qrEnvironmentLabel": "DEV",
   "confirmedDevelopmentProject": "dojo-management-dev",
   "apiBaseUrl": "https://dojo-time-travel-admin-374758850136.asia-northeast1.run.app",
   "paperAttendance": {

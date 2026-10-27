@@ -113,6 +113,31 @@
     return pages;
   }
 
+  function resolveEnvironmentLabel(runtimeConfig) {
+    const config = runtimeConfig && typeof runtimeConfig === "object" ? runtimeConfig : {};
+    const environment = config.qrEnvironment && typeof config.qrEnvironment === "object"
+      ? config.qrEnvironment
+      : {};
+    const label = String(environment.label || "").trim().toUpperCase();
+    const declaredProject = String(environment.projectId || "").trim();
+    const runtimeProject = String(config.firebase && config.firebase.projectId || "").trim();
+    if ((label !== "DEV" && label !== "PROD") || !declaredProject || declaredProject !== runtimeProject) {
+      return "UNKNOWN";
+    }
+    return label;
+  }
+
+  function applyEnvironmentLabels(root, runtimeConfig) {
+    const scope = root && typeof root.querySelectorAll === "function" ? root : null;
+    const label = resolveEnvironmentLabel(runtimeConfig);
+    if (!scope) return label;
+    Array.from(scope.querySelectorAll("[data-qr-environment]")).forEach(function(element) {
+      element.textContent = label;
+      element.setAttribute("aria-label", "環境 " + label);
+    });
+    return label;
+  }
+
   const api = Object.freeze({
     QR_TYPES,
     DEFAULT_BASE_URL,
@@ -120,7 +145,9 @@
     buildQrTargetUrl,
     buildQrImageUrl,
     buildQr,
-    paginate
+    paginate,
+    resolveEnvironmentLabel,
+    applyEnvironmentLabels
   });
 
   global.DojoQrGenerator = api;
