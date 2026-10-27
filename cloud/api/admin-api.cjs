@@ -308,7 +308,10 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
         const members=Array.isArray(options?.members)?options.members.map(row=>({
           member_id:String(row.member_id||''),member_name:String(row.member_name||'')
         })).filter(row=>row.member_id):[];
-        return reply(200,{ok:true,members});
+        const locations=Array.isArray(options?.locations)?options.locations.map(row=>({
+          location_id:String(row.location_id||''),location_name:String(row.location_name||'')
+        })).filter(row=>row.location_id):[];
+        return reply(200,{ok:true,members,locations});
       } catch { return reply(503,{error:'MEMBER_OPTIONS_UNAVAILABLE'}); }
     }
     if (attendanceSession) {

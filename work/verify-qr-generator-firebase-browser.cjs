@@ -18,6 +18,17 @@ test('GAS teacher flow remains and Firebase does not trust virtual teacher sessi
   assert.match(html, /function jsonp\(/);
 });
 
+test('Firebase teacher QR routes to attendance check and preserves other route contracts',()=>{
+  assert.match(html,/TEACHER:"attendanceCheck\.html"/);
+  for(const route of ['MEMBER_CARD:"attendance\\.html"','PAYMENT_MONTHLY:"paypay_code\\.html"','PAYMENT_ONETIME:"paypay_code\\.html"','DOJO:"attendance\\.html"'])assert.match(html,new RegExp(route));
+  assert.match(html,/teacher_id/);
+  assert.match(html,/location_id/);
+  const teacherSheet=readFileSync(join(__dirname,'../web/qr/sheets/teacher.html'),'utf8');
+  assert.match(teacherSheet,/routes = \{ TEACHER: "attendanceCheck\.html" \}/);
+  assert.match(teacherSheet,/teacher_id/);
+  assert.match(teacherSheet,/location_id/);
+});
+
 test('Firebase QR initialization uses shared lifecycle and preserves selections and print items',()=>{
   for(const asset of ['auth_gate.js','page_initialization_manager.js'])assert.match(html,new RegExp(asset.replace('.','\\.')));
   assert.match(html,/requiredTasks:\[\{name:'qrOptions'/);

@@ -29,6 +29,11 @@ test("saved state uses authenticated dispatcher GET", async () => {
   let received;const result=await create().request({action:"attendance_saved_state",params:{member_id:"M001",location_id:"L001",callback:"evil"},runtimeConfig:{runtime:"firebase",apiBaseUrl:"https://api.example.com/"},authClient:{ready:Promise.resolve(),getCurrentUser:()=>({uid:"u1"})},apiClient:{request:async (url,init)=>{received={url,init};return {ok:true,json:async()=>({ok:true,selected_slot_ids:[]})};}}});
   const url=new URL(received.url);assert.equal(url.pathname,"/api/webconnect");assert.equal(url.searchParams.get("member_id"),"M001");assert.equal(url.searchParams.has("callback"),false);assert.equal(received.init.method,"GET");assert.equal(result.ok,true);
 });
+test("teacher member options uses the authenticated dispatcher GET",async()=>{
+  let received;
+  const result=await create().request({action:"attendance_member_options",runtimeConfig:{runtime:"firebase",apiBaseUrl:"https://api.example.com"},authClient:{ready:Promise.resolve(),getCurrentUser:()=>({uid:"teacher"})},apiClient:{request:async(url,init)=>{received={url,init};return {ok:true,json:async()=>({ok:true,members:[],locations:[]})};}}});
+  const url=new URL(received.url);assert.equal(url.searchParams.get("action"),"attendance_member_options");assert.equal(received.init.method,"GET");assert.deepEqual(result,{ok:true,members:[],locations:[]});
+});
 test("HTTP denial propagates and no alternate endpoint is tried", async () => {
   let calls=0;await assert.rejects(create().request({action:"attendance_saved_state",params:{member_id:"M002"},runtimeConfig:{runtime:"firebase",apiBaseUrl:"https://api.example.com"},authClient:{ready:Promise.resolve(),getCurrentUser:()=>({uid:"u1"})},apiClient:{request:async()=>{calls++;return {ok:false,status:403};}}}),/403/);assert.equal(calls,1);
 });

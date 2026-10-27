@@ -175,10 +175,10 @@ test('QR options uses Dispatcher with admin authorization only', async () => {
   assert.deepEqual(calls, [['qrOptions']]);
   assert.equal((await request('POST', '/api/webconnect', { action: 'qr_generator_options' }, 'Bearer admin')).status, 405);
 });
-test('attendance member options is GET-only and returns only the limited member DTO',async()=>{
+test('attendance member options is GET-only and returns only limited member/location DTOs',async()=>{
   calls=[];
   const result=await request('GET','/api/webconnect?action=attendance_member_options',undefined,'Bearer admin');
-  assert.equal(result.status,200);assert.deepEqual(result.body,{ok:true,members:[]});assert.deepEqual(calls,[['qrOptions']]);
+  assert.equal(result.status,200);assert.deepEqual(result.body,{ok:true,members:[],locations:[]});assert.deepEqual(calls,[['qrOptions']]);
   assert.equal((await request('POST','/api/webconnect',{action:'attendance_member_options',input:{}},'Bearer admin')).status,405);
   assert.equal((await request('GET','/api/webconnect?action=attendance_member_options',undefined,'Bearer member')).status,403);
 });

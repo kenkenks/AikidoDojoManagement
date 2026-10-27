@@ -86,7 +86,7 @@
 
   <section id="blockChoiceCard" class="card" hidden>
     <h2>課金枠を選択</h2>
-    <div class="warn">現在時刻から一つに絞れませんでした。</div>
+    <div id="blockChoiceGuide" class="warn">現在時刻から一つに絞れませんでした。</div>
     <select id="blockChoice" onchange="selectBillingBlock(this.value)"></select>
   </section>
 
@@ -532,13 +532,13 @@
           return true;
         }
 
-        document.getElementById("blockChoiceCard").hidden = true;
         currentBillingBlockId = data.billing_block_id;
         currentSlots = data.slots || [];
         persistAttendanceContext();
         document.getElementById("billingBlockId").textContent = data.billing_block_name;
         document.getElementById("billingBlockId").className = "ok";
         clearCandidatesWhenScopeChanged(previousCandidateScope);
+        renderBlockChoices(data.billing_block_candidates || [], currentBillingBlockId, data.inferred === true);
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
         attendanceInfoLoadedKey = attendanceSessionInfoKey();
         if (entryMemberId) {
@@ -561,9 +561,10 @@
       });
     }
 
-    function renderBlockChoices(candidates) {
+    function renderBlockChoices(candidates, selectedBillingBlockId, inferred) {
       const card = document.getElementById("blockChoiceCard");
       const select = document.getElementById("blockChoice");
+      const guide = document.getElementById("blockChoiceGuide");
       select.innerHTML = "";
       const emptyOption = document.createElement("option");
       emptyOption.value = "";
@@ -573,9 +574,14 @@
         const option = document.createElement("option");
         option.value = candidate.billing_block_id;
         option.textContent = candidate.label + "（" + candidate.start_time + "–" + candidate.end_time + "）";
+        option.selected = candidate.billing_block_id === selectedBillingBlockId;
         select.appendChild(option);
       });
       select.disabled = !businessOperationsEnabled || candidates.length === 0;
+      guide.textContent = selectedBillingBlockId
+        ? (inferred ? "現在時刻から自動選択しました。必要なら変更できます。" : "選択中の課金枠です。必要なら変更できます。")
+        : "現在時刻から一つに絞れませんでした。課金枠を選択してください。";
+      guide.className = selectedBillingBlockId ? "note" : "warn";
       card.hidden = false;
     }
 

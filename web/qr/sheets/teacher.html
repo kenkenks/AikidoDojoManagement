@@ -103,7 +103,7 @@
         const qrOptions = { image: { size: "480x480", ecc: "M" } };
         if (isFirebaseDevHosting) {
           qrOptions.baseUrl = location.origin + "/qr/";
-          qrOptions.routes = { TEACHER: "teacher_attendance.html" };
+          qrOptions.routes = { TEACHER: "attendanceCheck.html" };
         }
         const qr = DojoQrGenerator.buildQr(
           DojoQrGenerator.QR_TYPES.TEACHER,

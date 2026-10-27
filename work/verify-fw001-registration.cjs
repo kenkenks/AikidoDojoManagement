@@ -172,7 +172,7 @@ test('existing WebConnect dispatch authorizes every batch item before writing',a
   const dispatch=createDispatch(createAdminApi({verifyIdToken:async token=>({uid:token,admin:token==='admin'}),
     getTimeTravel:async()=>({}),saveTimeTravel:async()=>({}),getSystemContext:async()=>({}),
     readMember:async()=>null,readMembers:async()=>[],
-    readQrGeneratorOptions:async()=>({ok:true,members:[{member_id:'M1',member_name:'会員1',member_type:'一般'}],plans:[{plan_id:'SECRET'}],teachers:[{teacher_id:'SECRET'}]}),
+    readQrGeneratorOptions:async()=>({ok:true,members:[{member_id:'M1',member_name:'会員1',member_type:'一般'}],locations:[{location_id:'L1',location_name:'本部',internal:'SECRET'}],plans:[{plan_id:'SECRET'}],teachers:[{teacher_id:'SECRET'}]}),
     resolveDojoPrincipal:async user=>user.uid==='member'?{member_id:'M1'}:user.uid==='teacher'?{teacher_id:'T1'}:null,
     isActiveTeacher:async id=>id==='T1',
     registerAttendanceBatch:async data=>{calls++;return core.register(data);}}));
@@ -188,7 +188,7 @@ test('existing WebConnect dispatch authorizes every batch item before writing',a
   assert.equal((await send('teacher',paper)).status,200);
   assert.equal((await send('member',paper)).status,403);
   const teacherOptions=await dispatch({action:'attendance_member_options',input:{action:'attendance_member_options'},method:'GET',context:{authorization:'Bearer teacher'}});
-  assert.equal(teacherOptions.status,200);assert.deepEqual(teacherOptions.body,{ok:true,members:[{member_id:'M1',member_name:'会員1'}]});
+  assert.equal(teacherOptions.status,200);assert.deepEqual(teacherOptions.body,{ok:true,members:[{member_id:'M1',member_name:'会員1'}],locations:[{location_id:'L1',location_name:'本部'}]});
   assert.equal((await dispatch({action:'attendance_member_options',input:{action:'attendance_member_options'},method:'GET',context:{authorization:'Bearer member'}})).status,403);
   assert.equal((await dispatch({action:'qr_generator_options',input:{},method:'GET',context:{authorization:'Bearer teacher'}})).status,403);
   assert.equal(rows(db,'attendances').length,2);

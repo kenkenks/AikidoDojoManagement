@@ -2,7 +2,7 @@
   "use strict";
   // Fail closed: the member principal may read only its own saved attendance.
   // All other attendance actions still require server-side implementation/authorization.
-  const ALLOWED_ACTIONS = new Set(["attendance_saved_state", "attendance_session_info", "attendance_rank_options", "member_attendance_state", "teacher_attendance_today", "teacher_attendance_progress"]);
+  const ALLOWED_ACTIONS = new Set(["attendance_saved_state", "attendance_session_info", "attendance_rank_options", "attendance_member_options", "member_attendance_state", "teacher_attendance_today", "teacher_attendance_progress"]);
   async function request(options) {
     const { action, params, runtimeConfig, authClient, apiClient } = options || {};
     if (!runtimeConfig || runtimeConfig.runtime !== "firebase" ||

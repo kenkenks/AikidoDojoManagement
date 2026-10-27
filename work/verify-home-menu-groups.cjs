@@ -25,7 +25,7 @@ function assertLinksInOrder(html, links) {
 const teacherGroups = [
   ["🥋 稽古・出席", [
     ["attendanceCheck.html", "📅 出席確認"],
-    ["teacher_attendance.html", "🥋 先生出席"],
+    ["teacher_attendance.html", "🥋 先生出席（未使用予定）"],
     ["../examination/member_progress.html", "📈 稽古・審査進捗"],
     ["paper_attendance_review.html", "📷 紙の出席記録取込"]
   ]],

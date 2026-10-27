@@ -74,6 +74,13 @@
     <div class="key"><span class="label">稽古日</span><span id="attendanceDate"></span></div>
   </section>
 
+  <section id="locationChoiceCard" class="card" hidden>
+    <h2>道場を選択</h2>
+    <select id="locationChoice" onchange="selectLocation(this.value)">
+      <option value="">道場を選んでください</option>
+    </select>
+  </section>
+
   <section id="blockChoiceCard" class="card" hidden>
     <h2>稽古枠を選択</h2>
     <div id="blockChoiceGuide" class="note">現在時刻から自動選択します。必要なら変更できます。</div>
@@ -142,6 +149,7 @@
     let attendanceSessionId = createSessionId();
     let submitting = false;
     let rankOptions = [];
+    let attendanceLocations = [];
     let attendanceCheckClockKey = "";
     let sessionInfoRequestSeq = 0;
 
@@ -217,7 +225,9 @@
       if(!attendanceCheckContextInitialized){initializeFromPageUrl(true);attendanceCheckContextInitialized=true;}
       document.getElementById('attendanceDate').textContent=currentAttendanceDate();
       attendanceCheckClockKey=attendanceCheckBusinessClockKey();
-      return Promise.resolve(currentLocationId?loadAttendanceSessionInfo({managerContext:context,propagate:true}):true).then(function(){
+      return loadAttendanceLocationOptions(context,true).then(function(){
+        return currentLocationId?loadAttendanceSessionInfo({managerContext:context,propagate:true}):true;
+      }).then(function(){
         return context.isCurrent();
       });
     }
@@ -256,7 +266,53 @@
         const element=document.getElementById(id);if(element)element.disabled=!businessOperationsEnabled;
       });
       const blockChoice=document.getElementById('blockChoice');blockChoice.disabled=!businessOperationsEnabled||blockChoice.options.length<=1;
+      const locationChoice=document.getElementById('locationChoice');locationChoice.disabled=!businessOperationsEnabled||locationChoice.options.length<=1;
       renderCandidates();updateSendButton();
+    }
+
+    function loadAttendanceLocationOptions(managerContext,propagate){
+      return jsonp(GAS_URL,{action:'attendance_member_options'}).then(function(data){
+        if(managerContext&&!managerContext.isCurrent())return false;
+        if(!data.ok)throw new Error(data.message||'道場一覧を取得できませんでした。');
+        attendanceLocations=Array.isArray(data.locations)?data.locations:[];
+        renderLocationChoices();
+        return true;
+      }).catch(function(error){
+        if(managerContext&&!managerContext.isCurrent())return false;
+        addLog('道場一覧取得エラー: '+(error.message||String(error)),'error');
+        if(propagate)throw error;
+        return false;
+      });
+    }
+
+    function renderLocationChoices(){
+      const card=document.getElementById('locationChoiceCard');
+      const select=document.getElementById('locationChoice');
+      select.innerHTML='';
+      const emptyOption=document.createElement('option');
+      emptyOption.value='';emptyOption.textContent=attendanceLocations.length?'道場を選んでください':'選択できる道場がありません';
+      select.appendChild(emptyOption);
+      attendanceLocations.forEach(function(location){
+        const option=document.createElement('option');
+        option.value=String(location.location_id||'');
+        option.textContent=String(location.location_name||location.location_id||'');
+        option.selected=option.value===currentLocationId;
+        select.appendChild(option);
+      });
+      select.disabled=!businessOperationsEnabled||attendanceLocations.length===0;
+      card.hidden=false;
+    }
+
+    function selectLocation(locationId){
+      locationId=String(locationId||'').trim();
+      if(!businessOperationsEnabled||!locationId||locationId===currentLocationId)return;
+      const previousCandidateScope=attendanceCheckCandidateScopeKey();
+      ++sessionInfoRequestSeq;
+      currentLocationId=locationId;currentBillingBlockId='';currentSlots=[];
+      clearAttendanceCheckCandidatesWhenScopeChanged(previousCandidateScope);
+      persistAttendanceContext();renderKeys();
+      renderBlockChoices([], '', false);
+      loadAttendanceSessionInfo();
     }
 
     function loadRankOptions(managerContext,propagate) {
@@ -900,6 +956,8 @@
       setKey("locationId", currentLocationId);
       setKey("billingBlockId", currentBillingBlockId);
       setKey("teacherId", currentTeacherId);
+      const locationChoice=document.getElementById('locationChoice');
+      if(locationChoice)locationChoice.value=currentLocationId;
       updateSendButton();
     }
 
