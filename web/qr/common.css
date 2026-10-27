@@ -6,6 +6,12 @@ body.portal { background:#f4f5f2; }
 body.member { background:#e8f5e9; }
 body.teacher { background:#e3f2fd; }
 body.admin { background:#fff3e0; }
+body.page-standard,
+body.page-workflow,
+body.page-wide { width:100%; margin-left:auto; margin-right:auto; }
+body.page-standard { max-width:760px; }
+body.page-workflow { max-width:920px; }
+body.page-wide { max-width:1200px; }
 h1 { font-size:22px; margin:0 0 12px; }
 h2 { font-size:17px; margin:0 0 10px; }
 .card { background:#fff; padding:14px; margin-bottom:12px; border:1px solid #ddd; border-radius:10px; }
