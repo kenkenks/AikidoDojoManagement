@@ -29,12 +29,14 @@ test("member menu and parameter-aware progress link remain intact", () => {
   assert.match(memberHome, /attendance_summary\.html\?member_id=" \+ encodeURIComponent\(memberId\)/);
 });
 
-test("page width classes are not automatically applied to other QR pages", () => {
+test("standard width is limited to the member and teacher home pages", () => {
   const qrDir = path.join(root, "web", "qr");
   const unexpected = fs.readdirSync(qrDir)
-    .filter((name) => name.endsWith(".html") && name !== "member_home.html")
+    .filter((name) => name.endsWith(".html") && !["member_home.html", "teacher_home.html"].includes(name))
     .filter((name) => /\bpage-(?:standard|workflow|wide)\b/.test(
       fs.readFileSync(path.join(qrDir, name), "utf8"),
     ));
   assert.deepEqual(unexpected, []);
+  const teacherHome = fs.readFileSync(path.join(qrDir, "teacher_home.html"), "utf8");
+  assert.match(teacherHome, /<body class="teacher page-standard">/);
 });
