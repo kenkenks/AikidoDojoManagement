@@ -4,7 +4,7 @@ const WebConnectCore = require('../../shared/WebConnectCore.js');
 const { canAccessMember } = require('./dojo-principal.cjs');
 const {validateAttendanceInput} = require('../../adapters/firestore/DAO_Core.js');
 
-function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readMemberManagementList,saveManagedMember,saveManagedMemberGroup,withdrawManagedMember,readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,readTeacherAttendanceProgress,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode,readPaperAttendanceOcr,readPendingAttendances,confirmPendingAttendance }) {
+function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSystemContext, readMember, readMembers, readMemberManagementList,saveManagedMember,saveManagedMemberGroup,withdrawManagedMember,readAttendanceSavedState, readMemberAttendanceState, readAttendanceSessionInfo, readQrGeneratorOptions, readAttendanceRankOptions, registerAttendanceBatch, resolveDojoPrincipal,readTeacherAttendanceToday,readTeacherAttendanceProgress,isActiveTeacher,readAttendanceProgressSummary,readBillingMemberInfo,readPaymentReceptionSummary,readPaymentScreen,readTeacherPaymentStatus,acceptCashPayment,postPayPayPayment,startPayPayCode,recordPayPayCode,readPaperAttendanceOcr,readPendingAttendances,confirmPendingAttendance }) {
   if (typeof verifyIdToken !== 'function') throw new Error('verifyIdToken is required');
   if (typeof getSystemContext !== 'function') throw new Error('getSystemContext is required');
   if (typeof readMember !== 'function') throw new Error('readMember is required');
@@ -27,6 +27,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const billingMemberInfo = operation === 'billing.memberInfo';
     const receptionSummary = operation === 'billing.receptionSummary';
     const paymentScreen = operation === 'billing.screenRead';
+    const teacherPaymentStatus = operation === 'billing.teacherPaymentStatus';
     const cashAccept = operation === 'billing.cashAccept';
     const paypayPost = operation === 'billing.paypayPostSelected';
     const paypayCodeStart = operation === 'billing.paypayCodeStart';
@@ -48,7 +49,7 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
     const memberManagementWithdraw=operation==='memberManagement.withdraw';
     const capabilities = url === '/api/admin/capabilities';
     const systemTimeTravel = url === '/api/system/admin/time-travel' || operation === 'timeTravel.read' || operation === 'timeTravel.save';
-    if (!paperOcr&&!pendingList&&!pendingConfirm&&!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !teacherProgress && !registration && !qrOptions && !rankOptions && !attendanceSession && !attendanceMemberOptions && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
+    if (!paperOcr&&!pendingList&&!pendingConfirm&&!memberManagementList&&!memberManagementSave&&!memberManagementGroupSave&&!memberManagementWithdraw&&!paypayCodeStart && !paypayCodeRecord && !paypayPost && !cashAccept && !paymentScreen && !teacherPaymentStatus && !receptionSummary && !billingMemberInfo && !progressSummary && !systemContext && !teacherToday && !teacherProgress && !registration && !qrOptions && !rankOptions && !attendanceSession && !attendanceMemberOptions && !memberState && !attendance && !member && !memberOperation && !members && !capabilities && url !== '/api/admin/time-travel' && !systemTimeTravel) return reply(404, { error: 'NOT_FOUND' });
     // Public operational clock: no login required; no admin configuration or member data.
     if (systemContext) {
       if (!operation && request.method !== 'GET') return reply(405, { error: 'METHOD_NOT_ALLOWED' });
@@ -139,6 +140,26 @@ function createAdminApi({ verifyIdToken, getTimeTravel, saveTimeTravel, getSyste
         const status=error?.status===400?400:error?.status===403?403:error?.status===409?409:code==='INVALID_PAYPAY_POST_SELECTED'?400:503;
         if(status===503)console.error('[PAYPAY_POST_ERROR]',{code});
         return reply(status,{error:status===503?'PAYPAY_POST_UNAVAILABLE':code});
+      }
+    }
+    if(teacherPaymentStatus){
+      if(String(request.method||'').toUpperCase()!=='GET')return reply(405,{error:'METHOD_NOT_ALLOWED'});
+      let allowed=user.admin===true;
+      if(!allowed&&typeof resolveDojoPrincipal==='function'&&typeof isActiveTeacher==='function'){
+        try{const principal=await resolveDojoPrincipal(user);allowed=!!principal?.teacher_id&&await isActiveTeacher(principal.teacher_id)===true;}
+        catch{allowed=false;}
+      }
+      if(!allowed)return reply(403,{error:'FORBIDDEN'});
+      const allowedKeys=['action','date_from','date_to','target_month'];
+      if(!operationInput||Object.keys(operationInput).some(key=>!allowedKeys.includes(key))||
+        ['date_from','date_to'].some(key=>operationInput[key]!==undefined&&(typeof operationInput[key]!=='string'||(operationInput[key]!==''&&!/^\d{4}-\d{2}-\d{2}$/.test(operationInput[key]))))||
+        (operationInput.target_month!==undefined&&(typeof operationInput.target_month!=='string'||(operationInput.target_month!==''&&!/^\d{4}-(0[1-9]|1[0-2])$/.test(operationInput.target_month)))))
+        return reply(400,{error:'INVALID_TEACHER_PAYMENT_STATUS_PARAMS'});
+      if(typeof readTeacherPaymentStatus!=='function')return reply(503,{error:'TEACHER_PAYMENT_STATUS_UNAVAILABLE'});
+      try{return reply(200,await readTeacherPaymentStatus(operationInput));}
+      catch(error){
+        if(error?.message==='INVALID_TEACHER_PAYMENT_STATUS_PARAMS')return reply(400,{error:error.message});
+        return reply(503,{error:'TEACHER_PAYMENT_STATUS_UNAVAILABLE'});
       }
     }
     if(cashAccept){

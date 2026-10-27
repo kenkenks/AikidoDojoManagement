@@ -32,6 +32,7 @@ const { createFirestoreProgressReader,createFirestoreProgressBatchReader } = req
 const { createBillingMemberInfoReader } = require('../billing/member-info-firestore.cjs');
 const {createReceptionSummaryReader}=require('../billing/reception-summary-firestore.cjs');
 const {createPaymentScreenReader}=require('../billing/payment-screen-firestore.cjs');
+const {createTeacherPaymentStatusReader}=require('../billing/teacher-payment-status-firestore.cjs');
 const {createPaymentCashAcceptCommand}=require('../billing/payment-cash-accept-command.cjs');
 const {createPayPayPostFirestoreExecutor}=require('../billing/payment-paypay-post-firestore.cjs');
 const {createPayPayCodeFirestoreExecutor}=require('../billing/payment-paypay-code-firestore.cjs');
@@ -183,6 +184,9 @@ const handle = createAdminApi({
   startPayPayCode,
   recordPayPayCode,
   readPaymentReceptionSummary:createReceptionSummaryReader(getFirestore(firebaseApp),{
+    getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
+  }),
+  readTeacherPaymentStatus:createTeacherPaymentStatusReader(getFirestore(firebaseApp),{
     getSystemContext:()=>application.getSystemContext(),createProjection:createAttendanceRegistrationTarget
   }),
   readBillingMemberInfo: billingMemberReader,

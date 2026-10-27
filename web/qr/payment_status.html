@@ -79,11 +79,23 @@
 
   <p class="note"><a href="teacher_home.html">← 先生ホームへ戻る</a></p>
   <script src="runtime_config.js"></script>
+  <script src="firebase_auth.js"></script>
+  <script src="auth_gate.js"></script>
+  <script src="dojo_api_client.js"></script>
   <script>
     const GAS_URL = window.DOJO_RUNTIME_CONFIG.apiBaseUrl;
+    const isFirebase = window.DOJO_RUNTIME_CONFIG.runtime === "firebase";
+    const paymentStatusAuth = isFirebase ? window.DOJO_FIREBASE_AUTH.create({runtimeConfig:window.DOJO_RUNTIME_CONFIG}) : null;
+    const paymentStatusApi = isFirebase ? window.DOJO_API_CLIENT.create({getCurrentUser:paymentStatusAuth.getCurrentUser}) : null;
+    const paymentStatusAuthGate = isFirebase ? window.DOJO_AUTH_GATE.create({authClient:paymentStatusAuth,runtimeConfig:window.DOJO_RUNTIME_CONFIG,loginPath:"index.html"}) : null;
 
     initializeFilters();
-    loadStatus();
+    if (isFirebase) {
+      paymentStatusAuthGate.requireAuthenticated().then(loadStatus).catch(function(error) {
+        if (error && error.code === "UNAUTHENTICATED") paymentStatusAuthGate.redirectToLogin(window.location.href);
+        else showLoadError("認証初期化に失敗しました。");
+      });
+    } else loadStatus();
     window.addEventListener("dojo-system-context", function(event) {
       const context = event.detail || {};
       if (!context.system_now || !context.target_month) return;
@@ -108,7 +120,7 @@
       message.className = "note loading";
       message.textContent = "読み込み中です。";
 
-      jsonp(GAS_URL, {
+      readPaymentStatus({
         action: "teacher_payment_status",
         date_from: document.getElementById("dateFrom").value,
         date_to: document.getElementById("dateTo").value,
@@ -124,6 +136,23 @@
         message.className = "note error";
         message.textContent = error.message || String(error);
       });
+    }
+
+    async function readPaymentStatus(params) {
+      if (!isFirebase) return jsonp(GAS_URL, params);
+      await paymentStatusAuth.ready;
+      if (!paymentStatusAuth.getCurrentUser()) throw new Error("Firebaseログインが必要です。");
+      const url = new URL(String(GAS_URL).replace(/\/+$/, "") + "/api/webconnect");
+      Object.keys(params).forEach(function(key) { url.searchParams.set(key, params[key]); });
+      const response = await paymentStatusApi.request(url.toString(), {method:"GET"});
+      if (!response.ok) throw new Error("会費状況を取得できませんでした。 HTTP " + response.status);
+      return response.json();
+    }
+
+    function showLoadError(text) {
+      const message = document.getElementById("message");
+      message.className = "note error";
+      message.textContent = text;
     }
 
     function renderSummary(summary) {

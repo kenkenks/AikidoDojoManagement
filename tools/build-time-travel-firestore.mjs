@@ -54,7 +54,9 @@ readMemberInfo(memberId,month,view) {
   if(!facts||facts.ok!==true)throw Error('FEE_SOURCE_UNAVAILABLE');
   const row=paymentStatusView_buildRow(memberId,month,facts);
   return paymentStatusView_convertResponse(row,ctx);
-}};
+},
+readTeacherPaymentStatus(input) { return paymentStatusTeacher_get(input,ctx); }
+};
 }`;
 // Reuse the GAS overview and scope filter without adding a second business implementation.
 const teacherFactory = `function createTeacherAttendanceOverview({rows,summaries,date}) {

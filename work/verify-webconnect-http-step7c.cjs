@@ -27,6 +27,7 @@ const handle = createAdminApi({
   readBillingMemberInfo:async id=>{calls.push(['billing',id]);return {ok:true,memberId:id};},
   readPaymentReceptionSummary:async input=>{calls.push(['reception',input]);return {ok:true};},
   readPaymentScreen:async input=>{calls.push(['screen',input]);return {ok:true,summary:{ok:true},confirmed:{ok:true},posted:{ok:true}};},
+  readTeacherPaymentStatus:async input=>{calls.push(['teacherPaymentStatus',input]);return {ok:true,members:[],payments:[],summary:{}};},
   acceptCashPayment:async input=>{calls.push(['cash',input]);return {ok:true,request_id:input.request_id};},
   readQrGeneratorOptions: async () => { calls.push(['qrOptions']); return { ok: true, members: [], plans: [], locations: [], teachers: [] }; }
   ,registerAttendanceBatch:async input=>{calls.push(['attendance',input]);return {ok:true,registered_count:1};}
@@ -48,6 +49,7 @@ const modules = {
   '../billing/member-info-firestore.cjs': { createBillingMemberInfoReader: () => async () => ({}) },
   '../billing/reception-summary-firestore.cjs': { createReceptionSummaryReader: () => async () => ({}) },
   '../billing/payment-screen-firestore.cjs': { createPaymentScreenReader: () => async () => ({}) },
+  '../billing/teacher-payment-status-firestore.cjs': { createTeacherPaymentStatusReader: () => async () => ({}) },
   '../billing/payment-cash-accept-command.cjs': {createPaymentCashAcceptCommand:()=>({execute:async input=>({ok:true,request_id:input.request_id})})},
   '../billing/payment-cash-accept-firestore.cjs': {createPaymentCashAcceptFirestoreExecutor:()=>async()=>({ok:true})},
   '../billing/payment-paypay-command.cjs': {validatePayPayPostSelected:input=>input,validatePayPayCodeStart:input=>input,validatePayPayCodeRecordBatch:input=>input},
