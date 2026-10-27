@@ -64,6 +64,17 @@ function buildFirebase() {
       copy(file, join(firebaseExaminationOutDir, rel));
     }
   }
+  // The fixed evaluation entry is a DEV-only Hosting artifact. It is not an
+  // environment switch and must never be copied by GAS or future production builds.
+  if (targetName === "dev-firebase" && profile.projectId === "dojo-management-dev") {
+    const testSourceDir = resolve(repoRoot, "web/test");
+    const firebaseTestOutDir = join(firebaseOutRoot, "web", "test");
+    if (!existsSync(testSourceDir)) throw new Error("DEV evaluation entry is missing: web/test");
+    for (const file of walk(testSourceDir)) {
+      const rel = normalize(relative(testSourceDir, file));
+      copy(file, join(firebaseTestOutDir, rel));
+    }
+  }
   writeFileSync(join(firebaseWebOutDir, "runtime_config.js"), renderFirebaseRuntimeConfig(), "utf8");
   writeFileSync(join(firebaseWebOutDir, "base_check_manifest.json"), JSON.stringify(createBaseCheckManifest(firebaseWebOutDir), null, 2) + "\n", "utf8");
   writeFileSync(

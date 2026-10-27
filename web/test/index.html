@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>桜風館｜成果物評価入口</title>
+  <link rel="stylesheet" href="/qr/common.css">
+  <style>
+    :root { color-scheme:light; }
+    * { box-sizing:border-box; }
+    body { max-width:760px; margin:0 auto; background:#eef3f7; color:#203040; }
+    .environment-strip { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:14px 0; }
+    .environment-strip strong { display:block; padding:9px 6px; border:2px solid #9b3b28; border-radius:8px; background:#fff4ef; color:#8a2918; text-align:center; letter-spacing:.08em; }
+    .warning { border:2px solid #b3261e; border-radius:8px; padding:12px; background:#fff0ee; color:#8b1d16; font-weight:700; }
+    .entry-button { display:block; width:100%; margin-top:14px; padding:14px; border-radius:10px; background:#236ea1; color:#fff; text-align:center; text-decoration:none; font-size:17px; font-weight:700; }
+    .qr-card { width:min(100%,105mm); margin:18px auto 0; padding:8mm; border:2px solid #202020; border-radius:10px; background:#fff; color:#111; text-align:center; }
+    .qr-card h2 { margin:0 0 3mm; font-size:20px; }
+    .qr-identifiers { display:flex; justify-content:center; gap:7px; margin-bottom:4mm; }
+    .qr-identifiers strong { border:2px solid #111; padding:4px 8px; background:#fff; color:#000; letter-spacing:.08em; }
+    .qr-image { display:block; width:min(100%,72mm); height:auto; margin:0 auto; image-rendering:pixelated; }
+    .qr-path { margin:3mm 0 1mm; font-size:18px; font-weight:800; }
+    .qr-url { margin:0; font-size:10px; overflow-wrap:anywhere; }
+    .print-button { width:100%; margin-top:12px; }
+    @media (max-width:520px) { .environment-strip { grid-template-columns:1fr; } .qr-card { padding:6mm; } }
+    @page { size:A6 portrait; margin:8mm; }
+    @media print {
+      body { max-width:none; margin:0; padding:0; background:#fff; }
+      main > :not(.qr-card) { display:none !important; }
+      .qr-card { width:100%; margin:0; padding:5mm; border:1mm solid #000; border-radius:0; break-inside:avoid; }
+      .qr-image { width:68mm; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <section class="card">
+      <h1>桜風館 道場管理システム</h1>
+      <div class="environment-strip" aria-label="評価環境の識別">
+        <strong>DEV<br><small>開発環境</small></strong>
+        <strong>TEST<br><small>成果物評価</small></strong>
+        <strong>ENTRY<br><small>システム入口</small></strong>
+      </div>
+      <p class="warning">この入口は成果物評価専用です。本番運用には使用しないでください。</p>
+      <p>評価を開始すると、既存のQRログイン画面へ移動します。認証情報はこのURLに含まれていません。</p>
+      <a id="startEvaluation" class="entry-button" href="/qr/index.html">評価を開始</a>
+    </section>
+
+    <section id="evaluationQrCard" class="qr-card" aria-label="成果物評価用QRカード">
+      <h2>桜風館 道場管理システム</h2>
+      <div class="qr-identifiers"><strong>DEV</strong><strong>TEST</strong><strong>ENTRY</strong></div>
+      <img class="qr-image" src="https://api.qrserver.com/v1/create-qr-code/?size=420x420&amp;ecc=H&amp;margin=16&amp;data=https%3A%2F%2Fdojo-management-dev.web.app%2Ftest%2F" alt="https://dojo-management-dev.web.app/test/ を開く成果物評価用QRコード">
+      <p class="qr-path">/test/</p>
+      <p class="qr-url">https://dojo-management-dev.web.app/test/</p>
+      <p><strong>本番用ではありません</strong></p>
+    </section>
+    <button class="print-button screen-only" type="button" onclick="window.print()">QRカードを印刷</button>
+  </main>
+</body>
+</html>
