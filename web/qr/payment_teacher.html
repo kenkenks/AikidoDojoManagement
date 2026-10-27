@@ -212,6 +212,7 @@
     .scope-field { min-width:0; font-size:12px; overflow-wrap:anywhere; }
     .scope-field>span { color:#53677d; display:block; }
     .scope-field .mini-summary { margin:0; }
+    .scope-choice { width:100%; min-width:0; margin-top:5px; padding:7px; border:1px solid #9aa9b8; border-radius:7px; background:#fff; font-size:14px; }
     .scan-card { background:#f1f7f4; }
     #reader { max-width: 310px; margin-bottom:5px; }
     .active-card { background:#fff8e8; }
@@ -257,6 +258,7 @@
   <section class="scope-strip card" aria-label="受付設定">
     <div class="scope-field"><span>道場</span>
     <div id="locationId" class="warn">未設定</div>
+    <select id="locationChoice" class="scope-choice hidden" aria-label="受付する道場" onchange="selectReceptionLocation(this.value)"></select>
   </div>
 
   <div class="scope-field"><span>先生</span>
@@ -266,6 +268,7 @@
   <div class="scope-field"><span>課金枠</span>
     <div id="billingBlockId" class="warn">未設定</div>
     <div id="billingBlockName" class="mini-summary"></div>
+    <select id="billingBlockChoice" class="scope-choice hidden" aria-label="受付する課金枠" onchange="selectReceptionBillingBlock(this.value)"></select>
   </div>
   </section>
 
@@ -372,6 +375,7 @@
     let currentTeacherId = "";
     let currentBillingBlockId = "";
     let currentBillingBlockName = "";
+    let receptionLocations = [];
     let receptionSessionId = "";
     let lastText = "";
     let lastReadTime = 0;
@@ -596,7 +600,11 @@
         ],
         requiredTasks:[{
           name:"receptionScope",
-          run:function(context){ return updateReceptionScope(context, true); }
+          run:function(context){
+            return loadReceptionLocationOptions(context, true).then(function(){
+              return currentLocationId ? updateReceptionScope(context, true) : true;
+            });
+          }
         }],
         stopOperations:function(){ setPaymentOperationsEnabled(false); }
       });
@@ -607,7 +615,9 @@
           const context = state.values && state.values.systemContext;
           initializedContextKey = contextKey(context);
           setPaymentOperationsEnabled(true);
-          setFirebaseAccessStatus("会費受付情報を表示しました。", "");
+          setFirebaseAccessStatus(currentLocationId
+            ? "会費受付情報を表示しました。"
+            : "受付する道場を選択してください。", currentLocationId ? "" : "loading");
         } else if (state.status === "ERROR" && state.error && state.error.code !== "UNAUTHENTICATED") {
           setFirebaseAccessStatus(state.error.message || String(state.error), "error");
         }
@@ -707,6 +717,86 @@
         teacher_id: currentTeacherId,
         billing_block_id: currentBillingBlockId
       });
+    }
+
+    function loadReceptionLocationOptions(managerContext, propagate) {
+      if (!IS_FIREBASE) return Promise.resolve(true);
+      return webConnectRead({ action:"attendance_member_options" }).then(function(result) {
+        if (managerContext && !managerContext.isCurrent()) return false;
+        if (!result || result.ok !== true) throw new Error((result && result.message) || "道場一覧を取得できませんでした。");
+        receptionLocations = Array.isArray(result.locations) ? result.locations : [];
+        renderReceptionLocationChoices();
+        return true;
+      }).catch(function(error) {
+        if (managerContext && !managerContext.isCurrent()) return false;
+        addLog("道場一覧取得失敗: " + (error.message || String(error)));
+        if (propagate) throw error;
+        return false;
+      });
+    }
+
+    function renderReceptionLocationChoices() {
+      const select = document.getElementById("locationChoice");
+      select.innerHTML = "";
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = receptionLocations.length ? "道場を選択してください" : "選択できる道場がありません";
+      select.appendChild(empty);
+      receptionLocations.forEach(function(location) {
+        const option = document.createElement("option");
+        option.value = String(location.location_id || "");
+        option.textContent = String(location.location_name || location.location_id || "");
+        option.selected = option.value === currentLocationId;
+        select.appendChild(option);
+      });
+      select.disabled = receptionLocations.length === 0;
+      select.classList.remove("hidden");
+    }
+
+    function renderReceptionBillingBlockChoices(candidates) {
+      const select = document.getElementById("billingBlockChoice");
+      select.innerHTML = "";
+      const empty = document.createElement("option");
+      empty.value = "";
+      empty.textContent = candidates.length ? "課金枠を選択してください" : "選択できる課金枠がありません";
+      select.appendChild(empty);
+      candidates.forEach(function(candidate) {
+        const option = document.createElement("option");
+        option.value = String(candidate.billing_block_id || "");
+        option.textContent = String(candidate.label || candidate.billing_block_id || "") +
+          "（" + String(candidate.start_time || "") + "–" + String(candidate.end_time || "") + "）";
+        select.appendChild(option);
+      });
+      select.disabled = candidates.length === 0;
+      select.classList.toggle("hidden", candidates.length === 0);
+    }
+
+    function selectReceptionLocation(locationId) {
+      locationId = String(locationId || "").trim();
+      if (!IS_FIREBASE || !locationId || locationId === currentLocationId) return;
+      currentLocationId = locationId;
+      currentBillingBlockId = "";
+      currentBillingBlockName = "";
+      document.getElementById("locationId").textContent = locationId;
+      document.getElementById("locationId").className = "ok";
+      document.getElementById("billingBlockId").textContent = "未設定";
+      document.getElementById("billingBlockId").className = "warn";
+      document.getElementById("billingBlockName").textContent = "";
+      renderReceptionBillingBlockChoices([]);
+      saveReceptionScopeToSession();
+      activatePaymentOwnerScope(paymentOwnerScopeKey());
+      requestReceptionScopeRefresh();
+    }
+
+    function selectReceptionBillingBlock(billingBlockId) {
+      billingBlockId = String(billingBlockId || "").trim();
+      if (!IS_FIREBASE || !billingBlockId) return;
+      currentBillingBlockId = billingBlockId;
+      document.getElementById("billingBlockId").textContent = billingBlockId;
+      document.getElementById("billingBlockId").className = "ok";
+      saveReceptionScopeToSession();
+      activatePaymentOwnerScope(paymentOwnerScopeKey());
+      requestReceptionScopeRefresh();
     }
 
     function startScan() {
@@ -1122,6 +1212,7 @@
         }
         currentBillingBlockId = result.billing_block_id || currentBillingBlockId;
         if (!currentBillingBlockId) {
+          renderReceptionBillingBlockChoices(Array.isArray(result.billing_block_candidates) ? result.billing_block_candidates : []);
           currentBillingBlockName = "";
           document.getElementById("billingBlockName").textContent = result.message || "課金枠を確定できませんでした。";
           addLog("課金枠確認待ち: " + (result.message || "billing_block_id未確定"));
@@ -1130,6 +1221,7 @@
           return null;
         }
         currentBillingBlockName = result.billing_block_name || currentBillingBlockId;
+        renderReceptionBillingBlockChoices([]);
         activatePaymentOwnerScope(paymentOwnerScopeKey());
         document.getElementById("billingBlockId").textContent = currentBillingBlockId;
         document.getElementById("billingBlockId").className = "ok";
