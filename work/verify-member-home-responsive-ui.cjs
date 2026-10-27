@@ -29,14 +29,18 @@ test("member menu and parameter-aware progress link remain intact", () => {
   assert.match(memberHome, /attendance_summary\.html\?member_id=" \+ encodeURIComponent\(memberId\)/);
 });
 
-test("standard width is limited to the member and teacher home pages", () => {
+test("standard width is limited to the approved member and teacher pages", () => {
   const qrDir = path.join(root, "web", "qr");
+  const approvedPages = ["member_home.html", "teacher_home.html", "attendance_summary.html"];
   const unexpected = fs.readdirSync(qrDir)
-    .filter((name) => name.endsWith(".html") && !["member_home.html", "teacher_home.html"].includes(name))
+    .filter((name) => name.endsWith(".html") && !approvedPages.includes(name))
     .filter((name) => /\bpage-(?:standard|workflow|wide)\b/.test(
       fs.readFileSync(path.join(qrDir, name), "utf8"),
     ));
   assert.deepEqual(unexpected, []);
   const teacherHome = fs.readFileSync(path.join(qrDir, "teacher_home.html"), "utf8");
   assert.match(teacherHome, /<body class="teacher page-standard">/);
+  const attendanceSummary = fs.readFileSync(path.join(qrDir, "attendance_summary.html"), "utf8");
+  assert.match(attendanceSummary, /<body class="member page-standard">/);
+  assert.match(attendanceSummary, /id="backLink">会員ホームへ戻る<\/a>/);
 });
