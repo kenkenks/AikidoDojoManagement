@@ -36,3 +36,16 @@ test('QR generator retains responsive screen width and isolated B5 print layout'
   assert.match(html, /id="printDocument"/);
   assert.match(html, /href="teacher_home\.html">先生ホームへ戻る<\/a>/);
 });
+
+test('examination prototype keeps its 1150px desktop width and contains mobile overflow', () => {
+  const html = read('web/qr/examination/index.html');
+  assert.match(html, /\.wrap\{max-width:1150px;margin:auto;/);
+  assert.match(html, /html,body\{max-width:100%;overflow-x:hidden\}/);
+  assert.match(html, /\.tablebox\{max-width:100%;overflow-x:auto;overscroll-behavior-inline:contain\}/);
+  assert.match(html, /@media\(max-width:600px\)[\s\S]*\.summary\{grid-template-columns:1fr;/);
+  assert.match(html, /\.filters\{width:100%;align-items:stretch\}/);
+  assert.match(html, /href="\.\.\/teacher_home\.html"[^>]*>← 先生ホームへ戻る<\/a>/);
+  assert.match(html, /id="gradeTile"/);
+  assert.match(html, /id="danTile"/);
+  assert.match(html, /id="rows"/);
+});

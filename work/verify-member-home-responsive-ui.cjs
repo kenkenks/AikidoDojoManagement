@@ -34,7 +34,8 @@ test("page width classes are limited to approved responsive pages", () => {
   const approvedPages = [
     "member_home.html", "teacher_home.html", "attendance_summary.html", "attendance.html",
     "paper_attendance_member.html", "paymentEvidence.html", "teacher_attendance.html",
-    "member_management.html", "attendanceCheck.html", "payment_teacher.html"
+    "member_management.html", "attendanceCheck.html", "payment_teacher.html",
+    "paper_attendance_review.html"
   ];
   const unexpected = fs.readdirSync(qrDir)
     .filter((name) => name.endsWith(".html") && !approvedPages.includes(name))
@@ -74,4 +75,10 @@ test("page width classes are limited to approved responsive pages", () => {
   assert.match(paymentTeacher, /body \{ padding: 10px; max-width: 920px; margin: auto; \}/);
   assert.match(paymentTeacher, /class="scope-strip card"/);
   assert.match(paymentTeacher, /<a href="teacher_home\.html">先生ホーム<\/a>/);
+  const paperAttendanceReview = fs.readFileSync(path.join(qrDir, "paper_attendance_review.html"), "utf8");
+  assert.match(paperAttendanceReview, /<body class="teacher page-wide">/);
+  assert.match(paperAttendanceReview, /\.source-layout\{display:grid;grid-template-columns:minmax\(0,1\.2fr\) minmax\(260px,\.8fr\)/);
+  assert.match(paperAttendanceReview, /\.cell-grid-wrap\{overflow:auto;max-width:100%;overscroll-behavior-inline:contain\}/);
+  assert.match(paperAttendanceReview, /\.sheet-image\{display:block;width:auto;height:auto;max-width:100%;max-height:70vh/);
+  assert.match(paperAttendanceReview, /@media\(max-width:760px\)\{\.source-layout,\.detail-grid\{grid-template-columns:1fr\}/);
 });
