@@ -30,6 +30,8 @@
     .overview-detail { display:block; margin-top:2px; color:#555; }
     .overview-row.near .overview-progress { background:#fff3cd; color:#6d4c00; font-weight:bold; }
     .overview-row.ready .overview-progress { background:#dff3e6; color:var(--green); font-weight:bold; }
+    .system-context { margin:-12px -12px 14px; padding:8px 12px; font-size:13px; text-align:center; background:#edf1f4; border-bottom:1px solid #c9d0d5; }
+    .system-context.time-travel { color:#7a3e00; font-weight:bold; background:#fff1d6; border-bottom-color:#e0a43a; }
     @media(max-width:520px) { .overview-row { grid-template-columns:minmax(0,1fr) auto; } .overview-progress { grid-column:1 / -1; } }
   </style>
 </head>
@@ -195,5 +197,6 @@
     }
   })();
   </script>
+  <script src="../qr/system_context.js"></script>
 </body>
 </html>
