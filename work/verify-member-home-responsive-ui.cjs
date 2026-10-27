@@ -31,7 +31,7 @@ test("member menu and parameter-aware progress link remain intact", () => {
 
 test("page width classes are limited to approved responsive pages", () => {
   const qrDir = path.join(root, "web", "qr");
-  const approvedPages = ["member_home.html", "teacher_home.html", "attendance_summary.html", "attendance.html"];
+  const approvedPages = ["member_home.html", "teacher_home.html", "attendance_summary.html", "attendance.html", "paper_attendance_member.html"];
   const unexpected = fs.readdirSync(qrDir)
     .filter((name) => name.endsWith(".html") && !approvedPages.includes(name))
     .filter((name) => /\bpage-(?:standard|workflow|wide)\b/.test(
@@ -49,4 +49,10 @@ test("page width classes are limited to approved responsive pages", () => {
   assert.match(attendance, /id="memberCandidates"/);
   assert.match(attendance, /id="sendButton"[^>]+onclick="sendCandidatesToGas\(\)"/);
   assert.match(attendance, /<a href="member_home\.html">会員ホーム<\/a>/);
+  const paperAttendance = fs.readFileSync(path.join(qrDir, "paper_attendance_member.html"), "utf8");
+  assert.match(paperAttendance, /<body class="member page-wide">/);
+  assert.match(paperAttendance, /class="cell-grid-wrap"><div id="cellGrid" class="cell-grid">/);
+  assert.match(paperAttendance, /\.cell-grid-wrap\{overflow:auto;max-width:100%/);
+  assert.match(paperAttendance, /\.sheet-image\{[^}]*width:auto;height:auto;max-width:100%;max-height:70vh/);
+  assert.match(paperAttendance, /id="homeTopLink" href="member_home\.html">← 会員ホームへ戻る<\/a>/);
 });
