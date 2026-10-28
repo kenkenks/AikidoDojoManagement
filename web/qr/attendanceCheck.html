@@ -22,6 +22,8 @@
     .ok { color: var(--green); font-weight: bold; }
     .warn { color: var(--amber); font-weight: bold; }
     .error { color: var(--red); font-weight: bold; }
+    .system-context { margin:-10px -10px 14px; padding:8px 10px; font-size:13px; text-align:center; background:#edf1f4; border-bottom:1px solid #c9d0d5; }
+    .system-context.time-travel { color:#7a3e00; font-weight:bold; background:#fff1d6; border-bottom-color:#e0a43a; }
     #reader { width: 100%; max-width: 420px; margin: 0 auto 10px; }
     button { font-size: 15px; padding: 9px 12px; margin: 3px; border: 1px solid #aaa; border-radius: 8px; background: #fff; }
     button.primary { color: #fff; background: var(--green); border-color: var(--green); }
@@ -60,6 +62,30 @@
     .diagnostic-card { background:#f5f5f5; }
     details > summary { cursor:pointer; font-weight:bold; padding:4px 0; }
     @media(max-width:520px) { .key-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+    /* 出席確認 v4: 既存ヘッダーと登録ロジックを保持する */
+    .attendance-summary{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;margin:8px 0 12px}
+    .metric{border:1px solid #d7e2ea;border-radius:9px;background:#f8fbfd;padding:9px 7px;text-align:center;cursor:pointer;min-width:0}
+    .metric strong{display:block;font-size:23px}.metric span{font-size:12px}.metric.active{outline:2px solid #2873aa}
+    .metric.black{background:#242a32;color:white}.metric.white{background:#fff;color:#333}.metric.beginner{background:#f2eafa;color:#643a91}.metric.trial{background:#e5f6eb;color:#176b45}.metric.exam{background:#fff3d8;color:#845200}
+    .attendance-toolbar{display:flex;gap:7px;align-items:end;flex-wrap:wrap;margin:10px 0}
+    .attendance-toolbar label{font-size:12px;flex:1 1 160px}.attendance-toolbar input,.attendance-toolbar select{width:100%;padding:8px;font-size:14px;border:1px solid #aaa;border-radius:7px;background:#fff}
+    .exam-panel{background:#fff9eb;border:1px solid #ecd8a7;border-radius:8px;padding:9px;margin:10px 0}
+    .exam-panel h3{font-size:15px;margin:0 0 7px}.exam-item{display:flex;gap:9px;align-items:center;justify-content:space-between;border-top:1px solid #efdfbd;padding:6px 2px;font-size:13px}
+    .exam-item:first-of-type{border-top:0}.exam-item button{font-size:12px;padding:4px 7px}
+    .attendance-group{border:1px solid #dbe3e8;border-radius:8px;margin:10px 0;overflow:hidden}
+    .attendance-group>summary{background:#eaf1f8;padding:10px;font-weight:bold;cursor:pointer}
+    .compact-row{display:grid;grid-template-columns:minmax(120px,1.8fr) minmax(70px,.8fr) minmax(95px,1fr) auto;gap:6px;align-items:center;border-top:1px solid #e7e7e7;padding:7px 8px;font-size:13px}
+    .compact-row .person{font-weight:bold;overflow-wrap:anywhere}.compact-row small{font-size:11px;color:#666;font-weight:normal;display:block}
+    .belt{display:inline-block;padding:3px 6px;border-radius:5px;font-size:12px;font-weight:bold;border:1px solid #cbd2d9}
+    .belt.black{background:#262a30;color:white}.belt.white{background:white;color:#222}.belt.beginner{background:#eee0fb;color:#643a91}.belt.trial{background:#e1f5e8;color:#176b45}.belt.unknown{background:#eee;color:#555}
+    .compact-row .slot-pills{display:flex;gap:3px;flex-wrap:wrap}.compact-row .slot-pills button{padding:5px 7px;font-size:12px;margin:0;white-space:nowrap}
+    .compact-row .detail-button{font-size:12px;padding:5px 8px;white-space:nowrap;margin:0}
+    .candidate-detail{grid-column:1/-1;background:#f7f9fb;border-radius:7px;padding:9px;display:grid;gap:7px}
+    .candidate-detail .rank-row{margin:0}.candidate-detail label{font-size:13px}.candidate-detail select{font-size:14px;padding:7px}
+    .candidate-detail .progress{margin:0}.candidate-detail .danger{justify-self:start}
+    .group-empty{padding:9px;color:#777;font-size:13px}
+    @media(max-width:650px){.compact-row{grid-template-columns:minmax(110px,1.3fr) minmax(65px,.8fr) auto}.compact-row .slot-pills{grid-column:1/3}.compact-row .detail-button{grid-column:3;grid-row:1/3}.attendance-summary{grid-template-columns:repeat(3,minmax(0,1fr))}}
   </style>
 </head>
 <body class="teacher page-workflow">
@@ -95,13 +121,14 @@
   </section>
 
   <section class="card">
-    <h2>出席する会員と稽古枠</h2>
-    <label for="candidateSort">並び順</label>
-    <select id="candidateSort" onchange="renderCandidates()">
-      <option value="scan">読取順</option>
-      <option value="rank">級・段順</option>
-      <option value="exam">審査が近い順</option>
-    </select>
+    <h2>出席確認・稽古構成</h2>
+    <div id="attendanceSummary" class="attendance-summary" aria-label="出席人数の集計"></div>
+    <div id="examPanel" class="exam-panel" hidden></div>
+    <div class="attendance-toolbar">
+      <label>氏名・会員IDで検索<input id="candidateSearch" type="search" placeholder="検索" oninput="renderCandidates()"></label>
+      <label>表示区分<select id="candidateFilter" onchange="renderCandidates()"><option value="all">全員</option><option value="black">⬛ 黒帯</option><option value="white">⬜ 白帯</option><option value="beginner">🔰 ビギナー</option><option value="trial">◇ 体験</option><option value="exam">★ 審査対象</option></select></label>
+      <label>並び順<select id="candidateSort" onchange="renderCandidates()"><option value="scan">読取順</option><option value="name">氏名順</option><option value="rank">級・段順</option><option value="exam">審査が近い順</option></select></label>
+    </div>
     <div id="memberCandidates" class="empty">会員QRを読み取ってください。</div>
     <button id="sendButton" class="primary" type="button" onclick="sendCandidatesToGas()">選択した出席を登録</button>
     <button id="clearCandidatesButton" type="button" onclick="clearCandidates()">会員一覧をクリア</button>
@@ -154,6 +181,7 @@
     let attendanceLocations = [];
     let attendanceCheckClockKey = "";
     let sessionInfoRequestSeq = 0;
+    let savedCandidatesRequestSeq = 0;
 
     if(IS_FIREBASE_ATTENDANCE)initializeFirebaseAttendanceCheckPage();
     else{
@@ -259,12 +287,12 @@
     }
 
     function stopAttendanceCheckOperations(){
-      businessOperationsEnabled=false;++sessionInfoRequestSeq;setBusinessOperationsEnabled(false);if(scanning)stopScan();
+      businessOperationsEnabled=false;++sessionInfoRequestSeq;++savedCandidatesRequestSeq;setBusinessOperationsEnabled(false);if(scanning)stopScan();
     }
 
     function setBusinessOperationsEnabled(enabled){
       businessOperationsEnabled=enabled===true;
-      ['scanStartButton','scanStopButton','candidateSort','clearCandidatesButton'].forEach(function(id){
+      ['scanStartButton','scanStopButton','candidateSort','candidateFilter','candidateSearch','clearCandidatesButton'].forEach(function(id){
         const element=document.getElementById(id);if(element)element.disabled=!businessOperationsEnabled;
       });
       const blockChoice=document.getElementById('blockChoice');blockChoice.disabled=!businessOperationsEnabled||blockChoice.options.length<=1;
@@ -531,7 +559,10 @@
         clearAttendanceCheckCandidatesWhenScopeChanged(previousCandidateScope);
         renderBlockChoices(data.billing_block_candidates || [], currentBillingBlockId, data.inferred === true);
         addLog((data.inferred ? "現在時刻から自動判定: " : "課金枠を設定: ") + data.billing_block_name);
-        return true;
+        return loadSavedAttendanceCandidates({
+          managerContext:managerContext,
+          sessionInfoRequestSeq:requestSeq
+        }).then(function(){return true;});
       }).catch(function (error) {
         if(managerContext&&!managerContext.isCurrent())return false;
         if(IS_FIREBASE_ATTENDANCE&&requestSeq!==sessionInfoRequestSeq)return;
@@ -579,6 +610,68 @@
       loadAttendanceSessionInfo();
     }
 
+    function createCandidateFromAttendanceOverview(item) {
+      return {
+        member_id:String(item.member_id||""),
+        member_name:String(item.member_name||""),
+        current_rank:String(item.current_rank||""),
+        training_count:Number(item.training_count||0),
+        required_training_count:Number(item.required_training_count||0),
+        remaining_training_count:item.remaining_training_count===null||item.remaining_training_count===undefined
+          ?null:Number(item.remaining_training_count),
+        training_days:Number(item.training_days||0),
+        required_training_days:Number(item.required_training_days||0),
+        remaining_training_days:item.remaining_training_days??null,
+        examination_ready:item.examination_ready===true,
+        billing_plan_id:"",billing_plan_name:"",billing_plan_selected:false,billing_plan_candidates:[],
+        slot_ids:normalizeSlotIds(item.slot_ids||[]),
+        loaded:!IS_FIREBASE_ATTENDANCE,
+        load_error:""
+      };
+    }
+
+    function loadSavedAttendanceCandidates(options) {
+      options=options||{};
+      if(!currentLocationId||!currentBillingBlockId||currentSlots.length===0)return Promise.resolve(false);
+      const managerContext=options.managerContext;
+      const scopeKey=attendanceCheckCandidateScopeKey();
+      const sessionRequestSeq=options.sessionInfoRequestSeq;
+      const requestSeq=++savedCandidatesRequestSeq;
+      return jsonp(GAS_URL,{
+        action:"teacher_attendance_today",
+        attendance_date:currentAttendanceDate(),
+        location_id:currentLocationId,
+        billing_block_id:currentBillingBlockId
+      }).then(function(data){
+        if(managerContext&&!managerContext.isCurrent())return false;
+        if(requestSeq!==savedCandidatesRequestSeq||
+            sessionRequestSeq!==sessionInfoRequestSeq||
+            scopeKey!==attendanceCheckCandidateScopeKey())return false;
+        if(!data.ok)throw new Error(data.message||"保存済み出席者を取得できませんでした。");
+        const items=Array.isArray(data.attendance_items)?data.attendance_items:[];
+        const restored=[];
+        items.forEach(function(item){
+          const memberId=String(item&&item.member_id||"").trim();
+          if(!memberId||memberCandidates.some(function(candidate){return candidate.member_id===memberId;}))return;
+          const candidate=createCandidateFromAttendanceOverview(item);
+          memberCandidates.push(candidate);restored.push(candidate);
+        });
+        renderCandidates();
+        if(restored.length===0)return true;
+        addLog("保存済み出席者を"+restored.length+"名復元しました。","ok");
+        if(!IS_FIREBASE_ATTENDANCE)return true;
+        return Promise.all(restored.map(function(candidate){
+          return loadMemberAttendanceState(candidate.member_id,null,true,false,scopeKey,requestSeq);
+        })).then(function(){
+          return requestSeq===savedCandidatesRequestSeq&&scopeKey===attendanceCheckCandidateScopeKey();
+        });
+      }).catch(function(error){
+        if(requestSeq!==savedCandidatesRequestSeq||scopeKey!==attendanceCheckCandidateScopeKey())return false;
+        addLog("保存済み出席者一覧の取得に失敗: "+(error.message||String(error)),"error");
+        return false;
+      });
+    }
+
     function addMemberCandidate(memberId) {
       if(!businessOperationsEnabled)return;
       if (submitting) {
@@ -618,7 +711,8 @@
       loadMemberAttendanceState(memberId);
     }
 
-    function loadMemberAttendanceState(memberId, expectedState, quiet, savedOnly) {
+    function loadMemberAttendanceState(memberId, expectedState, quiet, savedOnly, requestedScope, savedRequestSeq) {
+      requestedScope=requestedScope||attendanceCheckCandidateScopeKey();
       const initializationGeneration=IS_FIREBASE_ATTENDANCE&&attendanceCheckInitializationManager
         ?attendanceCheckInitializationManager.getState().generation:null;
       if(initializationGeneration!==null&&!attendanceCheckInitializationManager.isCurrent(initializationGeneration))
@@ -631,6 +725,10 @@
         billing_block_id: currentBillingBlockId
       }).then(function (data) {
         if(initializationGeneration!==null&&!attendanceCheckInitializationManager.isCurrent(initializationGeneration))
+          return {ok:false,matches:false,member_id:memberId,stale:true};
+        if(requestedScope!==attendanceCheckCandidateScopeKey())
+          return {ok:false,matches:false,member_id:memberId,stale:true};
+        if(savedRequestSeq!==undefined&&savedRequestSeq!==savedCandidatesRequestSeq)
           return {ok:false,matches:false,member_id:memberId,stale:true};
         if (!data.ok) throw new Error(data.message || "登録済み出席を取得できませんでした。");
         const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
@@ -664,6 +762,10 @@
         return { ok: true, matches: slotMatches && rankMatches, member_id: memberId };
       }).catch(function (error) {
         if(initializationGeneration!==null&&!attendanceCheckInitializationManager.isCurrent(initializationGeneration))
+          return {ok:false,matches:false,member_id:memberId,stale:true};
+        if(requestedScope!==attendanceCheckCandidateScopeKey())
+          return {ok:false,matches:false,member_id:memberId,stale:true};
+        if(savedRequestSeq!==undefined&&savedRequestSeq!==savedCandidatesRequestSeq)
           return {ok:false,matches:false,member_id:memberId,stale:true};
         const candidate = memberCandidates.find(function (item) { return item.member_id === memberId; });
         if (!candidate) return { ok: false, matches: false, member_id: memberId };
@@ -726,106 +828,143 @@
       renderCandidates();
     }
 
-    function renderCandidates() {
-      const container = document.getElementById("memberCandidates");
-      container.innerHTML = "";
-      container.className = memberCandidates.length ? "" : "empty";
-      if (memberCandidates.length === 0) {
-        container.textContent = currentSlots.length ? "会員QRを読み取ってください。" : "先に道場QRを読み取り、課金枠を確定してください。";
-        updateSendButton();
-        return;
+    // 黒帯・白帯は級段表記に基づく。ビギナーは初回10回の暫定目安。
+    // 体験者は明示的な属性がある場合のみ判定し、会員IDから推測しない。
+    function candidateBelt(candidate){
+      if(candidate.is_trial===true||candidate.member_type==='TRIAL'||candidate.member_category==='TRIAL')return 'trial';
+      const rank=String(candidate.current_rank||'');
+      if(/段|dan|初段/i.test(rank))return 'black';
+      if(candidate.training_count<10&&candidate.loaded&&candidate.training_count>=0)return 'beginner';
+      if(/級|kyu/i.test(rank))return 'white';
+      return 'unknown';
+    }
+    function isExamCandidate(candidate){
+      return candidate.examination_ready===true ||
+        (candidate.required_training_count>0&&candidate.remaining_training_count!==null&&candidate.remaining_training_count<=5);
+    }
+    function candidateGroup(candidate){
+      const ids=normalizeSlotIds(candidate.slot_ids);
+      const first=currentSlots[0]&&currentSlots[0].slot_id;
+      const second=currentSlots[1]&&currentSlots[1].slot_id;
+      if(first&&second){
+        if(ids.includes(first)&&ids.includes(second))return 'both';
+        if(ids.includes(first))return 'first';
+        if(ids.includes(second))return 'second';
       }
-
-      sortedCandidates().forEach(function (candidate) {
-        const row = document.createElement("div");
-        row.className = "candidate";
-        const head = document.createElement("div");
-        head.className = "candidate-head";
-        const name = document.createElement("span");
-        name.className = "candidate-name";
-        name.textContent = candidate.member_id + "：" + (candidate.member_name || memberNameMap[candidate.member_id] || "氏名は管理側で確認");
-        const remove = document.createElement("button");
-        remove.type = "button";
-        remove.className = "danger";
-        remove.textContent = "削除";
-        remove.disabled = !businessOperationsEnabled || submitting;
-        remove.onclick = function () { removeCandidate(candidate.member_id); };
-        head.append(name, remove);
-        row.appendChild(head);
-
-        const rankRow = document.createElement("div");
-        rankRow.className = "rank-row";
-        const rankLabel = document.createElement("span");
-        rankLabel.textContent = "現在級・段";
-        const rankSelect = document.createElement("select");
-        buildRankOptions(rankSelect, candidate.current_rank);
-        rankSelect.disabled = !businessOperationsEnabled || !candidate.loaded || submitting;
-        rankSelect.onchange = function () { candidate.current_rank = rankSelect.value; };
-        rankRow.append(rankLabel, rankSelect);
-        row.appendChild(rankRow);
-        if(IS_FIREBASE_ATTENDANCE){
-          const label=document.createElement('label');label.textContent='会費タイプ';
-          if(candidate.billing_plan_selected){const name=document.createElement('span');name.textContent=candidate.billing_plan_name||candidate.billing_plan_id;label.appendChild(name);}
-          else{
-            const select=document.createElement('select');select.appendChild(new Option('月額／都度を選択',''));
-            candidate.billing_plan_candidates.forEach(plan=>select.appendChild(new Option(plan.plan_name||plan.plan_id,plan.plan_id)));
-            select.value=candidate.billing_plan_id;select.disabled=!candidate.loaded||submitting;
-            select.onchange=()=>{candidate.billing_plan_id=select.value;};
-            label.appendChild(select);
-          }
-          row.appendChild(label);
-        }
-
-        const progress = document.createElement("div");
-        progress.className = "progress";
-        if (candidate.required_training_count > 0) {
-          progress.textContent = "稽古数 " + candidate.training_count + "／" + candidate.required_training_count +
-            (candidate.examination_ready ? "（必要稽古数到達・先生確認）" : "（あと" + candidate.remaining_training_count + "回）");
-          if (candidate.examination_ready) progress.classList.add("ready");
-          else if (candidate.remaining_training_count !== null && candidate.remaining_training_count <= 5) progress.classList.add("near");
-        } else {
-          progress.textContent = "稽古数 " + candidate.training_count + "（審査可能数は未設定）";
-        }
-        if (candidate.required_training_days > 0) {
-          progress.textContent += " ｜日数 " + candidate.training_days + "/" + candidate.required_training_days +
-            "日（あと" + candidate.remaining_training_days + "日）";
-        }
-        row.appendChild(progress);
-
-        if (!candidate.loaded) {
-          const status = document.createElement("div");
-          status.className = candidate.load_error ? "error" : "warn";
-          status.textContent = candidate.load_error || "登録済み状態を読み込み中…";
-          row.appendChild(status);
-          if (candidate.load_error) {
-            const retry = document.createElement("button");
-            retry.type = "button";
-            retry.textContent = "再取得";
-            retry.disabled = !businessOperationsEnabled || submitting;
-            retry.onclick = function () {
-              candidate.load_error = "";
-              renderCandidates();
-              addLog(candidate.member_id + " の状態を再取得します。", "warn");
-              loadMemberAttendanceState(candidate.member_id);
-            };
-            row.appendChild(retry);
-          }
-        }
-
-        const slots = document.createElement("div");
-        slots.className = "slots";
-        currentSlots.forEach(function (slot) {
-          const button = document.createElement("button");
-          const selected = candidate.slot_ids.includes(slot.slot_id);
-          button.type = "button";
-          button.className = "slot" + (selected ? " selected" : "");
-          button.textContent = (slot.start_time && slot.end_time) ? slot.start_time + "–" + slot.end_time : slot.label;
-          button.disabled = !businessOperationsEnabled || !candidate.loaded || submitting;
-          button.onclick = function () { toggleSlot(candidate.member_id, slot.slot_id); };
-          slots.appendChild(button);
+      return 'other';
+    }
+    function el(tag,cls,text){const node=document.createElement(tag);if(cls)node.className=cls;if(text!==undefined)node.textContent=String(text);return node;}
+    function renderAttendanceSummary(){
+      const root=document.getElementById('attendanceSummary');root.replaceChildren();
+      const active=memberCandidates.filter(c=>c.slot_ids.length>0);
+      const count=(fn)=>active.filter(fn).length;
+      const filter=document.getElementById('candidateFilter');
+      const metrics=[
+        ['all','本日',active.length,''],
+        ['black','⬛ 黒帯',count(c=>candidateBelt(c)==='black'),'black'],
+        ['white','⬜ 白帯',count(c=>candidateBelt(c)==='white'),'white'],
+        ['beginner','🔰 ビギナー',count(c=>candidateBelt(c)==='beginner'),'beginner'],
+        ['trial','◇ 体験',count(c=>candidateBelt(c)==='trial'),'trial'],
+        ['exam','★ 審査対象',count(isExamCandidate),'exam'],
+        ['','前半',count(c=>c.slot_ids.includes(currentSlots[0]?.slot_id)),''],
+        ['','後半',count(c=>c.slot_ids.includes(currentSlots[1]?.slot_id)),'']
+      ];
+      metrics.forEach(([key,label,value,cls])=>{
+        const btn=el('button','metric '+cls+(key&&filter.value===key&&key!=='all'?' active':''));
+        btn.type='button';btn.append(el('strong','',value),el('span','',label));
+        if(key){btn.onclick=()=>{filter.value=filter.value===key?'all':key;renderCandidates();};}
+        else btn.disabled=true;
+        root.appendChild(btn);
+      });
+      const panel=document.getElementById('examPanel');panel.replaceChildren();
+      const exam=active.filter(isExamCandidate);
+      panel.hidden=exam.length===0;
+      if(exam.length){
+        panel.appendChild(el('h3','','★ 審査対象者 '+exam.length+'名（稽古数による目安）'));
+        exam.forEach(c=>{
+          const row=el('div','exam-item');
+          const remain=c.examination_ready?'条件到達':c.remaining_training_count===null?'確認中':'あと'+c.remaining_training_count+'回';
+          row.appendChild(el('span','', (c.member_name||memberNameMap[c.member_id]||c.member_id)+' ／ '+(c.current_rank||'級段未設定')+' ／ '+remain));
+          const btn=el('button','','詳細');btn.type='button';btn.onclick=()=>{filter.value='all';document.getElementById('candidateSearch').value=c.member_id;expandedCandidates.add(c.member_id);renderCandidates();};
+          row.appendChild(btn);panel.appendChild(row);
         });
-        row.appendChild(slots);
-        container.appendChild(row);
+      }
+    }
+    const expandedCandidates=new Set();
+    function renderCandidates(){
+      const container=document.getElementById('memberCandidates');container.replaceChildren();
+      renderAttendanceSummary();
+      const search=String(document.getElementById('candidateSearch').value||'').trim().toLocaleLowerCase();
+      const filter=document.getElementById('candidateFilter').value;
+      const visible=sortedCandidates().filter(c=>{
+        const name=(c.member_name||memberNameMap[c.member_id]||'').toLocaleLowerCase();
+        if(search&&!name.includes(search)&&!c.member_id.toLocaleLowerCase().includes(search))return false;
+        if(filter==='exam')return isExamCandidate(c);
+        return filter==='all'||candidateBelt(c)===filter;
+      });
+      if(!memberCandidates.length){
+        container.className='empty';
+        container.textContent=currentSlots.length?'会員QRを読み取ってください。':'先に道場QRを読み取り、課金枠を確定してください。';
+        updateSendButton();return;
+      }
+      container.className='';
+      const groups=[['both','前半＋後半'],['first','前半のみ'],['second','後半のみ'],['other','未選択・その他']];
+      groups.forEach(([groupKey,title])=>{
+        const items=visible.filter(c=>candidateGroup(c)===groupKey);
+        if(groupKey==='other'&&!items.length)return;
+        const details=el('details','attendance-group');details.open=true;
+        details.appendChild(el('summary','',title+'（'+items.length+'名）'));
+        if(!items.length)details.appendChild(el('div','group-empty','該当者なし'));
+        items.forEach(candidate=>{
+          const row=el('div','compact-row');
+          const person=el('div','person',candidate.member_name||memberNameMap[candidate.member_id]||candidate.member_id);
+          person.appendChild(el('small','',candidate.member_id+(isExamCandidate(candidate)?'　★審査':'')));
+          const belt=candidateBelt(candidate);
+          const beltText={black:'⬛ 黒帯',white:'⬜ 白帯',beginner:'🔰 ビギナー',trial:'◇ 体験',unknown:'未分類'}[belt];
+          const rank=el('div','');rank.append(el('span','belt '+belt,beltText),el('small','',candidate.current_rank||'級段未設定'));
+          const pills=el('div','slot-pills');
+          currentSlots.forEach((slot,index)=>{
+            const selected=candidate.slot_ids.includes(slot.slot_id);
+            const button=el('button','slot'+(selected?' selected':''),currentSlots.length===2?(index===0?'前半':'後半'):(slot.label||slot.start_time||'枠'));
+            button.type='button';button.title=(slot.start_time||'')+'–'+(slot.end_time||'');
+            button.disabled=!businessOperationsEnabled||!candidate.loaded||submitting;
+            button.onclick=()=>toggleSlot(candidate.member_id,slot.slot_id);pills.appendChild(button);
+          });
+          const more=el('button','detail-button',expandedCandidates.has(candidate.member_id)?'閉じる':'詳細');more.type='button';
+          more.onclick=()=>{if(expandedCandidates.has(candidate.member_id))expandedCandidates.delete(candidate.member_id);else expandedCandidates.add(candidate.member_id);renderCandidates();};
+          row.append(person,rank,pills,more);
+          if(!candidate.loaded){row.appendChild(el('div',candidate.load_error?'error':'warn',candidate.load_error||'読込中…'));}
+          if(expandedCandidates.has(candidate.member_id)){
+            const detail=el('div','candidate-detail');
+            const rankRow=el('div','rank-row');rankRow.appendChild(el('span','','現在級・段'));
+            const rankSelect=document.createElement('select');buildRankOptions(rankSelect,candidate.current_rank);
+            rankSelect.disabled=!businessOperationsEnabled||!candidate.loaded||submitting;
+            rankSelect.onchange=()=>{candidate.current_rank=rankSelect.value;renderCandidates();};
+            rankRow.appendChild(rankSelect);detail.appendChild(rankRow);
+            if(IS_FIREBASE_ATTENDANCE){
+              const label=el('label','','会費タイプ　');
+              if(candidate.billing_plan_selected){label.appendChild(el('span','',candidate.billing_plan_name||candidate.billing_plan_id));}
+              else{
+                const select=document.createElement('select');select.appendChild(new Option('月額／都度を選択',''));
+                candidate.billing_plan_candidates.forEach(plan=>select.appendChild(new Option(plan.plan_name||plan.plan_id,plan.plan_id)));
+                select.value=candidate.billing_plan_id;select.disabled=!businessOperationsEnabled||!candidate.loaded||submitting;
+                select.onchange=()=>{candidate.billing_plan_id=select.value;};label.appendChild(select);
+              }
+              detail.appendChild(label);
+            }
+            let progress='稽古数 '+candidate.training_count;
+            if(candidate.required_training_count>0)progress+='／'+candidate.required_training_count+(candidate.examination_ready?'（必要稽古数到達・先生確認）':'（あと'+candidate.remaining_training_count+'回）');
+            else progress+='（審査可能数は未設定）';
+            if(candidate.required_training_days>0)progress+=' ｜日数 '+candidate.training_days+'/'+candidate.required_training_days+'日（あと'+candidate.remaining_training_days+'日）';
+            detail.appendChild(el('div','progress'+(candidate.examination_ready?' ready':isExamCandidate(candidate)?' near':''),progress));
+            if(candidate.load_error){const retry=el('button','','再取得');retry.type='button';retry.onclick=()=>{candidate.load_error='';loadMemberAttendanceState(candidate.member_id);};detail.appendChild(retry);}
+            const remove=el('button','danger','一覧から削除');remove.type='button';remove.disabled=!businessOperationsEnabled||submitting;
+            remove.onclick=()=>removeCandidate(candidate.member_id);detail.appendChild(remove);
+            row.appendChild(detail);
+          }
+          details.appendChild(row);
+        });
+        container.appendChild(details);
       });
       updateSendButton();
     }
@@ -948,6 +1087,7 @@
 
     function clearCandidates(silent) {
       if (submitting) return;
+      ++savedCandidatesRequestSeq;
       memberCandidates = [];
       attendanceSessionId = createSessionId();
       renderCandidates();
@@ -985,6 +1125,9 @@
     function sortedCandidates() {
       const mode = document.getElementById("candidateSort").value;
       return memberCandidates.map(function(item, index) { return { item:item, index:index }; }).sort(function(left, right) {
+        if (mode === "name") {
+          return String(left.item.member_name||left.item.member_id).localeCompare(String(right.item.member_name||right.item.member_id),"ja") || left.index-right.index;
+        }
         if (mode === "rank") {
           return rankSortValue(left.item.current_rank) - rankSortValue(right.item.current_rank) || left.index - right.index;
         }
