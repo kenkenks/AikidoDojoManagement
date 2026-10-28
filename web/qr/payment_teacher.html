@@ -55,6 +55,8 @@
       color: #c47a00;
       font-weight: bold;
     }
+    .system-context { margin:-10px -10px 14px; padding:8px 10px; font-size:13px; text-align:center; background:#edf1f4; border-bottom:1px solid #c9d0d5; }
+    .system-context.time-travel { color:#7a3e00; font-weight:bold; background:#fff1d6; border-bottom-color:#e0a43a; }
     .latest {
       font-size: 18px;
       font-weight: bold;
@@ -240,6 +242,42 @@
     .compact-paid-row .registered-payment-name { flex:1 1 110px; }
     .compact-paid-row .paid-amount { font-weight:bold; white-space:nowrap; }
     .compact-paid-row .paid-method { white-space:nowrap; font-size:13px; }
+    /* 受付集計・照合・個人別を視覚的に分離 */
+    .payment-overview { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; margin:9px 0; }
+    .payment-metric { padding:10px 6px; background:#fff; border:1px solid #d0dce8; border-radius:8px; text-align:center; }
+    .payment-metric span { display:block; font-size:12px; color:#53677d; }
+    .payment-metric strong { display:block; font-size:20px; color:#153b5c; }
+    .payment-metric.primary { background:#e1f2e9; border-color:#a9d9bc; }
+    .payment-metric.primary strong { color:#176b45; }
+    .payment-section { margin-top:12px; padding:11px; background:#fff; border:1px solid #d3e0eb; border-radius:9px; }
+    .payment-section h3 { margin:0 0 8px; font-size:15px; }
+    .payment-reconcile-metrics { display:flex; flex-wrap:wrap; gap:8px; }
+    .payment-reconcile-metrics > div { flex:1 1 120px; padding:8px; border-radius:7px; background:#f3f7fb; }
+    .payment-reconcile-metrics span { display:block; font-size:12px; color:#53677d; }
+    .payment-reconcile-metrics strong { font-size:19px; }
+    .payment-person-list .registered-payment-row { padding:10px; margin:7px 0; border:1px solid #e0e7ed; border-radius:8px; background:#fafcfe; }
+    .payment-person-list .registered-payment-head { align-items:center; }
+    .payment-person-list .registered-payment-detail { font-size:13px; }
+    .payment-state { padding:3px 8px; border-radius:999px; font-size:12px; font-weight:bold; white-space:nowrap; }
+    .payment-state.paid { color:#12633c; background:#ddf4e5; }
+    .payment-state.review { color:#8b5100; background:#fff0d3; }
+    .payment-state.partial { color:#785000; background:#fff4cb; }
+    /* v7: 会費集計と個人別一覧の可読性改善（業務ロジックは変更しない） */
+    .totals-card > strong { font-size:16px; }
+    .payment-metric { padding:12px 5px; }
+    .payment-metric > span { font-size:14px; }
+    .payment-metric strong { display:flex; justify-content:center; align-items:baseline; gap:2px; font-size:20px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .payment-metric strong span { display:inline; font-size:inherit; color:inherit; }
+    .payment-section h3 { font-size:16px; }
+    .payment-reconcile-metrics span { font-size:14px; }
+    .payment-reconcile-metrics strong { display:inline-flex; align-items:baseline; gap:2px; font-size:18px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+    .payment-reconcile-metrics strong span { display:inline; font-size:inherit; color:inherit; }
+    .payment-person-list .registered-payment-name { font-size:16px; }
+    .payment-person-list .registered-payment-detail { font-size:14px; line-height:1.5; }
+    .payment-state { font-size:14px; padding:4px 9px; }
+    .totals-card > .mini-summary { font-size:14px; }
+    @media(max-width:440px) { .payment-metric strong { font-size:18px; } }
+
   </style>
 </head>
 
@@ -297,17 +335,27 @@
     <button id="postConfirmedPaymentsButton" onclick="postConfirmedPayments()">決済更新</button>
   </div>
 
-  <div class="card summary totals-card">
+  <div class="card totals-card">
     <strong>本日の受付状況</strong>
-    <div class="totals-breakdown"><span>現金: <span id="registeredCashTotal">0</span>円</span><span>PayPay: <span id="registeredPaypayTotal">0</span>円</span></div>
-    <div class="totals-grand">⇒ 合計: <strong><span id="registeredGrandTotal">0</span>円</strong> <small>（入金件数: <span id="registeredPaymentCount">0</span>件）</small></div>
-    <hr>
-    <strong>出席との照合</strong>
-    <div>現在の未回収予定額: <span id="expectedCollectionTotal">0</span>円</div>
-    <div>出席人数: <span id="attendanceMemberCount">0</span>名</div>
-    <div id="attendancePaymentWarnings" class="registered-payment-list"><div class="mini-summary">要確認はありません。</div></div>
+    <div class="payment-overview">
+      <div class="payment-metric"><span>現金</span><strong><span id="registeredCashTotal">0</span>円</strong></div>
+      <div class="payment-metric"><span>PayPay</span><strong><span id="registeredPaypayTotal">0</span>円</strong></div>
+      <div class="payment-metric primary"><span>入金合計</span><strong><span id="registeredGrandTotal">0</span>円</strong></div>
+    </div>
+    <div class="mini-summary">入金件数: <strong id="registeredPaymentCount">0</strong>件</div>
+    <section class="payment-section" aria-label="出席・会費の照合">
+      <h3>出席・会費の照合</h3>
+      <div class="payment-reconcile-metrics">
+        <div><span>出席人数</span><strong id="attendanceMemberCount">0</strong>名</div>
+        <div><span>現在の未回収予定額</span><strong><span id="expectedCollectionTotal">0</span>円</strong></div>
+      </div>
+    </section>
+    <section class="payment-section" aria-label="個人別の会費状況">
+      <h3>個人別の会費状況</h3>
+      <div id="attendancePaymentWarnings" class="payment-person-list"><div class="mini-summary">対象者はありません。</div></div>
+    </section>
     <button onclick="loadRegisteredScopeSummary()">登録済みを再取得</button>
-    <details class="compact-details" open><summary>登録済み明細を表示</summary><div id="registeredPaymentList" class="registered-payment-list"><div class="mini-summary">登録済み明細はありません。</div></div></details>
+    <details class="compact-details"><summary>登録済み明細を表示</summary><div id="registeredPaymentList" class="registered-payment-list"><div class="mini-summary">登録済み明細はありません。</div></div></details>
   </div>
 
   <details class="card evidence-card"><summary>PayPay決済更新待ち（CONFIRMED） <span id="confirmedEvidenceCount" class="summary-count">0</span>件</summary>
@@ -686,6 +734,7 @@
         button.disabled = !operationsEnabled;
       });
       updateCompletionButton();
+      updatePayPayPostButton();
     }
 
     function setScopeAcquisitionEnabled(enabled) {
@@ -1282,7 +1331,7 @@
         document.getElementById("registeredPaymentCount").textContent = Number(summary.payment_count || 0);
         document.getElementById("expectedCollectionTotal").textContent = formatYen(summary.expected_total || 0);
         document.getElementById("attendanceMemberCount").textContent = Number(summary.attendance_member_count || 0);
-        renderAttendancePaymentWarnings(summary.reconciliation_items || []);
+        renderAttendancePaymentWarnings(summary.reconciliation_items || [], summary.payments || []);
         renderRegisteredPayments(summary.payments || []);
 
         confirmedEvidences = Array.isArray(confirmedResult.evidences) ? confirmedResult.evidences : [];
@@ -1321,7 +1370,7 @@
         document.getElementById("registeredPaymentCount").textContent = Number(result.payment_count || 0);
         document.getElementById("expectedCollectionTotal").textContent = formatYen(result.expected_total || 0);
         document.getElementById("attendanceMemberCount").textContent = Number(result.attendance_member_count || 0);
-        renderAttendancePaymentWarnings(result.reconciliation_items || []);
+        renderAttendancePaymentWarnings(result.reconciliation_items || [], result.payments || []);
         renderRegisteredPayments(result.payments || []);
         addLog("登録済み集計取得: " + result.total_amount + "円 / " + result.payment_count + "件");
       }).catch(function(error) {
@@ -1330,23 +1379,45 @@
     }
 
 
-    function renderAttendancePaymentWarnings(items) {
+    function renderAttendancePaymentWarnings(items, payments) {
       const root = document.getElementById("attendancePaymentWarnings");
       if (!root) return;
       if (!Array.isArray(items) || items.length === 0) {
-        root.innerHTML = '<div class="mini-summary">要確認はありません。</div>';
+        root.innerHTML = '<div class="mini-summary">対象者はありません。</div>';
         return;
       }
+      const paidRows = Array.isArray(payments) ? payments : [];
       root.innerHTML = items.map(function(item) {
         const names = Array.isArray(item.member_names) && item.member_names.length
           ? item.member_names.join(" / ")
           : (item.billing_group_id || "会員不明");
+        const label = String(item.label || "要確認");
+        const amount = Number(item.amount || 0);
+        const groupId = String(item.billing_group_id || "");
+        // 同一請求グループの登録済み入金を優先して照合する。
+        // グループIDが明細にない場合、APIの「支払いあり」表記を使うが、
+        // 未回収や不足の記載がある場合は支払い済みと断定しない。
+        const groupPayments = groupId ? paidRows.filter(function(payment) {
+          return String(payment.billing_group_id || "") === groupId;
+        }) : [];
+        const groupPaid = groupPayments.reduce(function(sum, payment) {
+          return sum + Number(payment.amount || 0);
+        }, 0);
+        const explicitlyUnpaid = /未回収|未入金|不足|未払い/.test(label);
+        const explicitlyPaid = /支払いあり|入金済|支払済|支払い済/.test(label);
+        const fullyPaid = !explicitlyUnpaid && (
+          (groupPayments.length > 0 && amount > 0 && groupPaid >= amount) ||
+          (groupPayments.length === 0 && explicitlyPaid && amount > 0)
+        );
+        const partial = !fullyPaid && groupPaid > 0;
+        const status = fullyPaid ? "支払い済" : partial ? "一部入金" : "要確認";
+        const statusClass = fullyPaid ? "paid" : partial ? "partial" : "review";
         return '<div class="registered-payment-row">' +
           '<div class="registered-payment-head"><span class="registered-payment-name">' + escapeHtml(names) + '</span>' +
-          '<span class="registered-payment-status">要確認</span></div>' +
-          '<div class="registered-payment-detail">' + escapeHtml(item.label || "要確認") +
-          ' ／ ' + formatYen(item.amount || 0) + '円' +
-          (item.billing_group_id ? '<br>請求グループ ' + escapeHtml(item.billing_group_id) : '') +
+          '<span class="payment-state ' + statusClass + '">' + status + '</span></div>' +
+          '<div class="registered-payment-detail">' + escapeHtml(label) +
+          ' ／ ' + formatYen(amount) + '円' +
+          (groupId ? '<br>請求グループ ' + escapeHtml(groupId) : '') +
           '</div></div>';
       }).join("");
     }
@@ -1551,6 +1622,7 @@
           return sum + Number(evidence.amount || 0);
         }, 0)
       );
+      updatePayPayPostButton();
     }
 
     function renderPostedEvidences() {
@@ -1589,7 +1661,12 @@
       document.querySelectorAll(".confirmedEvidenceCheck").forEach(function(input) {
         input.checked = checked;
       });
+      updatePayPayPostButton();
     }
+
+    document.getElementById("confirmedEvidenceList").addEventListener("change", function(event) {
+      if (event.target.matches(".confirmedEvidenceCheck")) updatePayPayPostButton();
+    });
 
     function getSelectedConfirmedEvidences() {
       const selected = [];
@@ -1605,6 +1682,14 @@
       });
 
       return selected;
+    }
+
+    function updatePayPayPostButton() {
+      const button = document.getElementById("postSelectedConfirmedEvidencesButton");
+      if (!button) return;
+      button.disabled = paypayPostInFlight ||
+        (IS_FIREBASE && (!operationsEnabled || !activePaymentOwnerScope)) ||
+        getSelectedConfirmedEvidences().length === 0;
     }
 
     // A pending request retains its ID when the response is lost, preventing duplicate posting.
@@ -1703,7 +1788,7 @@
         setFirebaseAccessStatus(error.message, "error");
       } finally {
         paypayPostInFlight = false;
-        if (button && isPaymentOwnerScopeCurrent(ownerScope)) button.disabled = false;
+        if (isPaymentOwnerScopeCurrent(ownerScope)) updatePayPayPostButton();
         if (!isOperationCurrent(generation) && isPaymentOwnerScopeCurrent(ownerScope)) setPaymentOperationsEnabled(false);
       }
     }
